@@ -1187,11 +1187,7 @@ FloatVector4 DDSTexture16::cubeMapImportanceSample(
   if (!(channelCntFlags & 0x80)) [[unlikely]]
     return cubeMap(n[0], n[1], n[2], 0.0f);
   FloatVector4  c(0.0f);
-#if ENABLE_GCC_SIMD_32
-  constexpr size_t  k = 8;
-#else
-  constexpr size_t  k = 4;
-#endif
+  constexpr size_t  k = sizeof(FloatVecType) / sizeof(float);
   FloatVecType  xf0, yf0, xf1, yf1;
   std::int32_t  xi0[k], yi0[k], xi1[k], yi1[k], i[k];
   std::int32_t  m0[k], xMask[k];

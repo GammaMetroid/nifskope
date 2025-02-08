@@ -332,32 +332,32 @@ size_t SFCubeMapFilter::convertImage(
         importanceSampleBuf.resize(size_t(n));
         float   a = roughness * roughness;
         float   a2 = a * a;
+        // ensure nDotH > 0.7071 for all samples
+        float   thetaScale = float(n) / ((float(n) - 0.75f) * (a2 + 1.0f));
+        thetaScale = std::min(thetaScale, 1.0f);
+        float   mipScale = float(t.getWidth()) * float(t.getWidth())
+                           * thetaScale / (float(n) * a2);
         filterParam = 0.0f;
         for (int i = 0; i < n; i++)
         {
-          FloatVector4  h(SF_PBR_Tables::importanceSampleGGX(
-                              SF_PBR_Tables::Hammersley(i, n), a2));
+          FloatVector4  h(SF_PBR_Tables::Hammersley(i, n));
+          h[1] = h[1] * thetaScale;
+          h = SF_PBR_Tables::importanceSampleGGX(h, a2);
           float   nDotH = h[2];
-          FloatVector4  l(h * (nDotH * 2.0f)    // L = reflect(-N, H)
-                          - FloatVector4(0.0f, 0.0f, 1.0f, 0.0f));
+          FloatVector4  l(h);
+          // L = reflect(-N, H)
+          l = l * (nDotH * 2.0f) - FloatVector4(0.0f, 0.0f, 1.0f, 0.0f);
+          l[2] = std::max(l[2], 0.0f);
           float   *bufp = &(importanceSampleBuf.data()[i & ~3][i & 3]);
           bufp[0] = l[0];
           bufp[4] = l[1];
-          if (!(l[2] > 0.0f)) [[unlikely]]
-          {
-            bufp[8] = 0.0f;
-            bufp[12] = 16.0f;
-            continue;
-          }
           bufp[8] = l[2];
           filterParam += l[2];
           // calculate mip level, based on formula from
           // https://chetanjags.wordpress.com/2015/08/26/image-based-lighting/
           float   d = nDotH * nDotH * (a2 - 1.0f) + 1.0f;
-          d = a2 / (d * d);
           float   mipLevel =            // mip bias = +1.0
-              float(std::log2(float(t.getWidth()) * float(t.getWidth())
-                              / (float(n) * d))) * 0.5f + 2.29248125f;
+              float(std::log2(d * d * mipScale)) * 0.5f + 2.29248125f;
           bufp[12] = std::min(std::max(mipLevel, 0.0f), 16.0f);
         }
         filterParam = normalizeScale / filterParam;
@@ -481,26 +481,32 @@ size_t SFCubeMapCache::convertImage(
   return bufSize;
 }
 
-static inline FloatVector4 atan2NormFast(
-    FloatVector4 y, FloatVector4 x, bool xNonNegative = false)
+#if ENABLE_GCC_SIMD_32
+using FloatVecType = FloatVector8;
+#else
+using FloatVecType = FloatVector4;
+#endif
+
+static inline FloatVecType atan2NormFast(
+    FloatVecType y, FloatVecType x, bool xNonNegative = false)
 {
   // assumes x² + y² = 1.0, returns atan2(y, x) / π
-  FloatVector4  xAbs(x);
-  FloatVector4  yAbs(y);
+  FloatVecType  xAbs(x);
+  FloatVecType  yAbs(y);
   if (!xNonNegative)
     xAbs.absValues();
   yAbs.absValues();
-  FloatVector4  tmp(xAbs);
+  FloatVecType  tmp(xAbs);
   tmp.minValues(yAbs);
-  FloatVector4  tmp2(tmp * tmp);
-  FloatVector4  tmp3(tmp2 * tmp);
+  FloatVecType  tmp2(tmp * tmp);
+  FloatVecType  tmp3(tmp2 * tmp);
   tmp = (((tmp3 * 0.39603792f) + (tmp2 * -0.98507216f) + (tmp * 1.09851059f)
           - 0.65754361f) * tmp3
          + (tmp2 * 0.26000725f) + (tmp * -0.05051132f) + 0.05919720f) * tmp3
         + (tmp2 * -0.00037558f) + (tmp * 0.31831810f);
-  tmp.blendValues(FloatVector4(0.5f) - tmp, xAbs - yAbs);
+  tmp.blendValues(FloatVecType(0.5f) - tmp, xAbs - yAbs);
   if (!xNonNegative)
-    tmp.blendValues(FloatVector4(1.0f) - tmp, x);
+    tmp.blendValues(FloatVecType(1.0f) - tmp, x);
   tmp.blendValues(tmp * -1.0f, y);
   return tmp;
 }
@@ -512,52 +518,79 @@ void SFCubeMapCache::convertHDRToDDSThread(
 {
   unsigned char *p =
       outBuf + (size_t(yStart) * size_t(cubeWidth) * outPixelSize);
+  constexpr size_t  k = sizeof(FloatVecType) / sizeof(float);
   for ( ; yStart < yEnd; yStart++)
   {
     int     n = yStart / cubeWidth;
     int     y = yStart % cubeWidth;
-    std::int32_t  xi_v[4];
-    std::int32_t  yi_v[4];
-    FloatVector4  xf_v(0.0f);
-    FloatVector4  yf_v(0.0f);
+    std::int32_t  xi_v[k];
+    std::int32_t  yi_v[k];
+    FloatVecType  xf_v(0.0f);
+    FloatVecType  yf_v(0.0f);
     for (int x = 0; x < cubeWidth; x++, p = p + outPixelSize)
     {
+      int     j = x & int(k - 1);
       // convert to spherical coordinates
-      if (!(x & 3))
+      if (!j)
       {
-        FloatVector4  tmpX(0.0f);
-        FloatVector4  tmpY(0.0f);
-        FloatVector4  z(0.0f);
-        for (int i = 0; i < 4; i++)
+#if ENABLE_GCC_SIMD_32
+        FloatVecType  tmpX(0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f);
+#else
+        FloatVecType  tmpX(0.5f, 1.5f, 2.5f, 3.5f);
+#endif
+        FloatVecType  z(float(cubeWidth >> 1));
+        tmpX += FloatVecType(float(x)) - z;
+        FloatVecType  tmpY(z - (float(y) + 0.5f));
+        if (n < 2)
         {
-          FloatVector4  v =
-              SFCubeMapFilter::convertCoord(x + i, y, cubeWidth, n);
-          tmpX[i] = v[0];
-          tmpY[i] = v[1];
-          z[i] = v[2];
+          std::swap(tmpX, z);
+          if (n == 0)                   // +X
+            z *= -1.0f;
+          else                          // -X
+            tmpX *= -1.0f;
         }
-        FloatVector4  xy = ((tmpX * tmpX) + (tmpY * tmpY)).squareRoot();
+        else if (n < 4)
+        {
+          std::swap(tmpY, z);
+          if (n == 2)                   // +Y
+            z *= -1.0f;
+          else                          // -Y
+            tmpY *= -1.0f;
+        }
+        else if (n == 5)                // -Z
+        {
+          tmpX *= -1.0f;
+          z *= -1.0f;
+        }
+        FloatVecType  tmp(tmpX * tmpX);
+        tmp += tmpY * tmpY;
+        tmp += z * z;
+        tmp = FloatVecType(1.0f) / tmp.squareRoot();
+        tmpX *= tmp;
+        tmpY *= tmp;
+        z *= tmp;
+        FloatVecType  xy = ((tmpX * tmpX) + (tmpY * tmpY)).squareRoot();
         tmpX /= xy;
         tmpY /= xy;
-        FloatVector4  yf = atan2NormFast(z, xy, true) + 0.5f;
-        FloatVector4  xf = atan2NormFast(tmpX, tmpY) * 0.5f + 0.5f;
+        FloatVecType  yf = atan2NormFast(z, xy, true) + 0.5f;
+        FloatVecType  xf = atan2NormFast(tmpX, tmpY) * 0.5f + 0.5f;
         xf = xf * float(w) - 0.5f;
         yf = yf * float(h) - 0.5f;
-        FloatVector4  xi = FloatVector4(xf).floorValues();
-        FloatVector4  yi = FloatVector4(yf).floorValues();
+        FloatVecType  xi = FloatVecType(xf).floorValues();
+        FloatVecType  yi = FloatVecType(yf).floorValues();
         xi.convertToInt32(xi_v);
         yi.convertToInt32(yi_v);
         xf_v = xf - xi;
         yf_v = yf - yi;
       }
-      int     x0 = xi_v[x & 3];
-      int     y0 = yi_v[x & 3];
-      float   xf = xf_v[x & 3];
-      float   yf = yf_v[x & 3];
+      int     x0 = xi_v[j];
+      int     y0 = yi_v[j];
+      float   xf = xf_v[j];
+      float   yf = yf_v[j];
       x0 = (x0 <= (w - 1) ? (x0 >= 0 ? x0 : (w - 1)) : 0);
       int     x1 = (x0 < (w - 1) ? (x0 + 1) : 0);
-      int     y1 = std::min< int >(std::max< int >(y0 + 1, 0), h - 1);
-      y0 = std::min< int >(std::max< int >(y0, 0), h - 1);
+      int     y1 = std::clamp< int >(y0 + 1, 0, h - 1);
+      y0 = std::clamp< int >(y0, 0, h - 1);
       // bilinear interpolation
       const FloatVector4  *inPtr = hdrTexture + (y0 * w);
       FloatVector4  c(inPtr[x0] * (1.0f - xf) + (inPtr[x1] * xf));
