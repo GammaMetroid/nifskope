@@ -40,14 +40,26 @@ struct GltfStore
 	// BSGeometry may have 1-4 associated gltfNodeID to deal with LOD0-LOD3
 	// NiNode will only have 1 gltfNodeID
 	QMap<int, QVector<int>> nodes;
-	// gltfSkinID to BSMesh
-	QMap<int, BSMesh*> skins;
+	// gltfSkinID to Shape
+	QMap<int, Shape*> skins;
 	// Material Paths
 	std::map< std::string, int > materials;
 
 	QStringList errors;
 
 	bool flatSkeleton = false;
+
+	static QStringList getBoneNames( const NifModel * nif, const Shape * shape );
+	void createInverseBoneMatrices( tinygltf::Model & model, QByteArray & bin, const Shape * bsmesh, int gltfSkinID );
+	static std::string getMaterialName( const NifModel * nif, const QModelIndex & index );
+	static std::string getMaterialPath( const NifModel * nif, const QModelIndex & index );
+	bool createNodes( const NifModel * nif, const Scene * scene, tinygltf::Model & model, QByteArray & bin );
+	void createPrimitive( tinygltf::Model & model, QByteArray & bin, const MeshFile * mesh, tinygltf::Primitive & prim,
+							std::string attr, int count, int componentType, int type, quint32 & attributeIndex );
+	static void meshFileFromShape( MeshFile & mesh, const Shape * shape );
+	bool createPrimitives( tinygltf::Model & model, QByteArray & bin, const Shape * bsmesh, tinygltf::Mesh & gltfMesh,
+							quint32 & attributeIndex, quint32 lodLevel, int materialID, qint32 meshLodLevel = -1 );
+	bool createMeshes( const NifModel * nif, const Scene * scene, tinygltf::Model & model, QByteArray & bin );
 };
 
 
@@ -67,13 +79,48 @@ static inline void exportFloats( QByteArray & bin, const float * data, size_t n 
 	bin.append( buf, nBytes );
 }
 
-void exportCreateInverseBoneMatrices(tinygltf::Model& model, QByteArray& bin, const BSMesh* bsmesh, int gltfSkinID, [[maybe_unused]] GltfStore& gltf)
+QStringList GltfStore::getBoneNames( const NifModel * nif, const Shape * shape )
+{
+	QStringList	boneNames;
+
+	if ( shape && !shape->bones.isEmpty() ) {
+		for ( int i : shape->bones ) {
+			QString	boneName;
+			if ( auto iNode = nif->getBlockIndex( i ); iNode.isValid() )
+				boneName = nif->get<QString>( iNode, "Name" );
+			boneNames.append( boneName );
+		}
+	}
+	if ( shape ) {
+		int	blockID = shape->id();
+		auto	links = nif->getChildLinks( blockID );
+
+		for ( const auto link : links ) {
+			if ( auto idx = nif->getBlockIndex( link ); nif->blockInherits( idx, "SkinAttach" ) ) {
+				auto	boneNames2 = nif->getArray<QString>( idx, "Bones" );
+				for ( qsizetype i = 0; i < boneNames2.size(); i++ ) {
+					const QString &	boneName = boneNames2.at( i );
+					if ( boneName.isEmpty() )
+						continue;
+					while ( boneNames.size() <= i )
+						boneNames.append( QString() );
+					boneNames[i] = boneName;
+				}
+			}
+		}
+	}
+
+	return boneNames;
+}
+
+void GltfStore::createInverseBoneMatrices(
+	tinygltf::Model & model, QByteArray & bin, const Shape * bsmesh, int gltfSkinID )
 {
 	auto bufferViewIndex = model.bufferViews.size();
 	auto acc = tinygltf::Accessor();
 	acc.bufferView = bufferViewIndex;
 	acc.componentType = TINYGLTF_COMPONENT_TYPE_FLOAT;
-	acc.count = bsmesh->getBoneData().size();
+	acc.count = bsmesh->boneData.size();
 	acc.type = TINYGLTF_TYPE_MAT4;
 	model.accessors.push_back(acc);
 
@@ -85,109 +132,128 @@ void exportCreateInverseBoneMatrices(tinygltf::Model& model, QByteArray& bin, co
 
 	model.skins[gltfSkinID].inverseBindMatrices = bufferViewIndex;
 
-	for ( const auto & b : bsmesh->getBoneData() )
+	for ( const auto & b : bsmesh->boneData )
 		exportFloats( bin, b.trans.toMatrix4().data(), 16 );
 }
 
-static QString exportGetMaterialPath( const NifModel * nif, const QModelIndex & index )
+std::string GltfStore::getMaterialName( const NifModel * nif, const QModelIndex & index )
 {
-	auto	iSPBlock = nif->getBlockIndex( nif->getLink( index, "Shader Property" ) );
-	if ( !iSPBlock.isValid() )
-		return QString();
-	return nif->get<QString>( iSPBlock, "Name" );
+	if ( nif->getBSVersion() >= 130 ) {
+		if ( auto iSPBlock = nif->getBlockIndex( nif->getLink( index, "Shader Property" ) ); iSPBlock.isValid() )
+			return nif->get<QString>( iSPBlock, "Name" ).toStdString();
+	}
+	return std::string();
 }
 
-bool exportCreateNodes(const NifModel* nif, const Scene* scene, tinygltf::Model& model, QByteArray& bin, GltfStore& gltf)
+std::string GltfStore::getMaterialPath( const NifModel * nif, const QModelIndex & index )
+{
+	if ( nif->getBSVersion() >= 130 ) {
+		if ( auto iSPBlock = nif->getBlockIndex( nif->getLink( index, "Shader Property" ) ); iSPBlock.isValid() ) {
+			if ( QString matPath = nif->get<QString>( iSPBlock, "Name" ); !matPath.isEmpty() ) {
+				const char *	extStr = ".mat";
+				if ( nif->getBSVersion() < 170 )
+					extStr = ( nif->isNiBlock( iSPBlock, "BSEffectShaderProperty" ) ? ".bgem" : ".bgsm" );
+				return Game::GameManager::get_full_path( matPath, "materials/", extStr );
+			}
+		}
+	}
+	return std::string();
+}
+
+bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf::Model & model, QByteArray & bin )
 {
 	int gltfNodeID = 0;
 	int gltfSkinID = -1;
 
 	// NODES
 
-	auto& nodes = scene->nodes.list();
-	for ( const auto node : nodes ) {
+	auto& sceneNodes = scene->nodes.list();
+	for ( const auto node : sceneNodes ) {
 		if ( !node )
 			continue;
 
 		auto nodeId = node->id();
 		auto iBlock = nif->getBlockIndex(nodeId);
-		if ( nif->blockInherits(iBlock, { "NiNode", "BSGeometry" }) ) {
-			auto gltfNode = tinygltf::Node();
-			auto mesh = static_cast<BSMesh*>(node);
-			bool hasGPULODs = false;
-			bool isBSGeometry = nif->blockInherits(iBlock, "BSGeometry") && mesh;
-			// Create extra nodes for GPU LODs
-			int createdNodes = 1;
-			QString	materialPath;
-			std::uint32_t	matPathCRC = 0U;
-			if ( isBSGeometry ) {
-				materialPath = exportGetMaterialPath( nif, iBlock );
-				if ( !materialPath.isEmpty() ) {
-					std::string matPath( Game::GameManager::get_full_path( materialPath, "materials/", ".mat" ) );
-					for ( char c : matPath )
-						hashFunctionCRC32( matPathCRC, (unsigned char) ( c != '/' ? c : '\\' ) );
-					if ( gltf.materials.find( matPath ) == gltf.materials.end() ) {
-						int materialID = int( gltf.materials.size() );
-						gltf.materials.emplace( matPath, materialID );
-					}
+		if ( !nif->blockInherits(iBlock, { "NiNode", "BSGeometry", "BSTriShape" }) )
+			continue;
+
+		auto gltfNode = tinygltf::Node();
+		auto mesh = dynamic_cast<Shape *>(node);
+		auto sfMesh = dynamic_cast<BSMesh *>(node);
+		bool hasGPULODs = false;
+
+		// Create extra nodes for GPU LODs
+		int createdNodes = 1;
+		std::string	matPath;
+		std::uint32_t	matPathCRC = 0U;
+		if ( mesh ) {
+			matPath = getMaterialPath( nif, iBlock );
+			if ( !matPath.empty() ) {
+				for ( char c : matPath )
+					hashFunctionCRC32( matPathCRC, (unsigned char) ( c != '/' ? c : '\\' ) );
+				if ( materials.find( matPath ) == materials.end() ) {
+					int materialID = int( materials.size() );
+					materials.emplace( matPath, materialID );
 				}
-				hasGPULODs = mesh->gpuLODs.size() > 0;
-				createdNodes = mesh->meshCount();
+			}
+			if ( sfMesh ) {
+				hasGPULODs = sfMesh->gpuLODs.size() > 0;
+				createdNodes = sfMesh->meshCount();
 				if ( hasGPULODs )
-					createdNodes = mesh->gpuLODs.size() + 1;
+					createdNodes = sfMesh->gpuLODs.size() + 1;
 				if ( !gltfEnableLOD )
 					createdNodes = std::min< int >( createdNodes, 1 );
 			}
+		}
 
-			for ( int j = 0; j < createdNodes; j++ ) {
-				// Fill nodes map
-				gltf.nodes[nodeId].append(gltfNodeID);
+		for ( int j = 0; j < createdNodes; j++ ) {
+			// Fill nodes map
+			nodes[nodeId].append(gltfNodeID);
 
-				gltfNode.name = node->getName().toStdString();
-				if ( isBSGeometry ) {
-					if ( j )
-						gltfNode.name += ":LOD" + std::to_string(j);
-					// Skins
-					if ( mesh->skinID > -1 && mesh->numWeights > 0 ) {
-						if ( !gltf.skins.values().contains(mesh) ) {
-							gltfSkinID++;
-						}
-						gltfNode.skin = gltfSkinID;
-						gltf.skins[gltfSkinID] = mesh;
+			gltfNode.name = node->getName().toStdString();
+			if ( mesh ) {
+				if ( j )
+					gltfNode.name += ":LOD" + std::to_string(j);
+				// Skins
+				if ( mesh->iSkin.isValid() && !mesh->bones.isEmpty() ) {
+					if ( !skins.values().contains(mesh) ) {
+						gltfSkinID++;
 					}
+					gltfNode.skin = gltfSkinID;
+					skins[gltfSkinID] = mesh;
 				}
-
-				if ( !j ) {
-					Transform trans = node->localTrans();
-					// Rotate the root NiNode for glTF Y-Up
-					if ( gltfNodeID == 0 ) {
-						trans.rotation = trans.rotation.toYUp();
-						trans.translation = Vector3( trans.translation[0], trans.translation[2], -(trans.translation[1]) );
-					}
-					auto quat = trans.rotation.toQuat();
-					gltfNode.translation = { trans.translation[0], trans.translation[1], trans.translation[2] };
-					gltfNode.rotation = { quat[1], quat[2], quat[3], quat[0] };
-					gltfNode.scale = { trans.scale, trans.scale, trans.scale };
-				}
-
-				std::map<std::string, tinygltf::Value> extras;
-				extras["ID"] = tinygltf::Value(nodeId);
-				extras["Parent ID"] = tinygltf::Value((node->parentNode()) ? node->parentNode()->id() : -1);
-				if ( isBSGeometry ) {
-					extras["Material Path"] = tinygltf::Value( materialPath.toStdString() );
-					extras["NiIntegerExtraData:MaterialID"] = tinygltf::Value( int(matPathCRC) );
-				}
-
-				auto flags = nif->get<int>(iBlock, "Flags");
-				extras["Flags"] = tinygltf::Value(flags);
-				if ( isBSGeometry )
-					extras["Has GPU LODs"] = tinygltf::Value(hasGPULODs);
-				gltfNode.extras = tinygltf::Value(extras);
-
-				model.nodes.push_back(gltfNode);
-				gltfNodeID++;
 			}
 
+			if ( !j ) {
+				Transform trans = node->localTrans();
+				// Rotate the root NiNode for glTF Y-Up
+				if ( gltfNodeID == 0 ) {
+					trans.rotation = trans.rotation.toYUp();
+					trans.translation = Vector3( trans.translation[0], trans.translation[2], -(trans.translation[1]) );
+				}
+				auto quat = trans.rotation.toQuat();
+				gltfNode.translation = { trans.translation[0], trans.translation[1], trans.translation[2] };
+				gltfNode.rotation = { quat[1], quat[2], quat[3], quat[0] };
+				gltfNode.scale = { trans.scale, trans.scale, trans.scale };
+			}
+
+			std::map<std::string, tinygltf::Value> extras;
+			extras["ID"] = tinygltf::Value(nodeId);
+			extras["Parent ID"] = tinygltf::Value((node->parentNode()) ? node->parentNode()->id() : -1);
+			if ( mesh && nif->getBSVersion() >= 130 ) {
+				extras["Material Path"] = tinygltf::Value( getMaterialName( nif, iBlock ) );
+				if ( sfMesh )
+					extras["NiIntegerExtraData:MaterialID"] = tinygltf::Value( int(matPathCRC) );
+			}
+
+			auto flags = nif->get<int>(iBlock, "Flags");
+			extras["Flags"] = tinygltf::Value(flags);
+			if ( sfMesh )
+				extras["Has GPU LODs"] = tinygltf::Value(hasGPULODs);
+			gltfNode.extras = tinygltf::Value(extras);
+
+			model.nodes.push_back(gltfNode);
+			gltfNodeID++;
 		}
 	}
 
@@ -198,13 +264,13 @@ bool exportCreateNodes(const NifModel* nif, const Scene* scene, tinygltf::Model&
 		if ( nif->blockInherits(iBlock, "NiNode") ) {
 			auto children = nif->getChildLinks(i);
 			for ( const auto& child : children ) {
-				auto nodes = gltf.nodes.value(child, {});
-				auto & gltfNode = model.nodes[gltf.nodes[i][0]];
-				for ( qsizetype j = 0; j < nodes.size(); j++ ) {
+				auto nodeList = nodes.value(child, {});
+				auto & gltfNode = model.nodes[nodes[i][0]];
+				for ( qsizetype j = 0; j < nodeList.size(); j++ ) {
 					if ( j == 0 )
-						gltfNode.children.push_back( nodes[j] );
+						gltfNode.children.push_back( nodeList[j] );
 					else if ( gltfEnableLOD )
-						model.nodes[nodes[0]].lods.push_back( nodes[j] );
+						model.nodes[nodeList[0]].lods.push_back( nodeList[j] );
 				}
 			}
 		}
@@ -214,25 +280,23 @@ bool exportCreateNodes(const NifModel* nif, const Scene* scene, tinygltf::Model&
 
 	bool hasSkeleton = false;
 	for ( const auto shape : scene->shapes ) {
-		if ( !shape )
-			continue;
-		auto mesh = static_cast<BSMesh*>(shape);
-		if ( mesh->boneNames.size() > 0 ) {
+		if ( shape && !shape->bones.isEmpty() ) {
 			hasSkeleton = true;
 			break;
 		}
 	}
 	if ( hasSkeleton ) {
-		for ( const auto mesh : gltf.skins ) {
-			if ( mesh && mesh->boneNames.size() > 0 ) {
-				for ( const auto& name : mesh->boneNames ) {
+		for ( const auto mesh : skins ) {
+			if ( auto boneNames = getBoneNames( nif, mesh ); !boneNames.isEmpty() ) {
+				for ( const auto & name : boneNames ) {
+					auto nameStr = name.toStdString();
 					auto it = std::find_if(model.nodes.begin(), model.nodes.end(), [&](const tinygltf::Node& n) {
-						return n.name == name.toStdString();
+						return n.name == nameStr;
 					});
 
 					int gltfNodeID = (it != model.nodes.end()) ? it - model.nodes.begin() : -1;
 					if ( gltfNodeID == -1 ) {
-						gltf.flatSkeleton = true;
+						flatSkeleton = true;
 					}
 				}
 			}
@@ -242,17 +306,17 @@ bool exportCreateNodes(const NifModel* nif, const Scene* scene, tinygltf::Model&
 	if ( !hasSkeleton )
 		return true;
 
-	for ( [[maybe_unused]] const auto skin : gltf.skins ) {
+	for ( [[maybe_unused]] const auto skin : skins ) {
 		auto gltfSkin = tinygltf::Skin();
 		model.skins.push_back(gltfSkin);
 	}
 
-	if ( gltf.flatSkeleton ) {
-		gltf.errors << tr("WARNING: Missing bones detected, exporting as a flat skeleton.");
+	if ( flatSkeleton ) {
+		errors << tr("WARNING: Missing bones detected, exporting as a flat skeleton.");
 
 		int skinID = 0;
-		for ( const auto mesh : gltf.skins ) {
-			if ( mesh && mesh->boneNames.size() > 0 ) {
+		for ( const auto mesh : skins ) {
+			if ( mesh && mesh->bones.size() > 0 ) {
 				auto gltfNode = tinygltf::Node();
 				gltfNode.name = mesh->getName().toStdString();
 				model.nodes.push_back(gltfNode);
@@ -261,14 +325,14 @@ bool exportCreateNodes(const NifModel* nif, const Scene* scene, tinygltf::Model&
 				model.skins[skinID].name = gltfNode.name + "_Armature";
 				model.nodes[0].children.push_back(skeletonRoot);
 
-				for ( int i = 0; i < mesh->boneNames.size(); i++ ) {
-					auto& name = mesh->boneNames.at(i);
+				auto	boneNames = getBoneNames( nif, mesh );
+				for ( int i = 0; i < mesh->bones.size(); i++ ) {
 					Matrix4	trans;
-					if ( i < mesh->getBoneData().size() )
-						trans = mesh->getBoneData()[i].trans.toMatrix4().inverted();
+					if ( i < mesh->boneData.size() )
+						trans = mesh->boneData.at( i ).trans.toMatrix4().inverted();
 
 					auto gltfNode = tinygltf::Node();
-					gltfNode.name = name.toStdString();
+					gltfNode.name = boneNames.value( i ).toStdString();
 					Vector3 translation;
 					Matrix rotation;
 					Vector3 scale;
@@ -289,7 +353,7 @@ bool exportCreateNodes(const NifModel* nif, const Scene* scene, tinygltf::Model&
 					gltfNodeID++;
 				}
 
-				exportCreateInverseBoneMatrices(model, bin, mesh, skinID, gltf);
+				createInverseBoneMatrices( model, bin, mesh, skinID );
 			}
 
 			skinID++;
@@ -302,25 +366,27 @@ bool exportCreateNodes(const NifModel* nif, const Scene* scene, tinygltf::Model&
 
 		int skeletonRoot = (it != model.nodes.end()) ? it - model.nodes.begin() : -1;
 		int skinID = 0;
-		for ( const auto mesh : gltf.skins ) {
-			if ( mesh && mesh->boneNames.size() > 0 ) {
+		for ( const auto mesh : skins ) {
+			if ( mesh && mesh->bones.size() > 0 ) {
 				// TODO: 0 should come from BSSkin::Instance Skeleton Root, mapped to gltfNodeID
 				// However, non-zero Skeleton Root never happens, at least in Starfield
 				model.skins[skinID].skeleton = (skeletonRoot == -1) ? 0 : skeletonRoot;
-				for ( const auto& name : mesh->boneNames ) {
+				auto	boneNames = getBoneNames( nif, mesh );
+				for ( const auto & name : boneNames ) {
+					auto nameStr = name.toStdString();
 					auto it = std::find_if(model.nodes.begin(), model.nodes.end(), [&](const tinygltf::Node& n) {
-						return n.name == name.toStdString();
+						return n.name == nameStr;
 					});
 
 					int gltfNodeID = (it != model.nodes.end()) ? it - model.nodes.begin() : -1;
 					if ( gltfNodeID > -1 ) {
 						model.skins[skinID].joints.push_back(gltfNodeID);
 					} else {
-						gltf.errors << tr("ERROR: Missing Skeleton Node: %1").arg(name);
+						errors << tr("ERROR: Missing Skeleton Node: %1").arg( name );
 					}
 				}
 
-				exportCreateInverseBoneMatrices(model, bin, mesh, skinID, gltf);
+				createInverseBoneMatrices( model, bin, mesh, skinID );
 			}
 			skinID++;
 		}
@@ -329,10 +395,10 @@ bool exportCreateNodes(const NifModel* nif, const Scene* scene, tinygltf::Model&
 	return true;
 }
 
-void exportCreatePrimitive(tinygltf::Model& model, QByteArray& bin, std::shared_ptr<MeshFile> mesh, tinygltf::Primitive& prim, std::string attr,
-							int count, int componentType, int type, quint32& attributeIndex, GltfStore& gltf)
+void GltfStore::createPrimitive(
+	tinygltf::Model & model, QByteArray & bin, const MeshFile * mesh, tinygltf::Primitive & prim,
+	std::string attr, int count, int componentType, int type, quint32 & attributeIndex )
 {
-	(void) gltf;
 	if ( count < 1 )
 		return;
 
@@ -414,101 +480,144 @@ void exportCreatePrimitive(tinygltf::Model& model, QByteArray& bin, std::shared_
 		for ( const auto& v : mesh->colors ) {
 			exportFloats( bin, &(v[0]), 4 );
 		}
-	} else if ( attr == "WEIGHTS_0" ) {
-		for ( const auto& v : mesh->weights ) {
-			FloatVector4 tmpWeights( 0.0f );
-			for ( int i = 0; i < 4; i++ ) {
-				tmpWeights.shuffleValues( 0x39 );	// 1, 2, 3, 0
-				float weight = v.weightsUNORM[i].weight;
+	} else if ( attr == "WEIGHTS_0" || attr == "WEIGHTS_1" || attr == "JOINTS_0" || attr == "JOINTS_1" ) {
+		std::int32_t	tmpWeights[4] = { 0, 0, 0, 0 };
+		int	i = 0;
+		int	j = int( attr.back() ) & 1;
+		unsigned char	k = ( attr[0] == 'W' ? 0 : 16 );
+		for ( std::uint32_t v : mesh->weights ) {
+			if ( ( (i >> 2) & 1 ) == j ) {
 				// Fix Bethesda's non-zero weights
-				if ( v.weightsUNORM[i].bone != 0 || weight > 0.00005f )
-					tmpWeights[3] = weight;
+				if ( v > 3U )
+					tmpWeights[i & 3] = std::int32_t( ( v >> k ) & 0xFFFFU );
 			}
-			exportFloats( bin, &(tmpWeights[0]), 4 );
-		}
-	} else if ( attr == "WEIGHTS_1" ) {
-		for ( const auto& v : mesh->weights ) {
-			FloatVector4 tmpWeights( 0.0f );
-			for ( int i = 4; i < 8; i++ ) {
-				tmpWeights.shuffleValues( 0x39 );	// 1, 2, 3, 0
-				float weight = v.weightsUNORM[i].weight;
-				// Fix Bethesda's non-zero weights
-				if ( v.weightsUNORM[i].bone != 0 || weight > 0.00005f )
-					tmpWeights[3] = weight;
+			if ( ++i < mesh->weightsPerVertex )
+				continue;
+			if ( !k ) {
+				FloatVector4	w = FloatVector4::convertInt32( tmpWeights ) / 65535.0f;
+				exportFloats( bin, &(w[0]), 4 );
+			} else {
+				char tmpBones[8];
+				for ( i = 0; i < 4; i++ )
+					FileBuffer::writeUInt16Fast( &(tmpBones[i << 1]), std::uint16_t(tmpWeights[i]) );
+				bin.append( tmpBones, 8 );
 			}
-			exportFloats( bin, &(tmpWeights[0]), 4 );
-		}
-	} else if ( attr == "JOINTS_0" ) {
-		char tmpBones[8];
-		for ( const auto& v : mesh->weights ) {
-			for ( int i = 0; i < 4; i++ )
-				FileBuffer::writeUInt16Fast( &(tmpBones[i << 1]), v.weightsUNORM[i].bone );
-			bin.append( tmpBones, 8 );
-		}
-	} else if ( attr == "JOINTS_1" ) {
-		char tmpBones[8];
-		for ( const auto& v : mesh->weights ) {
-			for ( int i = 0; i < 4; i++ )
-				FileBuffer::writeUInt16Fast( &(tmpBones[i << 1]), v.weightsUNORM[i + 4].bone );
-			bin.append( tmpBones, 8 );
+			std::memset( tmpWeights, 0, sizeof( tmpWeights ) );
+			i = 0;
 		}
 	}
 
 	model.bufferViews.push_back(view);
 }
 
-bool exportCreatePrimitives(tinygltf::Model& model, QByteArray& bin, const BSMesh* bsmesh, tinygltf::Mesh& gltfMesh,
-							quint32& attributeIndex, quint32 lodLevel, int materialID, GltfStore& gltf, qint32 meshLodLevel = -1)
+void GltfStore::meshFileFromShape( MeshFile & mesh, const Shape * shape )
 {
-	if ( int(lodLevel) >= bsmesh->meshes.size() )
-		return false;
+	mesh.clear();
+	if ( !shape )
+		return;
 
-	auto& mesh = bsmesh->meshes[lodLevel];
+	mesh.positions = shape->verts;
+	mesh.normals = shape->norms;
+	mesh.colors = shape->colors;
+	mesh.tangents = shape->bitangents;
+	if ( qsizetype n = shape->bitangents.size(); n > 0 ) {
+		mesh.bitangentsBasis.resize( n );
+		for ( qsizetype i = 0; i < n; i++ ) {
+			FloatVector4	normal( 0.0f, 0.0f, 1.0f, 0.0f );
+			FloatVector4	bitangent( 0.0f, -1.0f, 0.0f, 0.0f );
+			if ( i < shape->norms.size() )
+				normal = FloatVector4( shape->norms.at(i) );
+			if ( i < shape->tangents.size() )
+				bitangent = FloatVector4( shape->tangents.at(i) );
+			float	s = normal.crossProduct3( FloatVector4( shape->bitangents.at(i) ) ).dotProduct3( bitangent );
+			mesh.bitangentsBasis[i] = ( s >= 0.0f ? 1.0f : -1.0f );
+		}
+	}
+	if ( shape->coords.size() > 0 )
+		mesh.coords1 = shape->coords.at( 0 );
+	if ( shape->coords.size() > 1 )
+		mesh.coords2 = shape->coords.at( 1 );
+	if ( shape->boneWeights0.size() > 0 ) {
+		mesh.weightsPerVertex = 4;
+		mesh.weights.resize( shape->boneWeights0.size() * 4 );
+		for ( size_t i = 0; i < shape->boneWeights0.size(); i++ ) {
+			FloatVector4	tmp( shape->boneWeights0[i] );
+			( tmp * 65536.0f ).convertToInt32( reinterpret_cast< std::int32_t * >( mesh.weights.data() + (i * 4) ) );
+		}
+	}
+	mesh.triangles = shape->triangles;
+}
+
+bool GltfStore::createPrimitives(
+	tinygltf::Model & model, QByteArray & bin, const Shape * bsmesh, tinygltf::Mesh & gltfMesh,
+	quint32 & attributeIndex, quint32 lodLevel, int materialID, qint32 meshLodLevel )
+{
+	MeshFile	tmpMeshFile( nullptr, 0 );
+	const MeshFile *	mesh = &tmpMeshFile;
+	const BSMesh *	sfMesh = dynamic_cast< const BSMesh * >( bsmesh );
+	if ( sfMesh ) {
+		if ( int(lodLevel) >= sfMesh->meshes.size() )
+			return false;
+
+		mesh = sfMesh->meshes[lodLevel].get();
+	} else {
+		meshFileFromShape( tmpMeshFile, bsmesh );
+	}
+
 	auto prim = tinygltf::Primitive();
-
 	prim.material = materialID;
 
 	if ( meshLodLevel >= 0 && !model.meshes.empty() && !model.meshes.back().primitives.empty() ) {
 		prim = model.meshes.back().primitives.front();
 	} else {
-		exportCreatePrimitive(model, bin, mesh, prim, "POSITION", mesh->positions.size(), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, attributeIndex, gltf);
-		exportCreatePrimitive(model, bin, mesh, prim, "NORMAL", mesh->normals.size(), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, attributeIndex, gltf);
-		exportCreatePrimitive(model, bin, mesh, prim, "TANGENT", mesh->tangents.size(), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex, gltf);
+		createPrimitive( model, bin, mesh, prim, "POSITION", mesh->positions.size(),
+							TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, attributeIndex );
+		createPrimitive( model, bin, mesh, prim, "NORMAL", mesh->normals.size(),
+							TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, attributeIndex );
+		createPrimitive( model, bin, mesh, prim, "TANGENT", mesh->tangents.size(),
+							TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		if ( mesh->coords1.size() > 0 ) {
-			exportCreatePrimitive(model, bin, mesh, prim, "TEXCOORD_0", mesh->coords1.size(), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, attributeIndex, gltf);
+			createPrimitive( model, bin, mesh, prim, "TEXCOORD_0", mesh->coords1.size(),
+								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, attributeIndex );
 		}
 		if ( mesh->coords2.size() > 0 ) {
-			exportCreatePrimitive(model, bin, mesh, prim, "TEXCOORD_1", mesh->coords2.size(), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, attributeIndex, gltf);
+			createPrimitive( model, bin, mesh, prim, "TEXCOORD_1", mesh->coords2.size(),
+								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, attributeIndex );
 		}
-		exportCreatePrimitive(model, bin, mesh, prim, "COLOR_0", mesh->colors.size(), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex, gltf);
+		createPrimitive( model, bin, mesh, prim, "COLOR_0", mesh->colors.size(),
+							TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
 
 		if ( mesh->weights.size() > 0 && mesh->weightsPerVertex > 0 ) {
-			exportCreatePrimitive(model, bin, mesh, prim, "WEIGHTS_0", mesh->weights.size(), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex, gltf);
+			createPrimitive( model, bin, mesh, prim, "WEIGHTS_0", mesh->weights.size() / mesh->weightsPerVertex,
+								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		}
 
 		if ( mesh->weights.size() > 0 && mesh->weightsPerVertex > 4 ) {
-			exportCreatePrimitive(model, bin, mesh, prim, "WEIGHTS_1", mesh->weights.size(), TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex, gltf);
+			createPrimitive( model, bin, mesh, prim, "WEIGHTS_1", mesh->weights.size() / mesh->weightsPerVertex,
+								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		}
 
 		if ( mesh->weights.size() > 0 && mesh->weightsPerVertex > 0 ) {
-			exportCreatePrimitive(model, bin, mesh, prim, "JOINTS_0", mesh->weights.size(), TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, attributeIndex, gltf);
+			createPrimitive( model, bin, mesh, prim, "JOINTS_0", mesh->weights.size() / mesh->weightsPerVertex,
+								TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		}
 
 		if ( mesh->weights.size() > 0 && mesh->weightsPerVertex > 4 ) {
-			exportCreatePrimitive(model, bin, mesh, prim, "JOINTS_1", mesh->weights.size(), TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, attributeIndex, gltf);
+			createPrimitive( model, bin, mesh, prim, "JOINTS_1", mesh->weights.size() / mesh->weightsPerVertex,
+								TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		}
 	}
 
-	QVector<Triangle>& tris = mesh->triangles;
-	if ( meshLodLevel >= 0 ) {
-		tris = bsmesh->gpuLODs[meshLodLevel];
+	const QVector<Triangle> * tris = &( mesh->triangles );
+	if ( meshLodLevel >= 0 && sfMesh ) {
+		tris = &( sfMesh->gpuLODs.at(meshLodLevel) );
 	}
 
 	// Triangle Indices
 	auto acc = tinygltf::Accessor();
 	acc.bufferView = attributeIndex;
 	acc.componentType = TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT;
-	acc.count = tris.size() * 3;
+	acc.count = tris->size() * 3;
 	acc.type = TINYGLTF_TYPE_SCALAR;
 
 	prim.indices = attributeIndex++;
@@ -522,7 +631,7 @@ bool exportCreatePrimitives(tinygltf::Model& model, QByteArray& bin, const BSMes
 	view.target = TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER;
 
 	bin.reserve(bin.size() + view.byteLength);
-	for ( const auto & v : tris ) {
+	for ( const auto & v : *tris ) {
 		char tmpTriangles[6];
 		FileBuffer::writeUInt16Fast( &(tmpTriangles[0]), v[0] );
 		FileBuffer::writeUInt16Fast( &(tmpTriangles[2]), v[1] );
@@ -537,50 +646,54 @@ bool exportCreatePrimitives(tinygltf::Model& model, QByteArray& bin, const BSMes
 	return true;
 }
 
-bool exportCreateMeshes(const NifModel* nif, const Scene* scene, tinygltf::Model& model, QByteArray& bin, GltfStore& gltf)
+bool GltfStore::createMeshes( const NifModel * nif, const Scene * scene, tinygltf::Model & model, QByteArray & bin )
 {
 	int meshIndex = 0;
 	quint32 attributeIndex = model.bufferViews.size();
-	auto& nodes = scene->nodes.list();
-	for ( const auto node : nodes ) {
+	auto& sceneNodes = scene->nodes.list();
+	for ( const auto node : sceneNodes ) {
 		auto nodeId = node->id();
 		auto iBlock = nif->getBlockIndex(nodeId);
-		if ( nif->blockInherits(iBlock, "BSGeometry") ) {
-			if ( gltf.nodes.value(nodeId, {}).size() == 0 )
+		auto mesh = dynamic_cast<Shape *>(node);
+		if ( mesh ) {
+			if ( nodes.value(nodeId, {}).size() == 0 )
 				continue;
 
-			auto& n = gltf.nodes[nodeId];
-			auto mesh = static_cast<BSMesh*>(node);
-			if ( mesh ) {
-				int createdMeshes = mesh->meshCount();
-				bool hasGPULODs = mesh->gpuLODs.size() > 0;
+			auto& n = nodes[nodeId];
+			int createdMeshes = 1;
+			bool hasGPULODs = false;
+			auto sfMesh = dynamic_cast<BSMesh *>(node);
+			if ( sfMesh ) {
+				createdMeshes = sfMesh->meshCount();
+				hasGPULODs = sfMesh->gpuLODs.size() > 0;
 				if ( hasGPULODs )
-					createdMeshes = mesh->gpuLODs.size() + 1;
+					createdMeshes = sfMesh->gpuLODs.size() + 1;
 				if ( !gltfEnableLOD )
 					createdMeshes = std::min< int >( createdMeshes, 1 );
+			}
 
-				for ( int j = 0; j < createdMeshes; j++ ) {
-					auto& gltfNode = model.nodes[n[j]];
-					tinygltf::Mesh gltfMesh;
-					gltfNode.mesh = meshIndex;
-					if ( !j ) {
-						gltfMesh.name = node->getName().toStdString();
-					} else {
-						gltfMesh.name = QString("%1%2%3").arg(node->getName()).arg(":LOD").arg(j).toStdString();
-					}
-					int materialID = 0;
-					QString	materialPath = exportGetMaterialPath( nif, iBlock );
-					if ( !materialPath.isEmpty() )
-						materialID = gltf.materials[Game::GameManager::get_full_path( materialPath, "materials/", ".mat" )];
-					int	lodLevel = (hasGPULODs) ? 0 : j;
-					int	skeletalLodIndex = ( hasGPULODs ? j : 0 ) - 1;
-					if ( exportCreatePrimitives(model, bin, mesh, gltfMesh, attributeIndex, lodLevel, materialID, gltf, skeletalLodIndex) ) {
-						meshIndex++;
-						model.meshes.push_back(gltfMesh);
-					} else {
-						gltf.errors << QString("ERROR: %1 creation failed").arg(QString::fromStdString(gltfMesh.name));
-						return false;
-					}
+			for ( int j = 0; j < createdMeshes; j++ ) {
+				auto& gltfNode = model.nodes[n[j]];
+				tinygltf::Mesh gltfMesh;
+				gltfNode.mesh = meshIndex;
+				if ( !j ) {
+					gltfMesh.name = node->getName().toStdString();
+				} else {
+					gltfMesh.name = QString("%1%2%3").arg(node->getName()).arg(":LOD").arg(j).toStdString();
+				}
+				int materialID = 0;
+				std::string	materialPath = getMaterialPath( nif, iBlock );
+				if ( nif->getBSVersion() >= 170 && !materialPath.empty() )
+					materialID = materials[materialPath];
+				int	lodLevel = (hasGPULODs) ? 0 : j;
+				int	skeletalLodIndex = ( hasGPULODs ? j : 0 ) - 1;
+				if ( createPrimitives( model, bin, mesh, gltfMesh, attributeIndex,
+										lodLevel, materialID, skeletalLodIndex ) ) {
+					meshIndex++;
+					model.meshes.push_back(gltfMesh);
+				} else {
+					errors << QString("ERROR: %1 creation failed").arg(QString::fromStdString(gltfMesh.name));
+					return false;
 				}
 			}
 		}
@@ -913,9 +1026,9 @@ void exportGltf( const NifModel* nif, const Scene* scene, [[maybe_unused]] const
 	GltfStore gltf;
 	gltf.materials.emplace( std::string(), 0 );
 	QByteArray buffer;
-	bool success = exportCreateNodes(nif, scene, model, buffer, gltf);
+	bool success = gltf.createNodes( nif, scene, model, buffer );
 	if ( success )
-		success = exportCreateMeshes(nif, scene, model, buffer, gltf);
+		success = gltf.createMeshes( nif, scene, model, buffer );
 	if ( success ) {
 		auto buff = tinygltf::Buffer();
 		buff.name = buffName.mid( QDir::fromNativeSeparators( buffName ).lastIndexOf( QChar('/') ) + 1 ).toStdString();

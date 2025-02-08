@@ -50,6 +50,7 @@ class Shape : public Node
 	friend class MorphController;
 	friend class UVController;
 	friend class Renderer;
+	friend class GltfStore;
 
 public:
 	Shape( Scene * s, const QModelIndex & b );
@@ -182,11 +183,6 @@ public:
 	inline void clearHash()
 	{
 		dataHash.attrMask = 0;
-	}
-
-	inline const QVector<BoneData> & getBoneData() const
-	{
-		return boneData;
 	}
 };
 
