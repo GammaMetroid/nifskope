@@ -1000,9 +1000,29 @@ static QString getGltfFolder( const NifModel * nif )
 	return settings.value( "Spells//Extract File/Last File Path", QString() ).toString();
 }
 
-void exportGltf( const NifModel* nif, const Scene* scene, [[maybe_unused]] const QModelIndex& index )
+void exportGltf( const NifModel * nif, const Scene * scene, [[maybe_unused]] const QModelIndex & index )
 {
-	QString filename = QFileDialog::getSaveFileName(qApp->activeWindow(), tr("Choose a .glTF file for export"), getGltfFolder(nif), "glTF (*.gltf)");
+	QString	filename = getGltfFolder( nif );
+	if ( auto w = qobject_cast< const NifSkope * >( nif->getWindow() ); w ) {
+		if ( auto nifPath = w->getCurrentFile(); !nifPath.isEmpty() ) {
+			if ( nifPath.endsWith( QLatin1StringView(".nif"), Qt::CaseInsensitive )
+				|| nifPath.endsWith( QLatin1StringView(".bto"), Qt::CaseInsensitive )
+				|| nifPath.endsWith( QLatin1StringView(".btr"), Qt::CaseInsensitive ) ) {
+				nifPath.chop( 4 );
+			}
+#ifdef Q_OS_WIN32
+			nifPath.replace( QChar('\\'), QChar('/') );
+#endif
+			nifPath.remove( 0, nifPath.lastIndexOf( QChar('/') ) + 1 );
+			if ( !nifPath.isEmpty() ) {
+				if ( !filename.isEmpty() && !filename.endsWith( QChar('/') ) )
+					filename.append( QChar('/') );
+				filename.append( nifPath );
+				filename.append( QLatin1StringView(".gltf") );
+			}
+		}
+	}
+	filename = QFileDialog::getSaveFileName(qApp->activeWindow(), tr("Choose a .glTF file for export"), filename, "glTF (*.gltf)");
 	bool	useFullMatPaths;
 	int	textureMipLevel;
 	if ( filename.isEmpty() ) {
