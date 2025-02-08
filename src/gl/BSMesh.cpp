@@ -408,7 +408,7 @@ void BSMesh::updateImpl(const NifModel* nif, const QModelIndex& index)
 		return;
 
 	iData = index;
-	iMeshes = nif->getIndex(index, "Meshes");
+	auto iMeshes = nif->getIndex(index, "Meshes");
 	meshes.clear();
 	for ( int i = 0; i < 4; i++ ) {
 		auto meshArray = nif->getIndex( iMeshes, i );
@@ -431,10 +431,7 @@ void BSMesh::updateData(const NifModel* nif)
 	resetSkinning();
 	resetVertexData();
 	resetSkeletonData();
-	skinID = -1;
-	numWeights = 0;
 	gpuLODs.clear();
-	boneNames.clear();
 
 	if ( meshes.size() == 0 )
 		return;
@@ -448,7 +445,9 @@ void BSMesh::updateData(const NifModel* nif)
 
 	lodLevel = std::min(scene->lodLevel, Scene::LodLevel(lodCount - 1));
 
-	const BoneWeightsUNorm *	weights = nullptr;
+	const std::uint32_t *	weights = nullptr;
+	int	weightsPerVertex = 0;
+	int	numWeights = 0;
 	auto meshIndex = (hasMeshLODs) ? 0 : lodLevel;
 	if ( lodCount > int(lodLevel) ) {
 		auto& mesh = meshes[meshIndex];
@@ -472,7 +471,10 @@ void BSMesh::updateData(const NifModel* nif)
 		mesh->calculateBitangents( tangents );
 		boneWeights0.clear();
 		boneWeights1.clear();
-		numWeights = int( mesh->weights.size() );
+		if ( mesh->weightsPerVertex > 0 ) {
+			weightsPerVertex = mesh->weightsPerVertex;
+			numWeights = int( mesh->weights.size() / mesh->weightsPerVertex );
+		}
 		if ( numWeights > 0 )
 			weights = mesh->weights.constData();
 		gpuLODs = mesh->lods;
@@ -487,7 +489,6 @@ void BSMesh::updateData(const NifModel* nif)
 		if ( nif->blockInherits(idx, "BSSkin::Instance") ) {
 			iSkin = idx;
 			iSkinData = nif->getBlockIndex(nif->getLink(nif->getIndex(idx, "Data")));
-			skinID = nif->getBlockNumber(iSkin);
 
 			qsizetype numBones = nif->get<int>(iSkinData, "Num Bones");
 			boneData.fill( BoneData(), numBones );
@@ -495,14 +496,11 @@ void BSMesh::updateData(const NifModel* nif)
 			bones = nif->getLinkArray(iSkin, "Bones");
 			qsizetype validBones = 0;
 			for ( qsizetype i = 0; i < bones.size(); i++ ) {
-				auto b = bones.at( i );
+				int b = bones.at( i );
 				if ( i < numBones )
 					boneData[i].bone = b;
-				if ( b == -1 )
-					continue;
-				auto iBone = nif->getBlockIndex(b);
-				boneNames.append(nif->resolveString(iBone, "Name"));
-				validBones++;
+				if ( b >= 0 )
+					validBones++;
 			}
 			isSkinned = ( validBones >= numBones );
 
@@ -515,36 +513,22 @@ void BSMesh::updateData(const NifModel* nif)
 				boneWeights0.assign( n, FloatVector4( 0.0f ) );
 				for ( size_t i = 0; i < n; i++ ) {
 					size_t	k = 0;
-					for ( const auto & bw : weights[i].weightsUNORM ) {
-						unsigned int	b = bw.bone;
-						float	w = bw.weight;
-						if ( b < (unsigned int) numBones && b < 256U && w > ( !b ? 0.00005f : 0.00001f ) ) {
-							w = float( int(b) ) + ( std::min( w, 1.0f ) * float( 65535.0 / 65536.0 ) );
+					for ( int j = 0; j < weightsPerVertex; j++, weights++ ) {
+						std::uint32_t	bw = *weights;
+						unsigned int	b = bw >> 16;
+						unsigned int	w = bw & 0xFFFFU;
+						if ( b < (unsigned int) numBones && b < 256U && w > ( !b ? 3U : 0U ) ) {
+							float	tmp = float( int(bw) ) * float( 1.0 / 65536.0 );
 							if ( k < 4 ) {
-								boneWeights0[i][k] = w;
+								boneWeights0[i][k] = tmp;
 							} else if ( k < 8 ) {
 								if ( boneWeights1.size() < n ) [[unlikely]]
 									boneWeights1.assign( n, FloatVector4( 0.0f ) );
-								boneWeights1[i][k & 3] = w;
+								boneWeights1[i][k & 3] = tmp;
 							}
 							k++;
 						}
 					}
-				}
-			}
-		}
-	}
-	// Do after dependent blocks above
-	for ( const auto link : links ) {
-		auto idx = nif->getBlockIndex(link);
-		if ( nif->blockInherits(idx, "SkinAttach") ) {
-			boneNames = nif->getArray<QString>(idx, "Bones");
-			if ( std::all_of(boneNames.begin(), boneNames.end(), [](const QString& name) { return name.isEmpty(); }) ) {
-				boneNames.clear();
-				auto iBones = nif->getLinkArray(nif->getIndex(iSkin, "Bones"));
-				for ( const auto& b : iBones ) {
-					auto iBone = nif->getBlockIndex(b);
-					boneNames.append(nif->resolveString(iBone, "Name"));
 				}
 			}
 		}

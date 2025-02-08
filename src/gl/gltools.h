@@ -132,15 +132,6 @@ public:
 	int bone = 0;
 };
 
-class BoneWeightsUNorm : public BoneData
-{
-public:
-	BoneWeightsUNorm() {}
-	BoneWeightsUNorm(QVector<QPair<quint16, quint16>> weights, int v);
-
-	QVector<BoneWeightUNORM16> weightsUNORM;
-};
-
 //! A skin partition
 class SkinPartition final
 {

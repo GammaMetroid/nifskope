@@ -1563,13 +1563,14 @@ bool spUpdateBounds::calculateBoneBounds(
 			}
 		}
 	} else {
-		for ( const auto & w : meshFile->weights ) {
-			qsizetype	i = qsizetype( &w - meshFile->weights.data() );
-			if ( i >= meshFile->positions.size() ) [[unlikely]]
-				break;
-			for ( const auto & b : w.weightsUNORM ) {
-				if ( (unsigned int) b.bone < (unsigned int) numBones && b.weight > 0.00005f )
-					boneVertexMap[int(b.bone)].push_back( meshFile->positions.at(i) );
+		for ( qsizetype i = 0; i < meshFile->positions.size(); i++ ) {
+			qsizetype	k = i * meshFile->weightsPerVertex;
+			for ( qsizetype j = 0; j < meshFile->weightsPerVertex; j++, k++ ) {
+				if ( k < meshFile->weights.size() ) {
+					std::uint32_t	bw = meshFile->weights.at( k );
+					if ( int( bw >> 16 ) < numBones && ( bw & 0xFFFCU ) != 0 )
+						boneVertexMap[int(bw >> 16)].push_back( meshFile->positions.at(i) );
+				}
 			}
 		}
 	}
