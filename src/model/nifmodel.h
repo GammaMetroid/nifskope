@@ -729,7 +729,6 @@ protected:
 	QHash<int, QList<int> > childLinks;
 	QHash<int, QList<int> > parentLinks;
 	QList<int> rootLinks;
-	static bool insertLink( QList<int> & l, int n );
 
 	bool lockUpdates;
 	bool batchProcessingMode = false;

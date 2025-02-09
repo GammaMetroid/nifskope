@@ -144,17 +144,11 @@ void NifItem::removeChildren( int row, int count )
 
 size_t NifItem::findLinkRow( int n ) const
 {
-	size_t	i0 = 0;
+	size_t	i = 0;
 	size_t	i2 = linkRowsSize;
-	while ( i2 > i0 ) {
-		size_t	i1 = ( i0 + i2 ) >> 1;
-		if ( linkRows[i1] < n )
-			i0 = i1 + 1;
-		else
-			i2 = i1;
-	}
-	// return the index of the first element of linkRows not less than 'n'
-	return i0;
+	while ( i < i2 && linkRows[i] != n )
+		i++;
+	return i;
 }
 
 void NifItem::insertLinkRow( int n )
@@ -171,13 +165,9 @@ void NifItem::insertLinkRow( int n )
 		linkRows = tmp + 1;
 	}
 
-	size_t	i = linkRowsSize;
-	if ( i && linkRows[i - 1] >= n ) {
-		i = findLinkRow( n );
-		if ( linkRows[i] == n )
-			return;
-		std::memmove( linkRows + ( i + 1 ), linkRows + i, ( size_t( linkRowsSize ) - i ) * sizeof( int ) );
-	}
+	size_t	i = findLinkRow( n );
+	if ( i < linkRowsSize )
+		return;
 	if ( linkRowsSize >= 65535U )
 		throw std::bad_alloc();
 	linkRows[i] = n;
@@ -212,7 +202,7 @@ void NifItem::unregisterInParentLinkCache()
 void NifItem::removeLinkRow( int n )
 {
 	size_t	i = findLinkRow( n );
-	if ( i < linkRowsSize && linkRows[i] == n ) {
+	if ( i < linkRowsSize ) {
 		if ( ( i + 1 ) < linkRowsSize )
 			std::memmove( linkRows + i, linkRows + ( i + 1 ), ( size_t( linkRowsSize ) - ( i + 1 ) ) * sizeof( int ) );
 		linkRowsSize--;
