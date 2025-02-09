@@ -132,8 +132,14 @@ void GltfStore::createInverseBoneMatrices(
 
 	model.skins[gltfSkinID].inverseBindMatrices = bufferViewIndex;
 
-	for ( const auto & b : bsmesh->boneData )
-		exportFloats( bin, b.trans.toMatrix4().data(), 16 );
+	bool scalePositions = ( bsmesh->scene && bsmesh->scene->nifModel && bsmesh->scene->nifModel->getBSVersion() < 170 );
+	for ( const auto & b : bsmesh->boneData ) {
+		FloatVector4	m[4];
+		std::memcpy( &(m[0][0]), b.trans.toMatrix4().data(), sizeof(float) * 16 );
+		if ( scalePositions )
+			m[3].blendValues( m[3] * float( 0.9144 / 64.0 ), 0x07 );		// convert to meters
+		exportFloats( bin, &(m[0][0]), 16 );
+	}
 }
 
 std::string GltfStore::getMaterialName( const NifModel * nif, const QModelIndex & index )
@@ -226,6 +232,8 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 
 			if ( !j ) {
 				Transform trans = node->localTrans();
+				if ( nif->getBSVersion() < 170 )
+					trans.translation = trans.translation * float( 0.9144 / 64.0 );		// convert to meters
 				// Rotate the root NiNode for glTF Y-Up
 				if ( gltfNodeID == 0 ) {
 					trans.rotation = trans.rotation.toYUp();
@@ -336,7 +344,9 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 					Vector3 translation;
 					Matrix rotation;
 					Vector3 scale;
-					trans.decompose(translation, rotation, scale);
+					trans.decompose( translation, rotation, scale );
+					if ( nif->getBSVersion() < 170 )
+						translation = translation * float( 0.9144 / 64.0 );		// convert to meters
 
 					auto quat = rotation.toQuat();
 					gltfNode.translation = { translation[0], translation[1], translation[2] };
@@ -517,6 +527,8 @@ void GltfStore::meshFileFromShape( MeshFile & mesh, const Shape * shape )
 		return;
 
 	mesh.positions = shape->verts;
+	for ( auto & v : mesh.positions )
+		v = v * float( 0.9144 / 64.0 );		// convert to meters
 	mesh.normals = shape->norms;
 	mesh.colors = shape->colors;
 	mesh.tangents = shape->bitangents;
@@ -1356,6 +1368,8 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 			Vector3	tmpScale;
 			m.decompose( t.translation, t.rotation, tmpScale );
 			applyXYZScale( t, tmpScale );
+			if ( nif->getBSVersion() < 170 )
+				t.translation = t.translation * float( 64.0 / 0.9144 );		// convert from meters
 			QModelIndex	iBone = nif->getIndex( iBones, int(i) );
 			if ( iBone.isValid() )
 				t.writeBack( nif, iBone );
@@ -1504,6 +1518,10 @@ bool ImportGltf::loadMesh(
 			std::uint32_t	numVerts = std::uint32_t( positions.size() / 3 );
 			if ( !numVerts )
 				continue;
+			if ( nif->getBSVersion() < 170 ) {
+				for ( float & x : positions )
+					x = x * float( 64.0 / 0.9144 );		// convert from meters
+			}
 			float	maxPos = 0.0f;
 			for ( float x : positions )
 				maxPos = std::max( maxPos, float( std::fabs(x) ) );
@@ -1731,7 +1749,8 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 				continue;
 		}
 
-		QPersistentModelIndex	iBlock = nif->insertNiBlock( !haveMesh ? "NiNode" : "BSGeometry" );
+		QPersistentModelIndex	iBlock =
+			nif->insertNiBlock( !haveMesh ? "NiNode" : ( nif->getBSVersion() < 170 ? "BSTriShape" : "BSGeometry" ) );
 		if ( index.isValid() ) {
 			NifItem *	parentItem = nif->getItem( index );
 			if ( parentItem ) {
@@ -1749,7 +1768,8 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 				}
 			}
 		}
-		nif->set<quint32>( iBlock, "Flags", ( !haveMesh ? 14U : 526U ) );	// enable internal geometry
+		// enable internal geometry for Starfield meshes
+		nif->set<quint32>( iBlock, "Flags", ( !( haveMesh && nif->getBSVersion() >= 170 ) ? 14U : 526U ) );
 		nif->set<QString>( iBlock, "Name", QString::fromStdString( node.name ) );
 
 		Transform	t;
@@ -1783,6 +1803,8 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 			t.rotation = t.rotation.toZUp();
 			t.translation = Vector3( t.translation[0], -(t.translation[2]), t.translation[1] );
 		}
+		if ( nif->getBSVersion() < 170 )
+			t.translation = t.translation * float( 64.0 / 0.9144 );		// convert from meters
 		t.writeBack( nif, iBlock );
 
 		if ( meshPrim ) {
