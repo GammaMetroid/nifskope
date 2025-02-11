@@ -241,7 +241,7 @@ private:
 	QPersistentModelIndex iDragTarget;
 	QString fnDragTex, fnDragTexOrg;
 
-	bool isDisabled = true;
+	bool isDisabled = false;
 	bool doCompile = false;
 	bool doCenter = false;
 	unsigned char updatePending = 0;
