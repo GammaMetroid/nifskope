@@ -1,10 +1,6 @@
 #include "nifskope.h"
-#include "data/niftypes.h"
 #include "gl/glscene.h"
-#include "gl/glnode.h"
-#include "gl/gltools.h"
 #include "gl/BSMesh.h"
-#include "io/MeshFile.h"
 #include "model/nifmodel.h"
 #include "message.h"
 #include "ddstxt16.hpp"
@@ -21,7 +17,6 @@
 
 #include <QApplication>
 #include <QBuffer>
-#include <QVector>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -34,8 +29,37 @@
 
 static bool	gltfEnableLOD = false;
 
-struct GltfStore
+class GltfStore
 {
+protected:
+	tinygltf::Model &	model;
+	NifModel *	nif;
+	CE2MaterialDB *	materialDB;
+	int	mipLevel;
+	std::set< std::string >	materialSet;
+	std::map< std::string, int >	textureMap;
+	DDSTexture16 * loadTexture( const std::string_view & txtPath );
+	int addGltfTexture( const std::string & textureMapKey, const QByteArray & imageBuf,
+						int width, int height, int channels, unsigned char texCoordModeS, unsigned char texCoordModeT );
+	// n = 0: albedo
+	// n = 1: normal
+	// n = 2: PBR
+	// n = 3: occlusion
+	// n = 4: emissive
+	void getTexture( tinygltf::Material & mat, int n, const std::string & txtPath1, const std::string & txtPath2,
+					const CE2Material::UVStream * uvStream );
+	// for Skyrim SE, Fallout 4 and Fallout 76
+	void getTexture( tinygltf::Material & mat, int n, const Shape * mesh );
+	static std::string getTexturePath( const CE2Material::TextureSet * txtSet, int n, std::uint32_t defaultColor = 0 );
+public:
+	GltfStore( NifModel * nifModel, tinygltf::Model & gltfModel, int textureMipLevel )
+		: model( gltfModel ), nif( nifModel ), materialDB( nullptr ), mipLevel( textureMipLevel )
+	{
+		if ( nif->getBSVersion() >= 170 )
+			materialDB = nif->getCE2Materials();
+	}
+	void exportMaterial( tinygltf::Material & mat, const std::string & matPath, const Shape * mesh = nullptr );
+
 	// Block ID to list of gltfNodeID
 	// BSGeometry may have 1-4 associated gltfNodeID to deal with LOD0-LOD3
 	// NiNode will only have 1 gltfNodeID
@@ -43,23 +67,23 @@ struct GltfStore
 	// gltfSkinID to Shape
 	QMap<int, Shape*> skins;
 	// Material Paths
-	std::map< std::string, int > materials;
+	std::map< std::string, std::pair< int, const Shape * > > materials;
 
 	QStringList errors;
 
 	bool flatSkeleton = false;
 
-	static QStringList getBoneNames( const NifModel * nif, const Shape * shape );
-	void createInverseBoneMatrices( tinygltf::Model & model, QByteArray & bin, const Shape * bsmesh, int gltfSkinID );
-	static std::string getMaterialName( const NifModel * nif, const QModelIndex & index );
-	static std::string getMaterialPath( const NifModel * nif, const QModelIndex & index );
-	bool createNodes( const NifModel * nif, const Scene * scene, tinygltf::Model & model, QByteArray & bin );
-	void createPrimitive( tinygltf::Model & model, QByteArray & bin, const MeshFile * mesh, tinygltf::Primitive & prim,
+	QStringList getBoneNames( const Shape * shape ) const;
+	void createInverseBoneMatrices( QByteArray & bin, const Shape * bsmesh, int gltfSkinID ) const;
+	std::string getMaterialName( const QModelIndex & index ) const;
+	std::string getMaterialPath( const QModelIndex & index ) const;
+	bool createNodes( const Scene * scene, QByteArray & bin );
+	void createPrimitive( QByteArray & bin, const MeshFile * mesh, tinygltf::Primitive & prim,
 							std::string attr, int count, int componentType, int type, quint32 & attributeIndex );
 	static void meshFileFromShape( MeshFile & mesh, const Shape * shape );
-	bool createPrimitives( tinygltf::Model & model, QByteArray & bin, const Shape * bsmesh, tinygltf::Mesh & gltfMesh,
+	bool createPrimitives( QByteArray & bin, const Shape * bsmesh, tinygltf::Mesh & gltfMesh,
 							quint32 & attributeIndex, quint32 lodLevel, int materialID, qint32 meshLodLevel = -1 );
-	bool createMeshes( const NifModel * nif, const Scene * scene, tinygltf::Model & model, QByteArray & bin );
+	bool createMeshes( const Scene * scene, QByteArray & bin );
 };
 
 
@@ -79,7 +103,7 @@ static inline void exportFloats( QByteArray & bin, const float * data, size_t n 
 	bin.append( buf, nBytes );
 }
 
-QStringList GltfStore::getBoneNames( const NifModel * nif, const Shape * shape )
+QStringList GltfStore::getBoneNames( const Shape * shape ) const
 {
 	QStringList	boneNames;
 
@@ -113,8 +137,7 @@ QStringList GltfStore::getBoneNames( const NifModel * nif, const Shape * shape )
 	return boneNames;
 }
 
-void GltfStore::createInverseBoneMatrices(
-	tinygltf::Model & model, QByteArray & bin, const Shape * bsmesh, int gltfSkinID )
+void GltfStore::createInverseBoneMatrices( QByteArray & bin, const Shape * bsmesh, int gltfSkinID ) const
 {
 	auto bufferViewIndex = model.bufferViews.size();
 	auto acc = tinygltf::Accessor();
@@ -127,7 +150,8 @@ void GltfStore::createInverseBoneMatrices(
 	tinygltf::BufferView view;
 	view.buffer = 0;
 	view.byteOffset = bin.size();
-	view.byteLength = acc.count * tinygltf::GetComponentSizeInBytes(acc.componentType) * tinygltf::GetNumComponentsInType(acc.type);
+	view.byteLength = acc.count * tinygltf::GetComponentSizeInBytes(acc.componentType)
+						* tinygltf::GetNumComponentsInType(acc.type);
 	model.bufferViews.push_back(view);
 
 	model.skins[gltfSkinID].inverseBindMatrices = bufferViewIndex;
@@ -142,16 +166,24 @@ void GltfStore::createInverseBoneMatrices(
 	}
 }
 
-std::string GltfStore::getMaterialName( const NifModel * nif, const QModelIndex & index )
+std::string GltfStore::getMaterialName( const QModelIndex & index ) const
 {
-	if ( nif->getBSVersion() >= 130 ) {
-		if ( auto iSPBlock = nif->getBlockIndex( nif->getLink( index, "Shader Property" ) ); iSPBlock.isValid() )
-			return nif->get<QString>( iSPBlock, "Name" ).toStdString();
+	auto	iSPBlock = nif->getBlockIndex( nif->getLink( index, "Shader Property" ) );
+	std::string	matPath;
+	if ( nif->getBSVersion() >= 130 && iSPBlock.isValid() )
+		matPath = nif->get<QString>( iSPBlock, "Name" ).toStdString();
+	if ( matPath.empty() && nif->getBSVersion() < 170 ) {
+		int	blockNum = 0;
+		if ( iSPBlock.isValid() )
+			blockNum = nif->getBlockNumber( iSPBlock );
+		else if ( index.isValid() )
+			blockNum = nif->getBlockNumber( index );
+		printToString( matPath, "Material_%05d", blockNum );
 	}
-	return std::string();
+	return matPath;
 }
 
-std::string GltfStore::getMaterialPath( const NifModel * nif, const QModelIndex & index )
+std::string GltfStore::getMaterialPath( const QModelIndex & index ) const
 {
 	if ( nif->getBSVersion() >= 130 ) {
 		if ( auto iSPBlock = nif->getBlockIndex( nif->getLink( index, "Shader Property" ) ); iSPBlock.isValid() ) {
@@ -163,10 +195,10 @@ std::string GltfStore::getMaterialPath( const NifModel * nif, const QModelIndex 
 			}
 		}
 	}
-	return std::string();
+	return getMaterialName( index );
 }
 
-bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf::Model & model, QByteArray & bin )
+bool GltfStore::createNodes( const Scene * scene, QByteArray & bin )
 {
 	int gltfNodeID = 0;
 	int gltfSkinID = -1;
@@ -193,13 +225,13 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 		std::string	matPath;
 		std::uint32_t	matPathCRC = 0U;
 		if ( mesh ) {
-			matPath = getMaterialPath( nif, iBlock );
+			matPath = getMaterialPath( iBlock );
 			if ( !matPath.empty() ) {
 				for ( char c : matPath )
 					hashFunctionCRC32( matPathCRC, (unsigned char) ( c != '/' ? c : '\\' ) );
 				if ( materials.find( matPath ) == materials.end() ) {
 					int materialID = int( materials.size() );
-					materials.emplace( matPath, materialID );
+					materials.emplace( matPath, std::pair< int, const Shape * >( materialID, mesh ) );
 				}
 			}
 			if ( sfMesh ) {
@@ -249,7 +281,7 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 			extras["ID"] = tinygltf::Value(nodeId);
 			extras["Parent ID"] = tinygltf::Value((node->parentNode()) ? node->parentNode()->id() : -1);
 			if ( mesh && nif->getBSVersion() >= 130 ) {
-				extras["Material Path"] = tinygltf::Value( getMaterialName( nif, iBlock ) );
+				extras["Material Path"] = tinygltf::Value( getMaterialName( iBlock ) );
 				if ( sfMesh )
 					extras["NiIntegerExtraData:MaterialID"] = tinygltf::Value( int(matPathCRC) );
 			}
@@ -295,7 +327,7 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 	}
 	if ( hasSkeleton ) {
 		for ( const auto mesh : skins ) {
-			if ( auto boneNames = getBoneNames( nif, mesh ); !boneNames.isEmpty() ) {
+			if ( auto boneNames = getBoneNames( mesh ); !boneNames.isEmpty() ) {
 				for ( const auto & name : boneNames ) {
 					auto nameStr = name.toStdString();
 					auto it = std::find_if(model.nodes.begin(), model.nodes.end(), [&](const tinygltf::Node& n) {
@@ -333,7 +365,7 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 				model.skins[skinID].name = gltfNode.name + "_Armature";
 				model.nodes[0].children.push_back(skeletonRoot);
 
-				auto	boneNames = getBoneNames( nif, mesh );
+				auto	boneNames = getBoneNames( mesh );
 				for ( int i = 0; i < mesh->bones.size(); i++ ) {
 					Matrix4	trans;
 					if ( i < mesh->boneData.size() )
@@ -363,7 +395,7 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 					gltfNodeID++;
 				}
 
-				createInverseBoneMatrices( model, bin, mesh, skinID );
+				createInverseBoneMatrices( bin, mesh, skinID );
 			}
 
 			skinID++;
@@ -381,7 +413,7 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 				// TODO: 0 should come from BSSkin::Instance Skeleton Root, mapped to gltfNodeID
 				// However, non-zero Skeleton Root never happens, at least in Starfield
 				model.skins[skinID].skeleton = (skeletonRoot == -1) ? 0 : skeletonRoot;
-				auto	boneNames = getBoneNames( nif, mesh );
+				auto	boneNames = getBoneNames( mesh );
 				for ( const auto & name : boneNames ) {
 					auto nameStr = name.toStdString();
 					auto it = std::find_if(model.nodes.begin(), model.nodes.end(), [&](const tinygltf::Node& n) {
@@ -396,7 +428,7 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 					}
 				}
 
-				createInverseBoneMatrices( model, bin, mesh, skinID );
+				createInverseBoneMatrices( bin, mesh, skinID );
 			}
 			skinID++;
 		}
@@ -406,7 +438,7 @@ bool GltfStore::createNodes( const NifModel * nif, const Scene * scene, tinygltf
 }
 
 void GltfStore::createPrimitive(
-	tinygltf::Model & model, QByteArray & bin, const MeshFile * mesh, tinygltf::Primitive & prim,
+	QByteArray & bin, const MeshFile * mesh, tinygltf::Primitive & prim,
 	std::string attr, int count, int componentType, int type, quint32 & attributeIndex )
 {
 	if ( count < 1 )
@@ -561,7 +593,7 @@ void GltfStore::meshFileFromShape( MeshFile & mesh, const Shape * shape )
 }
 
 bool GltfStore::createPrimitives(
-	tinygltf::Model & model, QByteArray & bin, const Shape * bsmesh, tinygltf::Mesh & gltfMesh,
+	QByteArray & bin, const Shape * bsmesh, tinygltf::Mesh & gltfMesh,
 	quint32 & attributeIndex, quint32 lodLevel, int materialID, qint32 meshLodLevel )
 {
 	MeshFile	tmpMeshFile( nullptr, 0 );
@@ -582,40 +614,42 @@ bool GltfStore::createPrimitives(
 	if ( meshLodLevel >= 0 && !model.meshes.empty() && !model.meshes.back().primitives.empty() ) {
 		prim = model.meshes.back().primitives.front();
 	} else {
-		createPrimitive( model, bin, mesh, prim, "POSITION", mesh->positions.size(),
+		createPrimitive( bin, mesh, prim, "POSITION", mesh->positions.size(),
 							TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, attributeIndex );
-		createPrimitive( model, bin, mesh, prim, "NORMAL", mesh->normals.size(),
+		createPrimitive( bin, mesh, prim, "NORMAL", mesh->normals.size(),
 							TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, attributeIndex );
-		createPrimitive( model, bin, mesh, prim, "TANGENT", mesh->tangents.size(),
+		createPrimitive( bin, mesh, prim, "TANGENT", mesh->tangents.size(),
 							TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		if ( mesh->coords1.size() > 0 ) {
-			createPrimitive( model, bin, mesh, prim, "TEXCOORD_0", mesh->coords1.size(),
+			createPrimitive( bin, mesh, prim, "TEXCOORD_0", mesh->coords1.size(),
 								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, attributeIndex );
 		}
 		if ( mesh->coords2.size() > 0 ) {
-			createPrimitive( model, bin, mesh, prim, "TEXCOORD_1", mesh->coords2.size(),
+			createPrimitive( bin, mesh, prim, "TEXCOORD_1", mesh->coords2.size(),
 								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, attributeIndex );
 		}
-		createPrimitive( model, bin, mesh, prim, "COLOR_0", mesh->colors.size(),
-							TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
+		if ( bsmesh->hasVertexColors && mesh->colors.size() > 0 ) {
+			createPrimitive( bin, mesh, prim, "COLOR_0", mesh->colors.size(),
+								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
+		}
 
 		if ( mesh->weights.size() > 0 && mesh->weightsPerVertex > 0 ) {
-			createPrimitive( model, bin, mesh, prim, "WEIGHTS_0", mesh->weights.size() / mesh->weightsPerVertex,
+			createPrimitive( bin, mesh, prim, "WEIGHTS_0", mesh->weights.size() / mesh->weightsPerVertex,
 								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		}
 
 		if ( mesh->weights.size() > 0 && mesh->weightsPerVertex > 4 ) {
-			createPrimitive( model, bin, mesh, prim, "WEIGHTS_1", mesh->weights.size() / mesh->weightsPerVertex,
+			createPrimitive( bin, mesh, prim, "WEIGHTS_1", mesh->weights.size() / mesh->weightsPerVertex,
 								TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		}
 
 		if ( mesh->weights.size() > 0 && mesh->weightsPerVertex > 0 ) {
-			createPrimitive( model, bin, mesh, prim, "JOINTS_0", mesh->weights.size() / mesh->weightsPerVertex,
+			createPrimitive( bin, mesh, prim, "JOINTS_0", mesh->weights.size() / mesh->weightsPerVertex,
 								TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		}
 
 		if ( mesh->weights.size() > 0 && mesh->weightsPerVertex > 4 ) {
-			createPrimitive( model, bin, mesh, prim, "JOINTS_1", mesh->weights.size() / mesh->weightsPerVertex,
+			createPrimitive( bin, mesh, prim, "JOINTS_1", mesh->weights.size() / mesh->weightsPerVertex,
 								TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, attributeIndex );
 		}
 	}
@@ -658,7 +692,7 @@ bool GltfStore::createPrimitives(
 	return true;
 }
 
-bool GltfStore::createMeshes( const NifModel * nif, const Scene * scene, tinygltf::Model & model, QByteArray & bin )
+bool GltfStore::createMeshes( const Scene * scene, QByteArray & bin )
 {
 	int meshIndex = 0;
 	quint32 attributeIndex = model.bufferViews.size();
@@ -694,13 +728,12 @@ bool GltfStore::createMeshes( const NifModel * nif, const Scene * scene, tinyglt
 					gltfMesh.name = QString("%1%2%3").arg(node->getName()).arg(":LOD").arg(j).toStdString();
 				}
 				int materialID = 0;
-				std::string	materialPath = getMaterialPath( nif, iBlock );
-				if ( nif->getBSVersion() >= 170 && !materialPath.empty() )
-					materialID = materials[materialPath];
+				std::string	materialPath = getMaterialPath( iBlock );
+				if ( !materialPath.empty() )
+					materialID = materials[materialPath].first;
 				int	lodLevel = (hasGPULODs) ? 0 : j;
 				int	skeletalLodIndex = ( hasGPULODs ? j : 0 ) - 1;
-				if ( createPrimitives( model, bin, mesh, gltfMesh, attributeIndex,
-										lodLevel, materialID, skeletalLodIndex ) ) {
+				if ( createPrimitives( bin, mesh, gltfMesh, attributeIndex, lodLevel, materialID, skeletalLodIndex ) ) {
 					meshIndex++;
 					model.meshes.push_back(gltfMesh);
 				} else {
@@ -714,32 +747,9 @@ bool GltfStore::createMeshes( const NifModel * nif, const Scene * scene, tinyglt
 }
 
 
-class ExportGltfMaterials {
-protected:
-	tinygltf::Model &	model;
-	NifModel *	nif;
-	CE2MaterialDB *	materials;
-	int	mipLevel;
-	std::set< std::string >	materialSet;
-	std::map< std::string, int >	textureMap;
-	DDSTexture16 * loadTexture( const std::string_view & txtPath );
-	// n = 0: albedo
-	// n = 1: normal
-	// n = 2: PBR
-	// n = 3: occlusion
-	// n = 4: emissive
-	void getTexture( tinygltf::Material & mat, int n, const std::string & txtPath1, const std::string & txtPath2,
-					const CE2Material::UVStream * uvStream );
-	static std::string getTexturePath( const CE2Material::TextureSet * txtSet, int n, std::uint32_t defaultColor = 0 );
-public:
-	ExportGltfMaterials( NifModel * nifModel, tinygltf::Model & gltfModel, int textureMipLevel )
-		: model( gltfModel ), nif( nifModel ), materials( nif->getCE2Materials() ), mipLevel( textureMipLevel )
-	{
-	}
-	void exportMaterial( tinygltf::Material & mat, const std::string & matPath );
-};
+// material export
 
-DDSTexture16 * ExportGltfMaterials::loadTexture( const std::string_view & txtPath )
+DDSTexture16 * GltfStore::loadTexture( const std::string_view & txtPath )
 {
 	if ( txtPath.length() == 9 && txtPath[0] == '#' ) {
 		std::uint32_t	c = 0;
@@ -766,9 +776,66 @@ DDSTexture16 * ExportGltfMaterials::loadTexture( const std::string_view & txtPat
 	return t;
 }
 
-void ExportGltfMaterials::getTexture(
-	tinygltf::Material & mat, int n, const std::string & txtPath1, const std::string & txtPath2,
-	const CE2Material::UVStream * uvStream )
+int GltfStore::addGltfTexture(
+	const std::string & textureMapKey, const QByteArray & imageBuf,
+	int width, int height, int channels, unsigned char texCoordModeS, unsigned char texCoordModeT )
+{
+	if ( auto i = textureMap.find( textureMapKey ); i != textureMap.end() )
+		return i->second;
+
+	int	textureID = -1;
+
+	if ( !imageBuf.isEmpty() ) {
+		int	bufView = -1;
+		if ( !imageBuf.isEmpty() && !model.buffers.empty() ) {
+			bufView = int( model.bufferViews.size() );
+			tinygltf::BufferView &	v = model.bufferViews.emplace_back();
+			v.buffer = int( model.buffers.size() - 1 );
+			std::vector< unsigned char > &	buf = model.buffers.back().data;
+			v.byteOffset = buf.size();
+			v.byteLength = size_t( imageBuf.size() );
+			buf.resize( v.byteOffset + v.byteLength );
+			std::memcpy( buf.data() + v.byteOffset, imageBuf.data(), v.byteLength );
+		}
+
+		if ( bufView >= 0 ) {
+			tinygltf::Image &	img = model.images.emplace_back();
+			img.width = width;
+			img.height = height;
+			img.component = channels;
+			img.bits = 8;
+			img.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
+			img.bufferView = bufView;
+			img.mimeType = "image/png";
+			textureID = int( model.textures.size() );
+			model.textures.emplace_back().source = int( model.images.size() - 1 );
+			if ( texCoordModeS || texCoordModeT ) {
+				static const int wrapModeTable[4] = {
+					TINYGLTF_TEXTURE_WRAP_REPEAT, TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE,
+					TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT, TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE
+				};
+				int	wrapModeS = wrapModeTable[texCoordModeS & 3];
+				int	wrapModeT = wrapModeTable[texCoordModeT & 3];
+				for ( const auto & j : model.samplers ) {
+					if ( j.wrapS == wrapModeS && j.wrapT == wrapModeT ) {
+						model.textures.back().sampler = int( &j - model.samplers.data() );
+						break;
+					}
+				}
+				if ( model.textures.back().sampler < 0 ) {
+					model.samplers.emplace_back().wrapS = wrapModeS;
+					model.samplers.back().wrapT = wrapModeT;
+					model.textures.back().sampler = int( model.samplers.size() - 1 );
+				}
+			}
+		}
+	}
+
+	return textureMap.emplace( textureMapKey, textureID ).first->second;
+}
+
+void GltfStore::getTexture( tinygltf::Material & mat, int n, const std::string & txtPath1, const std::string & txtPath2,
+							const CE2Material::UVStream * uvStream )
 {
 	if ( txtPath1.empty() && txtPath2.empty() )
 		return;
@@ -783,8 +850,10 @@ void ExportGltfMaterials::getTexture(
 		texCoordChannel = (unsigned char) ( uvStream->channel > 1 );
 	}
 
-	auto	i = textureMap.find( textureMapKey );
-	if ( i == textureMap.end() ) {
+	int	i;
+	if ( auto j = textureMap.find( textureMapKey ); j != textureMap.end() ) {
+		i = j->second;
+	} else {
 		// load texture(s) and convert to glTF compatible PNG format
 		QByteArray	imageBuf;
 		int	width = 1;
@@ -868,76 +937,249 @@ void ExportGltfMaterials::getTexture(
 		}
 
 		// if a valid image has been created, add it as a glTF buffer view
-		int	bufView = -1;
-		if ( !imageBuf.isEmpty() && !model.buffers.empty() ) {
-			bufView = int( model.bufferViews.size() );
-			tinygltf::BufferView &	v = model.bufferViews.emplace_back();
-			v.buffer = int( model.buffers.size() - 1 );
-			std::vector< unsigned char > &	buf = model.buffers.back().data;
-			v.byteOffset = buf.size();
-			v.byteLength = size_t( imageBuf.size() );
-			buf.resize( v.byteOffset + v.byteLength );
-			std::memcpy( buf.data() + v.byteOffset, imageBuf.data(), v.byteLength );
-		}
-
-		int	textureID = -1;
-		if ( bufView >= 0 ) {
-			tinygltf::Image &	img = model.images.emplace_back();
-			img.width = width;
-			img.height = height;
-			img.component = channels;
-			img.bits = 8;
-			img.pixel_type = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
-			img.bufferView = bufView;
-			img.mimeType = "image/png";
-			textureID = int( model.textures.size() );
-			model.textures.emplace_back().source = int( model.images.size() - 1 );
-			if ( texCoordMode ) {
-				int	wrapMode = TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE;
-				if ( !( texCoordMode & 1 ) )
-					wrapMode = TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT;
-				for ( const auto & j : model.samplers ) {
-					if ( j.wrapS == wrapMode ) {
-						model.textures.back().sampler = int( &j - model.samplers.data() );
-						break;
-					}
-				}
-				if ( model.textures.back().sampler < 0 ) {
-					model.samplers.emplace_back().wrapS = wrapMode;
-					model.samplers.back().wrapT = wrapMode;
-					model.textures.back().sampler = int( model.samplers.size() - 1 );
-				}
-			}
-		}
-
-		i = textureMap.emplace( textureMapKey, textureID ).first;
+		i = addGltfTexture( textureMapKey, imageBuf, width, height, channels, texCoordMode, texCoordMode );
 	}
 
 	switch ( n ) {
 	case 0:
-		mat.pbrMetallicRoughness.baseColorTexture.index = i->second;
+		mat.pbrMetallicRoughness.baseColorTexture.index = i;
 		mat.pbrMetallicRoughness.baseColorTexture.texCoord = texCoordChannel;
 		break;
 	case 1:
-		mat.normalTexture.index = i->second;
+		mat.normalTexture.index = i;
 		mat.normalTexture.texCoord = texCoordChannel;
 		break;
 	case 2:
-		mat.pbrMetallicRoughness.metallicRoughnessTexture.index = i->second;
+		mat.pbrMetallicRoughness.metallicRoughnessTexture.index = i;
 		mat.pbrMetallicRoughness.metallicRoughnessTexture.texCoord = texCoordChannel;
 		break;
 	case 3:
-		mat.occlusionTexture.index = i->second;
+		mat.occlusionTexture.index = i;
 		mat.occlusionTexture.texCoord = texCoordChannel;
 		break;
 	case 4:
-		mat.emissiveTexture.index = i->second;
+		mat.emissiveTexture.index = i;
 		mat.emissiveTexture.texCoord = texCoordChannel;
 		break;
 	}
 }
 
-std::string ExportGltfMaterials::getTexturePath(
+void GltfStore::getTexture( tinygltf::Material & mat, int n, const Shape * mesh )
+{
+	if ( !( mesh && mesh->bssp && ( mesh->bslsp || mesh->bsesp ) ) )
+		return;
+
+	std::string	texturePaths[3];
+	int	textureSlots[3] = { -1, -1, -1 };
+	auto	bsVersion = nif->getBSVersion();
+	switch ( n ) {
+	case 0:						// albedo (TODO: greyscale to palette mapping)
+		textureSlots[0] = 0;
+		if ( bsVersion >= 151 )
+			textureSlots[1] = ( mesh->bsesp ? 6 : 8 );
+		break;
+	case 1:						// normal
+		textureSlots[0] = ( mesh->bsesp ? 3 : 1 );
+		break;
+	case 2:						// PBR
+		if ( bsVersion >= 151 ) {
+			textureSlots[0] = 0;
+			textureSlots[1] = ( mesh->bsesp ? 6 : 8 );
+			textureSlots[2] = ( mesh->bsesp ? 7 : 9 );
+		} else if ( bsVersion >= 130 && !mesh->bsesp ) {
+			textureSlots[0] = 7;
+			textureSlots[1] = 5;
+		}
+		break;
+	case 3:						// occlusion
+		if ( bsVersion >= 151 )
+			textureSlots[0] = ( mesh->bsesp ? 7 : 9 );
+		break;
+	case 4:						// emissive
+		if ( !mesh->bsesp )
+			textureSlots[0] = 2;
+		if ( bsVersion >= 151 )
+			textureSlots[1] = ( mesh->bsesp ? 7 : 9 );
+		break;
+	}
+	for ( int i = 0; i < 3; i++ ) {
+		if ( textureSlots[i] >= 0 ) {
+			if ( QString fileName = mesh->bssp->fileName( textureSlots[i] ); !fileName.isEmpty() )
+				texturePaths[i] = Game::GameManager::get_full_path( fileName, "textures/", ".dds" );
+		}
+	}
+
+	std::string	textureMapKey;
+	printToString( textureMapKey, "%s\n%s\n%s\n%d",
+					texturePaths[0].c_str(), texturePaths[1].c_str(), texturePaths[2].c_str(), n );
+
+	unsigned char	texCoordModeS = 0;	// "Wrap"
+	unsigned char	texCoordModeT = 0;
+	switch ( mesh->bssp->clampMode ) {
+	case TexClampMode::CLAMP_S_WRAP_T:
+		texCoordModeS = 1;
+		break;
+	case TexClampMode::WRAP_S_CLAMP_T:
+		texCoordModeT = 1;
+		break;
+	case TexClampMode::CLAMP_S_CLAMP_T:
+		texCoordModeS = 1;
+		texCoordModeT = 1;
+		break;
+	default:
+		break;
+	}
+
+	int	i;
+	if ( auto j = textureMap.find( textureMapKey ); j != textureMap.end() ) {
+		i = j->second;
+	} else {
+		// load texture(s) and convert to glTF compatible PNG format
+		QByteArray	imageBuf;
+		int	width = 1;
+		int	height = 1;
+		int	channels = 0;
+		DDSTexture16 *	t[3] = { nullptr, nullptr, nullptr };
+		try {
+			for ( int j = 0; j < 3; j++ ) {
+				if ( !texturePaths[j].empty() && ( t[j] = loadTexture( texturePaths[j] ) ) != nullptr ) {
+					width = std::max< int >( width, t[j]->getWidth() );
+					height = std::max< int >( height, t[j]->getHeight() );
+				}
+			}
+			if ( t[0] || t[1] || t[2] )
+				channels = ( n == 0 ? 4 : ( n == 3 ? 1 : 3 ) );
+			if ( channels == 4 && !( mesh->bsesp || ( mesh->alphaProperty
+														&& ( mesh->alphaProperty->hasAlphaBlend()
+															|| mesh->alphaProperty->hasAlphaTest() ) ) ) ) {
+				channels = 3;
+			}
+			QImage::Format	fmt =
+				( channels <= 1 ? QImage::Format_Grayscale8
+									: ( channels == 3 ? QImage::Format_RGB888 : QImage::Format_RGBA8888 ) );
+			QImage	img( width, height, fmt );
+			size_t	lineBytes = size_t( img.bytesPerLine() );
+			float	xScale = 1.0f / float( width );
+			float	xOffset = xScale * 0.5f;
+			float	yScale = 1.0f / float( height );
+			float	yOffset = yScale * 0.5f;
+			bool	f[3];
+			for ( int j = 0; j < 3; j++ )
+				f[j] = ( t[j] && ( t[j]->getWidth() != width || t[j]->getHeight() != height ) );
+			for ( int y = 0; channels > 0 && y < height; y++ ) {
+				unsigned char *	imgPtr = reinterpret_cast< unsigned char * >( img.bits() ) + ( size_t(y) * lineBytes );
+				for ( int x = 0; x < width; x++, imgPtr = imgPtr + channels ) {
+					FloatVector4	c[3];
+					float	xf = float( x ) * xScale + xOffset;
+					float	yf = float( y ) * yScale + yOffset;
+					for ( int j = 0; j < 3; j++ ) {
+						if ( !t[j] )
+							c[j] = FloatVector4( 0.0f, 0.0f, 0.0f, 1.0f );
+						else if ( !f[j] )
+							c[j] = FloatVector4::convertFloat16( t[j]->getPixelN( x, y, 0 ) );
+						else
+							c[j] = t[j]->getPixelB( xf, yf, 0 );
+					}
+					switch ( n ) {
+					case 0:
+						// albedo: combine with Fallout 76 reflectance texture
+						if ( t[1] ) {
+							FloatVector4	diffuse = DDSTexture16::srgbExpand( c[0] );
+							FloatVector4	specular = ( DDSTexture16::srgbExpand( c[1] ) - 0.04f ) * ( 1.0f / 0.96f );
+							specular.maxValues( FloatVector4( 0.0f ) );
+							FloatVector4	albedo = ( diffuse + specular ).minValues( FloatVector4( 1.0f ) );
+							c[0].blendValues( DDSTexture16::srgbCompress( albedo ), 0x07 );
+						}
+						break;
+					case 1:
+						// normal map: calculate Z (blue) channel and convert to unsigned format
+						if ( t[0] && bsVersion < 151 )
+							c[0] = c[0] * 2.0f - 1.0f;
+						c[0][2] = float( std::sqrt( std::max( 1.0f - c[0].dotProduct2(c[0]), 0.0f ) ) );
+						c[0] = c[0] * FloatVector4( 0.5f, -0.5f, 0.5f, 0.5f ) + 0.5f;	// invert green channel
+						break;
+					case 2:
+						// PBR map: G = roughness, B = metalness
+						if ( bsVersion >= 151 ) {
+							FloatVector4	diffuse = DDSTexture16::srgbExpand( c[0] );
+							FloatVector4	specular = ( DDSTexture16::srgbExpand( c[1] ) - 0.04f ) * ( 1.0f / 0.96f );
+							specular.maxValues( FloatVector4( 0.0f ) );
+							FloatVector4	albedo = ( diffuse + specular ).minValues( FloatVector4( 1.0f ) );
+							c[0][0] = 0.0f;
+							c[0][1] = 1.0f - c[2][0];
+							c[0][2] = specular.dotProduct3( 1.0f ) / std::max( albedo.dotProduct3( 1.0f ), 0.001f );
+							c[0][3] = 1.0f;
+						} else if ( bsVersion >= 130 && t[0] ) {
+							c[0][0] = 0.0f;
+							c[0][1] = 1.0f - c[0][1];
+							c[0][2] = c[1][0];
+							c[0][3] = 1.0f;
+						}
+						break;
+					case 3:
+						// occlusion
+						if ( !t[0] )
+							c[0] = FloatVector4( 1.0f );
+						else
+							c[0].shuffleValues( 0xD5 );
+						break;
+					case 4:
+						// emissive
+						if ( t[1] )
+							c[0] = DDSTexture16::srgbCompress( DDSTexture16::srgbExpand( c[0] ) * c[1][3] );
+						break;
+					}
+					std::uint32_t	b = std::uint32_t( c[0] * 255.0f );
+					if ( channels == 3 ) {
+						FileBuffer::writeUInt16Fast( imgPtr, std::uint16_t( b ) );
+						imgPtr[2] = std::uint8_t( b >> 16 );
+					} else if ( channels == 4 ) {
+						FileBuffer::writeUInt32Fast( imgPtr, b );
+					} else {
+						*imgPtr = std::uint8_t( b );
+					}
+				}
+			}
+			for ( int j = 0; j < 3; j++ ) {
+				delete t[j];
+				t[j] = nullptr;
+			}
+
+			if ( channels ) {
+				QBuffer	tmpBuf( &imageBuf );
+				tmpBuf.open( QIODevice::WriteOnly );
+				img.save( &tmpBuf, "PNG", 89 );
+			}
+		} catch ( ... ) {
+			for ( int j = 0; j < 3; j++ )
+				delete t[j];
+			throw;
+		}
+
+		// if a valid image has been created, add it as a glTF buffer view
+		i = addGltfTexture( textureMapKey, imageBuf, width, height, channels, texCoordModeS, texCoordModeT );
+	}
+
+	switch ( n ) {
+	case 0:
+		mat.pbrMetallicRoughness.baseColorTexture.index = i;
+		break;
+	case 1:
+		mat.normalTexture.index = i;
+		break;
+	case 2:
+		mat.pbrMetallicRoughness.metallicRoughnessTexture.index = i;
+		break;
+	case 3:
+		mat.occlusionTexture.index = i;
+		break;
+	case 4:
+		mat.emissiveTexture.index = i;
+		break;
+	}
+}
+
+std::string GltfStore::getTexturePath(
 	const CE2Material::TextureSet * txtSet, int n, std::uint32_t defaultColor )
 {
 	if ( txtSet->texturePathMask & ( 1U << n ) )
@@ -950,58 +1192,92 @@ std::string ExportGltfMaterials::getTexturePath(
 	return tmp;
 }
 
-void ExportGltfMaterials::exportMaterial( tinygltf::Material & mat, const std::string & matPath )
+void GltfStore::exportMaterial( tinygltf::Material & mat, const std::string & matPath, const Shape * mesh )
 {
-	if ( matPath.empty() || !materials )
+	if ( matPath.empty() || !( ( nif->getBSVersion() >= 170 && materialDB ) || ( nif->getBSVersion() < 170 && mesh ) ) )
 		return;
 	if ( !materialSet.insert( matPath ).second )
 		return;
 
-	const CE2Material *	material = nullptr;
-	try {
-		material = materials->loadMaterial( matPath );
-	} catch ( NifSkopeError & ) {
-	}
-	if ( !material )
-		return;
-
-	const CE2Material::Layer *	layer = nullptr;
-	if ( int i = std::countr_zero< std::uint32_t >( material->layerMask ); i < CE2Material::maxLayers )
-		layer = material->layers[i];
-	if ( !( layer && layer->material && layer->material->textureSet ) )
-		return;
-
-	const CE2Material::Material *	m = layer->material;
-	const CE2Material::TextureSet *	txtSet = m->textureSet;
-
-	getTexture( mat, 0, getTexturePath( txtSet, 0, 0xFFFFFFFFU ), getTexturePath( txtSet, 2 ), layer->uvStream );
-	getTexture( mat, 1, getTexturePath( txtSet, 1 ), std::string(), layer->uvStream );
-	getTexture( mat, 2, getTexturePath( txtSet, 3 ), getTexturePath( txtSet, 4 ), layer->uvStream );
-	getTexture( mat, 3, getTexturePath( txtSet, 5 ), std::string(), layer->uvStream );
-	getTexture( mat, 4, getTexturePath( txtSet, 7 ), std::string(), layer->uvStream );
-
-	if ( material->shaderRoute == 1 ) {	// effect
-		mat.alphaMode = "BLEND";
-	} else if ( material->flags & CE2Material::Flag_HasOpacity ) {
-		mat.alphaMode = "MASK";
-		mat.alphaCutoff = material->alphaThreshold;
-	} else {
-		mat.alphaMode = "OPAQUE";
-	}
-	mat.doubleSided = bool( material->flags & CE2Material::Flag_TwoSided );
-	mat.normalTexture.scale = txtSet->floatParam;
-	mat.pbrMetallicRoughness.baseColorFactor[0] = m->color[0];
-	mat.pbrMetallicRoughness.baseColorFactor[1] = m->color[1];
-	mat.pbrMetallicRoughness.baseColorFactor[2] = m->color[2];
 	FloatVector4	emissiveFactor( 0.0f );
-	if ( material->emissiveSettings && material->emissiveSettings->isEnabled )
-		emissiveFactor = material->emissiveSettings->emissiveTint;
-	else if ( material->layeredEmissiveSettings && material->layeredEmissiveSettings->isEnabled )
-		emissiveFactor = FloatVector4( material->layeredEmissiveSettings->layer1Tint ) / 255.0f;
+	if ( nif->getBSVersion() < 170 && mesh && mesh->bssp && ( mesh->bslsp || mesh->bsesp ) ) {
+		// Skyrim, Fallout 4 or 76 shader property
+		getTexture( mat, 0, mesh );
+		getTexture( mat, 1, mesh );
+		if ( nif->getBSVersion() >= 130 )
+			getTexture( mat, 2, mesh );
+		if ( nif->getBSVersion() >= 151 )
+			getTexture( mat, 3, mesh );
+		if ( mesh->bslsp && mesh->bslsp->hasGlowMap )
+			getTexture( mat, 4, mesh );
+
+		if ( mesh->bsesp || ( mesh->alphaProperty && mesh->alphaProperty->hasAlphaBlend() ) ) {
+			mat.alphaMode = "BLEND";
+		} else if ( mesh->alphaProperty && mesh->alphaProperty->hasAlphaTest() ) {
+			mat.alphaMode = "MASK";
+			mat.alphaCutoff = mesh->alphaProperty->alphaThreshold;
+		} else {
+			mat.alphaMode = "OPAQUE";
+		}
+		mat.doubleSided = mesh->bssp->isDoubleSided;
+		mat.normalTexture.scale = 1.0f;
+		mat.pbrMetallicRoughness.baseColorFactor[0] = 1.0f;
+		mat.pbrMetallicRoughness.baseColorFactor[1] = 1.0f;
+		mat.pbrMetallicRoughness.baseColorFactor[2] = 1.0f;
+		if ( mesh->bslsp && mesh->bslsp->hasGlowMap ) {
+			if ( nif->getBSVersion() < 151 )
+				emissiveFactor = FloatVector4( Color4( mesh->bslsp->emissiveColor ) ) * mesh->bslsp->emissiveMult;
+			else
+				emissiveFactor = FloatVector4( 1.0f );
+		}
+	} else if ( materialDB ) {
+		// Starfield material
+		const CE2Material *	material = nullptr;
+		try {
+			material = materialDB->loadMaterial( matPath );
+		} catch ( NifSkopeError & ) {
+		}
+		if ( !material )
+			return;
+
+		const CE2Material::Layer *	layer = nullptr;
+		if ( int i = std::countr_zero< std::uint32_t >( material->layerMask ); i < CE2Material::maxLayers )
+			layer = material->layers[i];
+		if ( !( layer && layer->material && layer->material->textureSet ) )
+			return;
+
+		const CE2Material::Material *	m = layer->material;
+		const CE2Material::TextureSet *	txtSet = m->textureSet;
+
+		getTexture( mat, 0, getTexturePath( txtSet, 0, 0xFFFFFFFFU ), getTexturePath( txtSet, 2 ), layer->uvStream );
+		getTexture( mat, 1, getTexturePath( txtSet, 1 ), std::string(), layer->uvStream );
+		getTexture( mat, 2, getTexturePath( txtSet, 3 ), getTexturePath( txtSet, 4 ), layer->uvStream );
+		getTexture( mat, 3, getTexturePath( txtSet, 5 ), std::string(), layer->uvStream );
+		getTexture( mat, 4, getTexturePath( txtSet, 7 ), std::string(), layer->uvStream );
+
+		if ( material->shaderRoute == 1 ) {	// effect
+			mat.alphaMode = "BLEND";
+		} else if ( material->flags & CE2Material::Flag_HasOpacity ) {
+			mat.alphaMode = "MASK";
+			mat.alphaCutoff = material->alphaThreshold;
+		} else {
+			mat.alphaMode = "OPAQUE";
+		}
+		mat.doubleSided = bool( material->flags & CE2Material::Flag_TwoSided );
+		mat.normalTexture.scale = txtSet->floatParam;
+		mat.pbrMetallicRoughness.baseColorFactor[0] = m->color[0];
+		mat.pbrMetallicRoughness.baseColorFactor[1] = m->color[1];
+		mat.pbrMetallicRoughness.baseColorFactor[2] = m->color[2];
+		if ( material->emissiveSettings && material->emissiveSettings->isEnabled )
+			emissiveFactor = material->emissiveSettings->emissiveTint;
+		else if ( material->layeredEmissiveSettings && material->layeredEmissiveSettings->isEnabled )
+			emissiveFactor = FloatVector4( material->layeredEmissiveSettings->layer1Tint ) / 255.0f;
+	}
 	mat.emissiveFactor[0] = emissiveFactor[0];
 	mat.emissiveFactor[1] = emissiveFactor[1];
 	mat.emissiveFactor[2] = emissiveFactor[2];
 }
+
 
 static QString getGltfFolder( const NifModel * nif )
 {
@@ -1055,23 +1331,22 @@ void exportGltf( const NifModel * nif, const Scene * scene, [[maybe_unused]] con
 	tinygltf::Model model;
 	model.asset.generator = "NifSkope glTF 2.0 Exporter v1.2";
 
-	GltfStore gltf;
-	gltf.materials.emplace( std::string(), 0 );
+	GltfStore gltf( const_cast< NifModel * >( nif ), model, textureMipLevel );
+	gltf.materials.emplace( std::string(), std::pair< int, const Shape * >( 0, nullptr ) );
 	QByteArray buffer;
-	bool success = gltf.createNodes( nif, scene, model, buffer );
+	bool success = gltf.createNodes( scene, buffer );
 	if ( success )
-		success = gltf.createMeshes( nif, scene, model, buffer );
+		success = gltf.createMeshes( scene, buffer );
 	if ( success ) {
 		auto buff = tinygltf::Buffer();
 		buff.name = buffName.mid( QDir::fromNativeSeparators( buffName ).lastIndexOf( QChar('/') ) + 1 ).toStdString();
 		buff.data = std::vector<unsigned char>(buffer.cbegin(), buffer.cend());
 		model.buffers.push_back(buff);
 
-		ExportGltfMaterials	matExporter( const_cast< NifModel * >(nif), model, textureMipLevel );
 		model.materials.resize( gltf.materials.size() );
-		for ( const auto& i : gltf.materials ) {
+		for ( const auto & i : gltf.materials ) {
 			const std::string &	name = i.first;
-			int	materialID = i.second;
+			int	materialID = i.second.first;
 			auto &	mat = model.materials[materialID];
 
 			mat.name = ( !name.empty() ? name : std::string("Default") );
@@ -1082,18 +1357,20 @@ void exportGltf( const NifModel * nif, const Scene * scene, [[maybe_unused]] con
 				if ( size_t n = mat.name.rfind('/'); n != std::string::npos )
 					mat.name.erase( 0, n + 1 );
 			}
-			if ( mat.name.ends_with(".mat") )
+			if ( nif->getBSVersion() >= 170 && mat.name.ends_with(".mat") )
 				mat.name.resize( mat.name.length() - 4 );
+			else if ( nif->getBSVersion() >= 130 && ( mat.name.ends_with(".bgsm") || mat.name.ends_with(".bgem") ) )
+				mat.name.resize( mat.name.length() - 5 );
 			for ( size_t j = 0; j < mat.name.length(); j++ ) {
 				char	c = mat.name[j];
 				if ( std::islower(c) && ( j == 0 || !std::isalpha(mat.name[j - 1]) ) )
 					mat.name[j] = std::toupper( c );
 			}
 
-			matExporter.exportMaterial( mat, name );
+			gltf.exportMaterial( mat, name, i.second.second );
 		}
 
-		writer.WriteGltfSceneToFile(&model, filename.toStdString(), false, false, true, false);
+		writer.WriteGltfSceneToFile( &model, filename.toStdString(), false, false, true, false );
 	}
 
 	if ( gltf.errors.size() == 1 ) {
