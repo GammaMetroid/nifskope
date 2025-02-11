@@ -73,6 +73,8 @@ public:
 
 	bool flatSkeleton = false;
 
+	static inline void exportFloats( QByteArray & bin, const float * data, size_t n );
+	static inline Vector3 toMeters( const Vector3 & v );
 	QStringList getBoneNames( const Shape * shape ) const;
 	void createInverseBoneMatrices( QByteArray & bin, const Shape * bsmesh, int gltfSkinID ) const;
 	std::string getMaterialName( const QModelIndex & index ) const;
@@ -87,7 +89,7 @@ public:
 };
 
 
-static inline void exportFloats( QByteArray & bin, const float * data, size_t n )
+inline void GltfStore::exportFloats( QByteArray & bin, const float * data, size_t n )
 {
 #if defined(__i386__) || defined(__x86_64__) || defined(__x86_64)
 	const char *	buf = reinterpret_cast< const char * >( data );
@@ -101,6 +103,12 @@ static inline void exportFloats( QByteArray & bin, const float * data, size_t n 
 #endif
 
 	bin.append( buf, nBytes );
+}
+
+inline Vector3 GltfStore::toMeters( const Vector3 & v )
+{
+	return Vector3( float( double( v[0] ) * ( 0.9144 / 64.0 ) ), float( double( v[1] ) * ( 0.9144 / 64.0 ) ),
+					float( double( v[2] ) * ( 0.9144 / 64.0 ) ) );
 }
 
 QStringList GltfStore::getBoneNames( const Shape * shape ) const
@@ -158,11 +166,15 @@ void GltfStore::createInverseBoneMatrices( QByteArray & bin, const Shape * bsmes
 
 	bool scalePositions = ( bsmesh->scene && bsmesh->scene->nifModel && bsmesh->scene->nifModel->getBSVersion() < 170 );
 	for ( const auto & b : bsmesh->boneData ) {
-		FloatVector4	m[4];
-		std::memcpy( &(m[0][0]), b.trans.toMatrix4().data(), sizeof(float) * 16 );
-		if ( scalePositions )
-			m[3].blendValues( m[3] * float( 0.9144 / 64.0 ), 0x07 );		// convert to meters
-		exportFloats( bin, &(m[0][0]), 16 );
+		Matrix4	m = b.trans.toMatrix4();
+		if ( scalePositions ) {		// convert to meters
+			Vector3	tmp( m( 3, 0 ), m( 3, 1 ), m( 3, 2 ) );
+			tmp = toMeters( tmp );
+			m( 3, 0 ) = tmp[0];
+			m( 3, 1 ) = tmp[1];
+			m( 3, 2 ) = tmp[2];
+		}
+		exportFloats( bin, m.data(), 16 );
 	}
 }
 
@@ -265,7 +277,7 @@ bool GltfStore::createNodes( const Scene * scene, QByteArray & bin )
 			if ( !j ) {
 				Transform trans = node->localTrans();
 				if ( nif->getBSVersion() < 170 )
-					trans.translation = trans.translation * float( 0.9144 / 64.0 );		// convert to meters
+					trans.translation = toMeters( trans.translation );		// convert to meters
 				// Rotate the root NiNode for glTF Y-Up
 				if ( gltfNodeID == 0 ) {
 					trans.rotation = trans.rotation.toYUp();
@@ -378,7 +390,7 @@ bool GltfStore::createNodes( const Scene * scene, QByteArray & bin )
 					Vector3 scale;
 					trans.decompose( translation, rotation, scale );
 					if ( nif->getBSVersion() < 170 )
-						translation = translation * float( 0.9144 / 64.0 );		// convert to meters
+						translation = toMeters( translation );		// convert to meters
 
 					auto quat = rotation.toQuat();
 					gltfNode.translation = { translation[0], translation[1], translation[2] };
@@ -560,7 +572,7 @@ void GltfStore::meshFileFromShape( MeshFile & mesh, const Shape * shape )
 
 	mesh.positions = shape->verts;
 	for ( auto & v : mesh.positions )
-		v = v * float( 0.9144 / 64.0 );		// convert to meters
+		v = toMeters( v );		// convert to meters
 	mesh.normals = shape->norms;
 	mesh.colors = shape->colors;
 	mesh.tangents = shape->bitangents;
@@ -1402,6 +1414,7 @@ protected:
 	bool	lodEnabled;
 	bool	scaleWarningFlag;
 	std::vector< int >	nodeStack;
+	static inline Vector3 fromMeters( const Vector3 & v );
 	bool nodeHasMeshes( const tinygltf::Node & node, int d = 0 ) const;
 	static void normalizeFloats( float * p, size_t n, int dataType );
 	template< typename T > bool loadBuffer( std::vector< T > & outBuf, int accessor, int typeRequired );
@@ -1421,6 +1434,12 @@ public:
 	}
 	void importModel( const QPersistentModelIndex & iBlock );
 };
+
+inline Vector3 ImportGltf::fromMeters( const Vector3 & v )
+{
+	return Vector3( float( double( v[0] ) * ( 64.0 / 0.9144 ) ), float( double( v[1] ) * ( 64.0 / 0.9144 ) ),
+					float( double( v[2] ) * ( 64.0 / 0.9144 ) ) );
+}
 
 bool ImportGltf::nodeHasMeshes( const tinygltf::Node & node, int d ) const
 {
@@ -1646,7 +1665,7 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 			m.decompose( t.translation, t.rotation, tmpScale );
 			applyXYZScale( t, tmpScale );
 			if ( nif->getBSVersion() < 170 )
-				t.translation = t.translation * float( 64.0 / 0.9144 );		// convert from meters
+				t.translation = fromMeters( t.translation );		// convert from meters
 			QModelIndex	iBone = nif->getIndex( iBones, int(i) );
 			if ( iBone.isValid() )
 				t.writeBack( nif, iBone );
@@ -1797,7 +1816,7 @@ bool ImportGltf::loadMesh(
 				continue;
 			if ( nif->getBSVersion() < 170 ) {
 				for ( float & x : positions )
-					x = x * float( 64.0 / 0.9144 );		// convert from meters
+					x = float( double( x ) * ( 64.0 / 0.9144 ) );		// convert from meters
 			}
 			float	maxPos = 0.0f;
 			for ( float x : positions )
@@ -2081,7 +2100,7 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 			t.translation = Vector3( t.translation[0], -(t.translation[2]), t.translation[1] );
 		}
 		if ( nif->getBSVersion() < 170 )
-			t.translation = t.translation * float( 64.0 / 0.9144 );		// convert from meters
+			t.translation = fromMeters( t.translation );		// convert from meters
 		t.writeBack( nif, iBlock );
 
 		if ( meshPrim ) {
