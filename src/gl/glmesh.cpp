@@ -656,11 +656,42 @@ QModelIndex Mesh::vertexAt( int idx ) const
 QModelIndex Mesh::triangleAt( int idx ) const
 {
 	auto nif = scene->nifModel;
-	if ( nif && iData.isValid() ) {
-		// TODO: implement support for triangle strips and skin partitions
-		auto iTriangleData = nif->getIndex( iData, "Triangles" );
-		if ( iTriangleData.isValid() && nif->isArray( iTriangleData ) )
-			return nif->getIndex( iTriangleData, idx );
+	if ( nif && iData.isValid() && idx >= 0 && idx < triangles.size() ) {
+		// TODO: implement support for skin partitions
+		if ( !tristripOffsets.isEmpty() ) {
+			for ( qsizetype i = 0; i < tristripOffsets.size(); i++ ) {
+				qsizetype	j = idx - tristripOffsets.at( i ).first;
+				if ( j >= 0 && j < tristripOffsets.at( i ).second ) {
+					auto	iPoints = nif->getIndex( iData, "Points" );
+					if ( !( iPoints.isValid() && nif->isArray( iPoints ) && i < nif->rowCount( iPoints ) ) )
+						break;
+					iPoints = nif->getIndex( iPoints, int(i) );
+					if ( !( iPoints.isValid() && nif->isArray( iPoints ) ) )
+						break;
+					const Triangle &	t = triangles.at( idx );
+					int	n = nif->rowCount( iPoints );
+					quint16	v0 = 0;
+					quint16	v1 = 0;
+					for ( int k = 0; k < n; k++ ) {
+						QModelIndex	iPoint = nif->getIndex( iPoints, k );
+						if ( !iPoint.isValid() )
+							continue;
+						quint16	v2 = nif->get<quint16>( iPoint );
+						if ( k >= 2 ) {
+							if ( v0 == t.v1() && ( !(k & 1) ? v1 : v2 ) == t.v2() && ( !(k & 1) ? v2 : v1 ) == t.v3() )
+								return iPoint;
+						}
+						v0 = v1;
+						v1 = v2;
+					}
+					break;
+				}
+			}
+		} else {
+			auto iTriangleData = nif->getIndex( iData, "Triangles" );
+			if ( iTriangleData.isValid() && nif->isArray( iTriangleData ) )
+				return nif->getIndex( iTriangleData, idx );
+		}
 	}
 	return QModelIndex();
 }
