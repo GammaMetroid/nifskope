@@ -838,7 +838,12 @@ void Node::drawHvkShape( const NifModel * nif, const QModelIndex & iShape, HvkSh
 			&& ( iTriangles = nif->getIndex( iData, "Triangles" ) ).isValid() && nif->rowCount( iTriangles ) >= 1 ) {
 
 			QVector<Vector3>	verts = nif->getArray<Vector3>( iVerts );
-			QVector<Triangle>	triangles = nif->getArray<Triangle>( iTriangles );
+			QVector<Triangle>	triangles( nif->rowCount( iTriangles ) );
+			for ( int i = 0; i < triangles.size(); i++ ) {
+				// assume that "Triangle" item is in row 0 of "TriangleData"
+				if ( auto iTriangle = nif->getIndex( nif->getIndex( iTriangles, i ), 0 ); iTriangle.isValid() )
+					triangles[i] = nif->get<Triangle>( iTriangle );
+			}
 
 			scene->drawTriangles( verts.constData(), size_t( verts.size() ), nullptr, false, GL_TRIANGLES,
 									size_t( triangles.size() ) * 3, GL_UNSIGNED_SHORT, triangles.constData() );
