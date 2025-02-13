@@ -1416,7 +1416,7 @@ protected:
 	NifModel *	nif;
 	bool	lodEnabled;
 	bool	scaleWarningFlag;
-	std::vector< int >	nodeStack;
+	std::vector< int >	nodeMap;
 	static inline Vector3 fromMeters( const Vector3 & v );
 	bool nodeHasMeshes( const tinygltf::Node & node, int d = 0 ) const;
 	static void normalizeFloats( float * p, size_t n, int dataType );
@@ -1618,8 +1618,7 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 		nif->set<quint32>( iSkinBMP, "Num Bones", quint32(numBones) );
 		if ( auto iBones = nif->getIndex( iSkinBMP, "Bones" ); iBones.isValid() ) {
 			nif->updateArraySize( iBones );
-			NifItem *	bonesItem = nif->getItem( iBones );
-			if ( bonesItem ) {
+			if ( NifItem * bonesItem = nif->getItem( iBones ); bonesItem ) {
 				for ( size_t i = 0; i < numBones; i++ ) {
 					int	j = skin.joints[i];
 					if ( j >= 0 && size_t(j) < model.nodes.size() )
@@ -1628,9 +1627,21 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 			}
 		}
 	}
+
 	nif->set<quint32>( iSkin, "Num Bones", quint32(numBones) );
-	if ( auto iBones = nif->getIndex( iSkin, "Bones" ); iBones.isValid() )
+	if ( auto iBones = nif->getIndex( iSkin, "Bones" ); iBones.isValid() ) {
 		nif->updateArraySize( iBones );
+		if ( nif->getBSVersion() < 170 ) {
+			for ( size_t i = 0; i < numBones; i++ ) {
+				int	boneBlockNum = -1;
+				// FIXME: this works only if bone nodes are loaded before the skin
+				if ( skin.joints[i] >= 0 && size_t(skin.joints[i]) < nodeMap.size() )
+					boneBlockNum = nodeMap[skin.joints[i]];
+				nif->setLink( nif->getIndex( iBones, int(i) ), qint32(boneBlockNum) );
+			}
+		}
+	}
+
 	nif->set<quint32>( iBoneData, "Num Bones", quint32(numBones) );
 	if ( auto iBones = nif->getIndex( iBoneData, "Bone List" ); iBones.isValid() ) {
 		nif->updateArraySize( iBones );
@@ -2215,17 +2226,11 @@ bool ImportGltf::loadMeshCE1(
 
 void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, bool isRoot )
 {
-	if ( nodeNum < 0 || size_t(nodeNum) >= model.nodes.size() || !nodeHasMeshes( model.nodes[nodeNum] ) )
+	if ( nodeNum < 0 || size_t(nodeNum) >= model.nodes.size() || nodeMap[nodeNum] >= 0
+		|| ( nif->getBSVersion() >= 170 && !nodeHasMeshes( model.nodes[nodeNum] ) ) ) {
 		return;
-	const tinygltf::Node &	node = model.nodes[nodeNum];
-
-	for ( int i : nodeStack ) {
-		if ( i == nodeNum ) {
-			QMessageBox::critical( nullptr, "NifSkope error", QString("Infinite recursion in glTF import of node %1").arg(node.name.c_str()) );
-			return;
-		}
 	}
-	nodeStack.push_back( nodeNum );
+	const tinygltf::Node &	node = model.nodes[nodeNum];
 
 	bool	haveMesh = ( node.mesh >= 0 && size_t(node.mesh) < model.meshes.size() );
 	size_t	primCnt = 0;
@@ -2246,6 +2251,8 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 
 		QPersistentModelIndex	iBlock =
 			nif->insertNiBlock( !haveMesh ? "NiNode" : ( nif->getBSVersion() < 170 ? "BSTriShape" : "BSGeometry" ) );
+		if ( !haveMesh )
+			nodeMap[nodeNum] = nif->getBlockNumber( iBlock );
 		if ( index.isValid() ) {
 			NifItem *	parentItem = nif->getItem( index );
 			if ( parentItem ) {
@@ -2370,12 +2377,11 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 				loadNode( iBlock, i, false );
 		}
 	} while ( ++p < primCnt );
-
-	nodeStack.pop_back();
 }
 
 void ImportGltf::importModel( const QPersistentModelIndex & iBlock )
 {
+	nodeMap.assign( model.nodes.size(), -1 );
 	nif->setState( BaseModel::Processing );
 	if ( model.scenes.empty() ) {
 		loadNode( iBlock, 0, true );
