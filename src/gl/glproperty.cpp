@@ -812,12 +812,14 @@ void BSShaderLightingProperty::updateImpl( const NifModel * nif, const QModelInd
 			flags2 = ShaderFlags::SF2( nif->get<quint32>( iSPData, "Shader Flags 2" ) );
 			hasVertexColors = bool( flags2 & ShaderFlags::SLSF2_Vertex_Colors );
 			hasVertexAlpha = bool( flags1 & ShaderFlags::SLSF1_Vertex_Alpha );
-			depthTest = bool( flags1 & ShaderFlags::SLSF1_ZBuffer_Test );
-			depthWrite = bool( flags2 & ShaderFlags::SLSF2_ZBuffer_Write );
+			depthTest = true;
+			depthWrite = true;
 			isDoubleSided = bool( flags2 & ShaderFlags::SLSF2_Double_Sided );
 			clampMode = TexClampMode( nif->get<quint32>( iSPData, "Texture Clamp Mode" ) );
 			environmentReflection = nif->get<float>( iSPData, "Environment Map Scale" );
 			if ( typeid( *this ) == typeid( BSEffectShaderProperty ) ) {
+				depthTest = bool( flags1 & ShaderFlags::SLSF1_ZBuffer_Test );
+				depthWrite = bool( flags2 & ShaderFlags::SLSF2_ZBuffer_Write );
 				BSEffectShaderProperty *	esp = static_cast< BSEffectShaderProperty * >( this );
 				esp->falloff.startAngle = nif->get<float>( iSPData, "Falloff Start Angle" );
 				esp->falloff.stopAngle = nif->get<float>( iSPData, "Falloff Stop Angle" );
