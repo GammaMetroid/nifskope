@@ -30,15 +30,15 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ***** END LICENCE BLOCK *****/
 
-#ifndef GLVIEW
-#define GLVIEW
+#ifndef GLVIEW_H_INCLUDED
+#define GLVIEW_H_INCLUDED
 
 #include "gl/glscene.h"
 #include "model/nifmodel.h"
 
 #include <QOpenGLWindow> // Inherited
-#include <QDateTime>
 #include <QPersistentModelIndex>
+#include <chrono>
 
 
 //! @file glview.h GLView
@@ -120,6 +120,7 @@ public:
 	void center();
 	void move( float, float, float );
 	void rotate( float, float, float );
+	void rotateLight( float, float );
 
 	void setCenter();
 	void setDistance( float );
@@ -171,6 +172,7 @@ signals:
 	void paintUpdate();
 	void sceneTimeChanged( float t, float mn, float mx );
 	void viewpointChanged();
+	void frontalLightChanged( bool isFrontal );
 
 	void sequenceStopped();
 	void sequenceChanged( const QString & );
@@ -219,9 +221,9 @@ private:
 
 	class TexCache * textures;
 
-	float time;
-	QTime lastTime;
 	QTimer * timer;
+	std::chrono::steady_clock::time_point lastTime;
+	float time;
 
 	float Dist;
 	Vector3 Pos;
@@ -271,11 +273,12 @@ private:
 		Key_RotateLeft = 13,
 		Key_RotateRight = 14,
 		Key_RotateUp = 15,
-		Key_ToggleGrid = 16,
-		Key_TopView = 17,
-		Key_Update = 18,
-		Key_ZoomIn = 19,
-		Key_ZoomOut = 20
+		Key_Shift = 16,
+		Key_ToggleGrid = 17,
+		Key_TopView = 18,
+		Key_Update = 19,
+		Key_ZoomIn = 20,
+		Key_ZoomOut = 21
 	};
 
 	int convertKeyCode( int n ) const;

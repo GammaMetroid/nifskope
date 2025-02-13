@@ -82,9 +82,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define ZOOM_MAX 1000.0
 
 #define DEBUG_FRAME_TIME 0
-#if DEBUG_FRAME_TIME
-#  include <chrono>
-#endif
 
 //! @file glview.cpp GLView implementation
 
@@ -133,7 +130,7 @@ GLView::GLView( QWindow * p )
 	model = nullptr;
 
 	time = 0.0;
-	lastTime = QTime::currentTime();
+	lastTime = std::chrono::steady_clock::now();
 
 	textures = new TexCache( this );
 
@@ -327,7 +324,7 @@ void GLView::updateAnimationState( bool checked )
 			animState &= ~opt;
 
 		scene->animate = (animState & AnimEnabled);
-		lastTime = QTime::currentTime();
+		lastTime = std::chrono::steady_clock::now();
 
 		update();
 	}
@@ -978,6 +975,16 @@ void GLView::rotate( float x, float y, float z )
 	update();
 }
 
+void GLView::rotateLight( float x, float z )
+{
+	declination += x;
+	planarAngle -= z;
+	declination -= float( roundFloat( declination / 360.0f ) ) * 360.0f;		// wrap to -180.0 to 180.0
+	planarAngle -= float( roundFloat( planarAngle / 360.0f ) ) * 360.0f;
+	lightVisTimer->start( lightVisTimeout );
+	setVisMode( Scene::VisLightPos, true );
+}
+
 void GLView::setCenter()
 {
 	Node * node = scene->getNode( model, scene->currentBlock );
@@ -1312,15 +1319,14 @@ void GLView::advanceGears()
 {
 	updatePending -= (unsigned char) bool( updatePending );
 
-	QTime t  = QTime::currentTime();
-	float dT = lastTime.msecsTo( t ) / 1000.0;
-	dT = (dT < 0) ? 0 : ((dT > 1.0) ? 1.0 : dT);
-
+	std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
+	float dT = float( std::chrono::duration_cast< std::chrono::microseconds >( t - lastTime ).count() ) * 0.000001f;
 	lastTime = t;
 
 	if ( !isVisible() )
 		return;
 
+	dT = std::clamp< float >( dT, 0.0f, 1.0f );
 	if ( ( animState & AnimEnabled ) && ( animState & AnimPlay )
 		&& scene->timeMin() != scene->timeMax() )
 	{
@@ -1352,24 +1358,34 @@ void GLView::advanceGears()
 		update();
 	}
 
+	float	rotateStep = cfg.rotSpd * dT;
+	// Fix movement speed for Starfield scale
+	dT *= scale();
+	float	moveStep = cfg.moveSpd * dT;
+
 	// TODO: Some kind of input class for choosing the appropriate
 	// keys based on user preferences of what app they would like to
 	// emulate for the control scheme
 	// Rotation
-	if ( kbd( Key_RotateUp ) )    rotate( -cfg.rotSpd * dT, 0, 0 );
-	if ( kbd( Key_RotateDown ) )  rotate( +cfg.rotSpd * dT, 0, 0 );
-	if ( kbd( Key_RotateLeft ) )  rotate( 0, 0, -cfg.rotSpd * dT );
-	if ( kbd( Key_RotateRight ) ) rotate( 0, 0, +cfg.rotSpd * dT );
+	if ( kbd( Key_Shift ) ) {
+		if ( kbd( Key_RotateUp ) )    rotateLight( -rotateStep, 0.0f );
+		if ( kbd( Key_RotateDown ) )  rotateLight( rotateStep, 0.0f );
+		if ( kbd( Key_RotateLeft ) )  rotateLight( 0.0f, -rotateStep );
+		if ( kbd( Key_RotateRight ) ) rotateLight( 0.0f, rotateStep );
+	} else {
+		if ( kbd( Key_RotateUp ) )    rotate( -rotateStep, 0, 0 );
+		if ( kbd( Key_RotateDown ) )  rotate( rotateStep, 0, 0 );
+		if ( kbd( Key_RotateLeft ) )  rotate( 0, 0, -rotateStep );
+		if ( kbd( Key_RotateRight ) ) rotate( 0, 0, rotateStep );
+	}
 
-	// Fix movement speed for Starfield scale
-	dT *= scale();
 	// Movement
-	if ( kbd( Key_MoveLeft ) ) move( +cfg.moveSpd * dT, 0, 0 );
-	if ( kbd( Key_MoveRight ) ) move( -cfg.moveSpd * dT, 0, 0 );
-	if ( kbd( Key_MoveForward ) ) move( 0, 0, +cfg.moveSpd * dT );
-	if ( kbd( Key_MoveBack ) ) move( 0, 0, -cfg.moveSpd * dT );
-	if ( kbd( Key_MoveDown ) ) move( 0, +cfg.moveSpd * dT, 0 );
-	if ( kbd( Key_MoveUp ) ) move( 0, -cfg.moveSpd * dT, 0 );
+	if ( kbd( Key_MoveLeft ) ) move( moveStep, 0, 0 );
+	if ( kbd( Key_MoveRight ) ) move( -moveStep, 0, 0 );
+	if ( kbd( Key_MoveForward ) ) move( 0, 0, moveStep );
+	if ( kbd( Key_MoveBack ) ) move( 0, 0, -moveStep );
+	if ( kbd( Key_MoveDown ) ) move( 0, moveStep, 0 );
+	if ( kbd( Key_MoveUp ) ) move( 0, -moveStep, 0 );
 
 	// Focal Length
 	if ( kbd( Key_ZoomIn ) )   setZoom( Zoom * std::sqrt( Settings::zoomOutScale ) );
@@ -1836,6 +1852,8 @@ int GLView::convertKeyCode( int n ) const
 		return Key_Update;
 	case Qt::Key_Space:
 		return Key_MoveCam;
+	case Qt::Key_Shift:
+		return Key_Shift;
 	}
 	return -1;
 }
@@ -1845,16 +1863,46 @@ void GLView::keyPressEvent( QKeyEvent * event )
 	int	k = convertKeyCode( event->key() );
 	if ( k >= 0 ) {
 		kbdState = kbdState | ( 1ULL << k );
-	} else if ( event->key() == Qt::Key_Escape ) {
-		doCompile = true;
-
-		if ( view == ViewWalk )
-			doCenter = true;
-
-		update();
+		if ( k != Key_Shift )
+			return;
 	} else {
-		event->ignore();
+		switch ( event->key() ) {
+		case Qt::Key_Escape:
+			doCompile = true;
+
+			if ( view == ViewWalk )
+				doCenter = true;
+
+			update();
+			break;
+		case Qt::Key_F:
+		case Qt::Key_L:
+		case Qt::Key_T:
+			if ( event->modifiers() & Qt::ShiftModifier ) {
+				if ( event->key() == Qt::Key_F ) {
+					if ( !frontalLight ) {
+						frontalLight = true;
+						emit frontalLightChanged( true );
+						update();
+					}
+				} else {
+					float	d = ( event->key() == Qt::Key_T ? 0.0f : 90.0f );
+					declination = d;
+					planarAngle = d;
+					if ( frontalLight ) {
+						frontalLight = false;
+						emit frontalLightChanged( false );
+					}
+					update();
+				}
+				return;
+			}
+			break;
+		default:
+			break;
+		}
 	}
+	event->ignore();
 }
 
 void GLView::keyReleaseEvent( QKeyEvent * event )
@@ -1862,9 +1910,10 @@ void GLView::keyReleaseEvent( QKeyEvent * event )
 	int	k = convertKeyCode( event->key() );
 	if ( k >= 0 ) {
 		kbdState = kbdState & ~( 1ULL << k );
-	} else {
-		event->ignore();
+		if ( k != Key_Shift )
+			return;
 	}
+	event->ignore();
 }
 
 void GLView::mouseDoubleClickEvent( QMouseEvent * )
@@ -1893,16 +1942,10 @@ void GLView::mouseMoveEvent( QMouseEvent * event )
 	}
 
 	if ( ( buttonMask & Qt::LeftButton ) && !kbd( Key_MoveCam ) ) {
-		if ( !frontalLight && ( event->modifiers() & Qt::ShiftModifier ) ) {
-			declination += dy * 0.5f;
-			planarAngle -= dx * 0.5f;
-			declination -= float( roundFloat( declination / 360.0f ) ) * 360.0f;
-			planarAngle -= float( roundFloat( planarAngle / 360.0f ) ) * 360.0f;
-			lightVisTimer->start( lightVisTimeout );
-			setVisMode( Scene::VisLightPos, true );
-		} else {
+		if ( !frontalLight && ( event->modifiers() & Qt::ShiftModifier ) )
+			rotateLight( dy * 0.5f, dx * 0.5f );
+		else
 			mouseRot += Vector3( dy * 0.5f, 0.0f, dx * 0.5f );
-		}
 	} else if ( ( buttonMask & Qt::MiddleButton ) || ( ( buttonMask & Qt::LeftButton ) && kbd( Key_MoveCam ) ) ) {
 		float d = axis / (qMax( width(), height() ) + 1);
 		mouseMov += Vector3( dx * d, -dy * d, 0.0f );

@@ -40,6 +40,7 @@ LightingWidget::LightingWidget( GLView * ogl, QWidget * parent ) : QWidget(paren
 	connect( ui->sldLightScale, &QSlider::valueChanged, ogl, &GLView::setBrightness );
 	connect( ui->sldToneMapping, &QSlider::valueChanged, ogl, &GLView::setToneMapping );
 	connect( ui->btnFrontal, &QToolButton::toggled, ogl, &GLView::setFrontalLight );
+	connect( ogl, &GLView::frontalLightChanged, ui->btnFrontal, &QToolButton::setChecked );
 	connect( ui->btnLoadCubeMap, &QPushButton::clicked, ogl, &GLView::selectPBRCubeMap );
 
 	// Load default settings
