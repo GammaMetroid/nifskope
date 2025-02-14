@@ -1367,7 +1367,7 @@ void GLView::advanceGears()
 	// keys based on user preferences of what app they would like to
 	// emulate for the control scheme
 	// Rotation
-	if ( kbd( Key_Shift ) ) {
+	if ( kbd( Key_Shift ) && !frontalLight ) {
 		if ( kbd( Key_RotateUp ) )    rotateLight( -rotateStep, 0.0f );
 		if ( kbd( Key_RotateDown ) )  rotateLight( rotateStep, 0.0f );
 		if ( kbd( Key_RotateLeft ) )  rotateLight( 0.0f, -rotateStep );
