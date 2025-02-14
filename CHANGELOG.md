@@ -7,6 +7,7 @@
 * Added keyboard controls for setting the light direction: F, L, T, Up, Down, Left and Right control the light source instead of the camera if Shift is held down.
 * Fixed incorrect sorting of link rows.
 * Fixed errors on drawing bhkPackedNiTriStripsShape.
+* Fixes to Fallout 3/New Vegas rendering: depth buffer flags are now checked only on BSShaderNoLightingProperty, added support for Lighting30ShaderProperty and TallGrassShaderProperty.
 * Fixed the light direction being reset on changes to the render settings.
 * Fixed loading Fallout 76 and Starfield cube maps with legacy DDS header.
 * Minor optimizations: faster cube map filtering, and use of SIMD data types in 'noavx' GCC and Clang builds.

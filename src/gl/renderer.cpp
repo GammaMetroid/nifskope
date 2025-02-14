@@ -1146,7 +1146,7 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 			}
 		}
 		// TODO (Gavrant): suspicious code. Should the check be replaced with !bsprop->hasVertexAlpha ?
-		if ( mesh->bslsp && !mesh->bslsp->hasSF1(ShaderFlags::SLSF1_Vertex_Alpha) )
+		if ( mesh->isVertexAlphaAnimation || ( mesh->bslsp && !mesh->bslsp->hasSF1(ShaderFlags::SLSF1_Vertex_Alpha) ) )
 			vcOverride[3] = 1.0f;
 
 		VertexColorProperty::glProperty( mesh->findProperty< VertexColorProperty >(), vcOverride, prog );
