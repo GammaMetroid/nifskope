@@ -164,6 +164,7 @@ public slots:
 	void updateAnimationState( bool checked );
 	void setVisMode( Scene::VisMode, bool checked = true );
 	void updateSettings();
+	void update3D();
 	void selectPBRCubeMap();
 	void update_GL( [[maybe_unused]] int tmp ) { update(); }
 

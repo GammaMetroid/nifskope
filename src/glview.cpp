@@ -151,15 +151,7 @@ GLView::GLView( QWindow * p )
 	connect( lightVisTimer, &QTimer::timeout, [this]() { setVisMode( Scene::VisLightPos, false ); update(); } );
 
 	connect( NifSkope::getOptions(), &SettingsDialog::flush3D, textures, &TexCache::flush );
-
-	connect(NifSkope::getOptions(), &SettingsDialog::update3D, this, static_cast<void (GLView::*)()>(&GLView::updateSettings));
-	connect(NifSkope::getOptions(), &SettingsDialog::update3D, [this]() {
-		// Calling update() here in a lambda can crash..
-		//updateSettings();
-		glClearColor( cfg.background.red(), cfg.background.green(), cfg.background.blue(), cfg.background.alpha() );
-		//update();
-	});
-	connect(NifSkope::getOptions(), &SettingsDialog::update3D, this, static_cast<void (GLView::*)()>(&GLView::update));
+	connect( NifSkope::getOptions(), &SettingsDialog::update3D, this, &GLView::update3D );
 
 	setMinimumSize( QSize( 50, 50 ) );
 }
@@ -239,6 +231,15 @@ void GLView::updateSettings()
 	double	tmp = std::pow( 0.95, std::sqrt( double(1 << z) * (1.0 / 256.0) ) );
 	Settings::zoomInScale = float( tmp );
 	Settings::zoomOutScale = float( 1.0 / tmp );
+}
+
+void GLView::update3D()
+{
+	updateSettings();
+	auto	prvContext = pushGLContext();
+	glClearColor( cfg.background.red(), cfg.background.green(), cfg.background.blue(), cfg.background.alpha() );
+	popGLContext( prvContext );
+	update();
 }
 
 static bool envMapFileListFilterFunction( void * p, const std::string_view & s )
@@ -349,6 +350,7 @@ void GLView::initializeGL()
 	glContext = scene->renderer;
 	textures->setOpenGLContext( glContext );
 	updateShaders();		// should be called after TexCache is initialized
+	glClearColor( cfg.background.red(), cfg.background.green(), cfg.background.blue(), cfg.background.alpha() );
 
 	// Initial viewport values
 	//	Made viewport and aspect member variables.
@@ -780,10 +782,16 @@ void GLView::setDebugMode( DebugMode mode )
 
 void GLView::setVisMode( Scene::VisMode mode, bool checked )
 {
-	if ( checked )
+	if ( checked ) {
 		scene->visMode |= mode;
-	else
+	} else {
+		if ( mode & scene->visMode & Scene::VisSilhouette ) {
+			auto	prvContext = pushGLContext();
+			glClearColor( cfg.background.red(), cfg.background.green(), cfg.background.blue(), cfg.background.alpha() );
+			popGLContext( prvContext );
+		}
 		scene->visMode &= ~mode;
+	}
 
 	update();
 }
