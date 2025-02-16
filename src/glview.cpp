@@ -86,6 +86,15 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //! @file glview.cpp GLView implementation
 
 
+const Vector3 GLView::viewRotations[6] = {
+	{ 0.0f, 0.0f, 0.0f },		// Top
+	{ 180.0f, 0.0f, 0.0f },		// Bottom
+	{ -90.0f, 0.0f, -90.0f },	// Left
+	{ -90.0f, 0.0f, 90.0f },	// Right
+	{ -90.0f, 0.0f, 180.0f },	// Front
+	{ -90.0f, 0.0f, 0.0f }		// Back
+};
+
 GLView::GLView( QWindow * p )
 	: QOpenGLWindow( QOpenGLWindow::NoPartialUpdate, p )
 {
@@ -125,16 +134,20 @@ GLView::GLView( QWindow * p )
 	Zoom = 1.0;
 
 	doCenter  = false;
-	doCompile = false;
+	doCompile = 0;
 
 	model = nullptr;
 
-	time = 0.0;
+	time = 0.0f;
+	Dist = 128.0f;
 	lastTime = std::chrono::steady_clock::now();
 
 	textures = new TexCache( this );
 
 	updateSettings();
+	view = cfg.startupDirection;
+	if ( int i = int( view ) - int( ViewTop ); i >= 0 && i <= 5 )
+		Rot = viewRotations[i];
 
 	scene = new Scene( textures );
 	connect( textures, &TexCache::sigRefresh, this, static_cast<void (GLView::*)()>(&GLView::update) );
@@ -436,6 +449,10 @@ void GLView::paintGL()
 
 	// Compile the model
 	if ( doCompile ) [[unlikely]] {
+		if ( doCompile > 1 ) [[unlikely]] {
+			doCompile--;
+			return;
+		}
 		// avoid potential infinite recursion in case a message box is opened while initializing the scene
 		isDisabled = true;
 		textures->setNifFolder( model->getFolder() );
@@ -456,7 +473,7 @@ void GLView::paintGL()
 		}
 		emit sceneTimeChanged( time, scene->timeMin(), scene->timeMax() );
 		isDisabled = false;
-		doCompile = false;
+		doCompile = 0;
 	}
 
 	// Center the model
@@ -1017,8 +1034,6 @@ void GLView::setCenter()
 		Zoom = 1.0;
 
 		Pos = -bs.center;
-
-		setOrientation( view );
 	}
 }
 
@@ -1105,27 +1120,9 @@ void GLView::setOrientation( GLView::ViewState state, bool recenter )
 	if ( state == view )
 		return;
 
-	switch ( state ) {
-	case ViewBottom:
-		setRotation( 180, 0, 0 ); // Bottom
-		break;
-	case ViewTop:
-		setRotation( 0, 0, 0 ); // Top
-		break;
-	case ViewBack:
-		setRotation( -90, 0, 0 ); // Back
-		break;
-	case ViewFront:
-		setRotation( -90, 0, 180 ); // Front
-		break;
-	case ViewRight:
-		setRotation( -90, 0, 90 ); // Right
-		break;
-	case ViewLeft:
-		setRotation( -90, 0, -90 ); // Left
-		break;
-	default:
-		break;
+	if ( int i = int( state ) - int( ViewTop ); i >= 0 && i <= 5 ) {
+		Rot = viewRotations[i];
+		update();
 	}
 
 	view = state;
@@ -1179,9 +1176,10 @@ void GLView::setNif( NifModel * nif )
 		connect( model, &NifModel::linksChanged, this, &GLView::modelLinked );
 		connect( model, &NifModel::modelReset, this, &GLView::modelChanged );
 		connect( model, &NifModel::destroyed, this, &GLView::modelDestroyed );
+		Dist = ( model->getBSVersion() < 170 ? 1228.8f : 19.2f );
 	}
 
-	doCompile = true;
+	doCompile = 2;
 }
 
 void GLView::setCurrentIndex( const QModelIndex & index )
@@ -1243,7 +1241,7 @@ void GLView::modelChanged()
 	if ( doCompile )
 		return;
 
-	doCompile = true;
+	doCompile = 1;
 	//doCenter  = true;
 	update();
 }
@@ -1253,7 +1251,7 @@ void GLView::modelLinked()
 	if ( doCompile )
 		return;
 
-	doCompile = true; //scene->update( model, QModelIndex() );
+	doCompile = 1; //scene->update( model, QModelIndex() );
 	update();
 }
 
@@ -1876,7 +1874,7 @@ void GLView::keyPressEvent( QKeyEvent * event )
 	} else {
 		switch ( event->key() ) {
 		case Qt::Key_Escape:
-			doCompile = true;
+			doCompile = 1;
 
 			if ( view == ViewWalk )
 				doCenter = true;
@@ -1927,7 +1925,7 @@ void GLView::keyReleaseEvent( QKeyEvent * event )
 void GLView::mouseDoubleClickEvent( QMouseEvent * )
 {
 	/*
-	doCompile = true;
+	doCompile = 1;
 	if ( ! aViewWalk->isChecked() )
 	doCenter = true;
 	update();

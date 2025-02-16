@@ -210,6 +210,8 @@ protected slots:
 	void saveImage();
 
 private:
+	static const Vector3 viewRotations[6];
+
 	NifModel * model;
 	Scene * scene = nullptr;
 
@@ -245,7 +247,7 @@ private:
 	QString fnDragTex, fnDragTexOrg;
 
 	bool isDisabled = false;
-	bool doCompile = false;
+	unsigned char doCompile = 0;
 	bool doCenter = false;
 	unsigned char updatePending = 0;
 
