@@ -1031,6 +1031,13 @@ void NifSkope::restoreUi()
 
 	auto isPersp = settings.value( "GLView/Perspective", true ).toBool();
 	ui->aViewPerspective->setChecked( isPersp );
+	int viewDir = settings.value( "Settings/Render/General/Camera/Startup Direction", 1 ).toInt();
+	if ( viewDir == 0 )
+		ui->aViewLeft->setChecked( true );
+	else if ( viewDir == 1 )
+		ui->aViewFront->setChecked( true );
+	else if ( viewDir == 2 )
+		ui->aViewTop->setChecked( true );
 
 	ogl->setProjection( isPersp );
 
