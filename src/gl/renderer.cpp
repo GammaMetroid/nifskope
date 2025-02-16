@@ -916,7 +916,8 @@ bool Renderer::setupProgramCE1( const NifModel * nif, Program * prog, Shape * me
 
 		if ( mat->hasAlphaBlend() && scene->hasOption(Scene::DoBlending) ) {
 			glEnable( GL_BLEND );
-			glBlendFunc( blendMap[mat->iAlphaSrc], blendMap[mat->iAlphaDst] );
+			fn->glBlendFuncSeparate( blendMap[mat->iAlphaSrc], blendMap[mat->iAlphaDst],
+										GL_ONE, blendMap[mat->iAlphaDst] );
 		} else {
 			glDisable( GL_BLEND );
 		}

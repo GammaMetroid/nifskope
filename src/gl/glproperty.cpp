@@ -266,7 +266,7 @@ void AlphaProperty::glProperty( AlphaProperty * p, NifSkopeOpenGLContext::Progra
 {
 	if ( p && p->alphaBlend && p->scene->hasOption(Scene::DoBlending) ) {
 		glEnable( GL_BLEND );
-		glBlendFunc( p->alphaSrc, p->alphaDst );
+		prog->f->glBlendFuncSeparate( p->alphaSrc, p->alphaDst, GL_ONE, p->alphaDst );
 	} else {
 		glDisable( GL_BLEND );
 	}
