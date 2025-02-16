@@ -598,6 +598,7 @@ void GltfStore::meshFileFromShape( MeshFile & mesh, const Shape * shape )
 		mesh.weights.resize( shape->boneWeights0.size() * 4 );
 		for ( size_t i = 0; i < shape->boneWeights0.size(); i++ ) {
 			FloatVector4	tmp( shape->boneWeights0[i] );
+			// TODO: make sure that weights are normalized
 			( tmp * 65536.0f ).convertToInt32( reinterpret_cast< std::int32_t * >( mesh.weights.data() + (i * 4) ) );
 		}
 	}
@@ -2044,8 +2045,8 @@ bool ImportGltf::loadMesh(
 bool ImportGltf::loadMeshCE1(
 	const QPersistentModelIndex & index, std::string & materialPath, const tinygltf::Primitive & p, int skin )
 {
-	if ( materialPath.empty() && p.material >= 0 && size_t(p.material) < model.materials.size() ) {
-		const std::string &	matName = model.materials[p.material].name;
+	if ( !materialPath.empty() || ( p.material >= 0 && size_t(p.material) < model.materials.size() ) ) {
+		const std::string &	matName = ( !materialPath.empty() ? materialPath : model.materials[p.material].name );
 		std::string	matNameL = matName;
 		for ( auto & c : matNameL ) {
 			if ( std::isupper(c) )
@@ -2053,9 +2054,13 @@ bool ImportGltf::loadMeshCE1(
 			else if ( c == '\\' )
 				c = '/';
 		}
-		if ( nif->getBSVersion() >= 130 && matNameL.find('/') != std::string::npos ) {
-			if ( matNameL.starts_with("materials/") || matNameL.ends_with(".bgsm") || matNameL.ends_with(".bgem") )
-				materialPath = matName;
+		if ( nif->getBSVersion() >= 130
+			&& !( matNameL.find('/') != std::string::npos
+					&& ( matNameL.starts_with("materials/")
+						|| matNameL.ends_with(".bgsm") || matNameL.ends_with(".bgem") ) ) ) {
+			materialPath.clear();
+		} else if ( materialPath.empty() ) {
+			materialPath = model.materials[p.material].name;
 		}
 	}
 
@@ -2226,8 +2231,9 @@ bool ImportGltf::loadMeshCE1(
 
 void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, bool isRoot )
 {
+	quint32	bsVersion = nif->getBSVersion();
 	if ( nodeNum < 0 || size_t(nodeNum) >= model.nodes.size() || nodeMap[nodeNum] >= 0
-		|| ( nif->getBSVersion() >= 170 && !nodeHasMeshes( model.nodes[nodeNum] ) ) ) {
+		|| ( bsVersion >= 170 && !nodeHasMeshes( model.nodes[nodeNum] ) ) ) {
 		return;
 	}
 	const tinygltf::Node &	node = model.nodes[nodeNum];
@@ -2250,7 +2256,7 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 		}
 
 		QPersistentModelIndex	iBlock =
-			nif->insertNiBlock( !haveMesh ? "NiNode" : ( nif->getBSVersion() < 170 ? "BSTriShape" : "BSGeometry" ) );
+			nif->insertNiBlock( !haveMesh ? "NiNode" : ( bsVersion < 170 ? "BSTriShape" : "BSGeometry" ) );
 		if ( !haveMesh )
 			nodeMap[nodeNum] = nif->getBlockNumber( iBlock );
 		if ( index.isValid() ) {
@@ -2271,7 +2277,7 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 			}
 		}
 		// enable internal geometry for Starfield meshes
-		nif->set<quint32>( iBlock, "Flags", ( !( haveMesh && nif->getBSVersion() >= 170 ) ? 14U : 526U ) );
+		nif->set<quint32>( iBlock, "Flags", ( !( haveMesh && bsVersion >= 170 ) ? 14U : 526U ) );
 		nif->set<QString>( iBlock, "Name", QString::fromStdString( node.name ) );
 
 		Transform	t;
@@ -2305,13 +2311,13 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 			t.rotation = t.rotation.toZUp();
 			t.translation = Vector3( t.translation[0], -(t.translation[2]), t.translation[1] );
 		}
-		if ( nif->getBSVersion() < 170 )
+		if ( bsVersion < 170 )
 			t.translation = fromMeters( t.translation );		// convert from meters
 		t.writeBack( nif, iBlock );
 
 		if ( meshPrim ) {
 			QPersistentModelIndex	iMaterialID;
-			if ( nif->getBSVersion() >= 170 ) {
+			if ( bsVersion >= 170 ) {
 				iMaterialID = nif->insertNiBlock( "NiIntegerExtraData" );
 				nif->set<QString>( iMaterialID, "Name", "MaterialID" );
 				if ( auto iNumExtraData = nif->getIndex( iBlock, "Num Extra Data List" ); iNumExtraData.isValid() ) {
@@ -2340,9 +2346,9 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 			}
 
 			bool	isEffect = false;
-			if ( nif->getBSVersion() < 170 ) {
+			if ( bsVersion < 170 ) {
 				size_t	l = materialPath.length();
-				if ( nif->getBSVersion() >= 130 && l >= 5 && materialPath[l - 5] == '.'
+				if ( bsVersion >= 130 && l >= 5 && materialPath[l - 5] == '.'
 					&& ( FileBuffer::readUInt32Fast( materialPath.c_str() + ( l - 4 ) ) | 0x20202020 ) == 0x6D656762 ) {
 					isEffect = true;			// "bgem"
 				}
@@ -2353,15 +2359,24 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 
 			if ( !materialPath.empty() ) {
 				auto	matPathTmp = QString::fromStdString( materialPath );
-				const char *	extStr = ( nif->getBSVersion() < 170 ? ( isEffect ? ".bgem" : ".bgsm" ) : ".mat" );
+				const char *	extStr = ( bsVersion < 170 ? ( isEffect ? ".bgem" : ".bgsm" ) : ".mat" );
 				materialPath = Game::GameManager::get_full_path( matPathTmp, "materials/", extStr );
 				nif->set<QString>( iShaderProperty, "Name", matPathTmp );
 			}
-			if ( nif->getBSVersion() >= 170 ) {
+			if ( bsVersion >= 170 ) {
 				std::uint32_t	matPathHash = 0;
 				for ( char c : materialPath )
 					hashFunctionCRC32( matPathHash, (unsigned char) ( c != '/' ? c : '\\' ) );
 				nif->set<quint32>( iMaterialID, "Integer Data", matPathHash );
+			} else if ( !isEffect && ( bsVersion < 151 || materialPath.empty() ) ) {
+				QModelIndex	iTextureSet = nif->insertNiBlock( "BSShaderTextureSet" );
+				QModelIndex	iShaderPropertyData = nif->getIndex( iShaderProperty, "Shader Property Data" );
+				if ( !iShaderPropertyData.isValid() )
+					iShaderPropertyData = iShaderProperty;
+				nif->setLink( iShaderPropertyData, "Texture Set", qint32( nif->getBlockNumber(iTextureSet) ) );
+				quint32	numTextures = ( bsVersion < 130 ? 9 : ( bsVersion < 151 ? 10 : 15 ) );
+				nif->set<quint32>( iTextureSet, "Num Textures", numTextures );
+				nif->updateArraySize( nif->getIndex( iTextureSet, "Textures" ) );
 			}
 
 			if ( tangentsNeeded ) {
