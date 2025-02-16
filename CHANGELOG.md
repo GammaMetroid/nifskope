@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev9-20250216
+
 * Implemented experimental glTF export and import for Skyrim: Special Edition, Fallout 4 and Fallout 76. See [README\_GLTF.md](https://github.com/fo76utils/nifskope/blob/develop/README_GLTF.md) for details, and known limitations and issues.
 * Updating bounds has been implemented for skinned BSTriShape meshes, and 'Update All Bounds' is now applicable to Skyrim Special Edition NIFs.
 * The viewport is now enabled by default on opening a new window, and not only after loading a NIF. This allows models imported to a new window to be visible, but may increase startup time, because resources need to be initialized for the default game (the default NIF version can be configured in the general settings).
@@ -12,6 +14,7 @@
 * Fixed loading Fallout 76 and Starfield cube maps with legacy DDS header.
 * Fixed restoring the background color after silhouette mode.
 * Fixed issues with empty recent file menus (e.g. recent archive files before opening an archive).
+* Improved handling of the alpha channel on DDS screenshots when the model uses alpha blending.
 * Minor optimizations: faster cube map filtering, and use of SIMD data types in 'noavx' GCC and Clang builds.
 
 #### NifSkope-2.0.dev9-20250130
