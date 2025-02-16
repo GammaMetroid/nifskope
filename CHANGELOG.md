@@ -11,6 +11,7 @@
 * Fixed the light direction being reset on changes to the render settings.
 * Fixed loading Fallout 76 and Starfield cube maps with legacy DDS header.
 * Fixed restoring the background color after silhouette mode.
+* Fixed issues with empty recent file menus (e.g. recent archive files before opening an archive).
 * Minor optimizations: faster cube map filtering, and use of SIMD data types in 'noavx' GCC and Clang builds.
 
 #### NifSkope-2.0.dev9-20250130

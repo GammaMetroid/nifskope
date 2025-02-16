@@ -486,7 +486,7 @@ void NifSkope::initMenu()
 
 	updateRecentFileActions();
 	updateRecentArchiveActions();
-	//updateRecentArchiveFileActions();
+	updateRecentArchiveFileActions();
 
 	// Lighting Menu
 	auto mLight = lightingWidget();
