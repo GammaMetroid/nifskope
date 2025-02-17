@@ -1457,6 +1457,15 @@ bool ImportGltf::nodeHasMeshes( const tinygltf::Node & node, int d ) const
 		if ( i >= 0 && size_t(i) < model.nodes.size() && nodeHasMeshes( model.nodes[i], d + 1 ) )
 			return true;
 	}
+	if ( node.extras.Has( "Flat" ) && node.extras.Get( "Flat" ).Get< bool >() )
+		return false;
+	qsizetype	k = qsizetype( &node - model.nodes.data() );
+	for ( const auto & i : model.skins ) {
+		for ( int j : i.joints ) {
+			if ( j == k )
+				return true;
+		}
+	}
 	return false;
 }
 
@@ -1617,27 +1626,26 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 	size_t	numBones = skin.joints.size();
 	if ( nif->getBSVersion() >= 170 ) {
 		nif->set<quint32>( iSkinBMP, "Num Bones", quint32(numBones) );
-		if ( auto iBones = nif->getIndex( iSkinBMP, "Bones" ); iBones.isValid() ) {
-			nif->updateArraySize( iBones );
-			if ( NifItem * bonesItem = nif->getItem( iBones ); bonesItem ) {
-				for ( size_t i = 0; i < numBones; i++ ) {
-					int	j = skin.joints[i];
-					if ( j >= 0 && size_t(j) < model.nodes.size() )
-						nif->set<QString>( bonesItem->child( int(i) ), QString::fromStdString(model.nodes[j].name) );
-				}
-			}
-		}
+		iSkinBMP = nif->getIndex( iSkinBMP, "Bones" );
+		if ( iSkinBMP.isValid() )
+			nif->updateArraySize( iSkinBMP );
 	}
 
 	nif->set<quint32>( iSkin, "Num Bones", quint32(numBones) );
 	if ( auto iBones = nif->getIndex( iSkin, "Bones" ); iBones.isValid() ) {
 		nif->updateArraySize( iBones );
-		if ( nif->getBSVersion() < 170 ) {
-			for ( size_t i = 0; i < numBones; i++ ) {
-				int	boneBlockNum = -1;
-				// FIXME: this works only if bone nodes are loaded before the skin
-				if ( skin.joints[i] >= 0 && size_t(skin.joints[i]) < nodeMap.size() )
-					boneBlockNum = nodeMap[skin.joints[i]];
+		for ( size_t i = 0; i < numBones; i++ ) {
+			const tinygltf::Node *	boneNode = nullptr;
+			int	boneBlockNum = -1;
+			// FIXME: this works only if bone nodes are loaded before the skin
+			if ( skin.joints[i] >= 0 && size_t(skin.joints[i]) < nodeMap.size() ) {
+				boneNode = model.nodes.data() + skin.joints[i];
+				boneBlockNum = nodeMap[skin.joints[i]];
+			}
+			if ( boneBlockNum < 0 ) {
+				if ( boneNode && iSkinBMP.isValid() )
+					nif->set<QString>( nif->getIndex( iSkinBMP, int(i) ), QString::fromStdString( boneNode->name ) );
+			} else {
 				nif->setLink( nif->getIndex( iBones, int(i) ), qint32(boneBlockNum) );
 			}
 		}
@@ -2232,11 +2240,11 @@ bool ImportGltf::loadMeshCE1(
 void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, bool isRoot )
 {
 	quint32	bsVersion = nif->getBSVersion();
-	if ( nodeNum < 0 || size_t(nodeNum) >= model.nodes.size() || nodeMap[nodeNum] >= 0
-		|| ( bsVersion >= 170 && !nodeHasMeshes( model.nodes[nodeNum] ) ) ) {
+	if ( nodeNum < 0 || size_t(nodeNum) >= model.nodes.size() || nodeMap[nodeNum] >= 0 )
 		return;
-	}
 	const tinygltf::Node &	node = model.nodes[nodeNum];
+	if ( !nodeHasMeshes( node ) )
+		return;
 
 	bool	haveMesh = ( node.mesh >= 0 && size_t(node.mesh) < model.meshes.size() );
 	size_t	primCnt = 0;

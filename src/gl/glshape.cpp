@@ -100,16 +100,15 @@ void Shape::updateBoneTransforms()
 
 	boundSphere = BoundSphere();
 
-	Transform	wtInv = worldTrans();
-	wtInv.rotation = wtInv.rotation.inverted();
-	wtInv.scale = 1.0f / wtInv.scale;
-	wtInv.translation = ( wtInv.rotation * wtInv.translation ) * wtInv.scale * -1.0f;
+	Transform	wtInv = worldTrans().inverted();
 
 	for ( qsizetype i = 0; i < numBones; i++ ) {
 		const BoneData &	bw = boneData.at( i );
 		Transform	t;
 		Node * bone = root ? root->findChild( bw.bone ) : nullptr;
-		if ( bone )
+		if ( !bone )
+			t = bw.trans.inverted();
+		else
 			t = wtInv * bone->worldTrans();
 		boundSphere |= BoundSphere( t * bw.center, t.scale * bw.radius );
 		t = t * bw.trans;
@@ -439,14 +438,15 @@ void Shape::boneSphere( const NifModel * nif, const QModelIndex & index ) const
 {
 	Node * root = findParent( 0 );
 	Node * bone = root ? root->findChild( bones.value( index.row() ) ) : nullptr;
-	if ( !bone )
-		return;
 
 	auto bSphere = BoundSphere( nif, index );
 	if ( bSphere.radius > 0.0 ) {
 		scene->setGLColor( 1.0f, 1.0f, 1.0f, 0.33f );
 		scene->setGLLineWidth( GLView::Settings::lineWidthWireframe );
-		scene->loadModelViewMatrix( scene->view.toMatrix4() * bone->worldTrans() );
+		if ( !bone )
+			scene->loadModelViewMatrix( viewTrans() * Transform( nif, index ).inverted() );
+		else
+			scene->loadModelViewMatrix( scene->view.toMatrix4() * bone->worldTrans() );
 		scene->drawSphereSimple( bSphere.center, bSphere.radius, 36 );
 	}
 }

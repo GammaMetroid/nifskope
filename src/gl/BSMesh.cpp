@@ -483,32 +483,27 @@ void BSMesh::updateData(const NifModel* nif)
 		boundSphere.applyInv( viewTrans() );
 	}
 
-	auto links = nif->getChildLinks(nif->getBlockNumber(iBlock));
-	for ( const auto link : links ) {
-		auto idx = nif->getBlockIndex(link);
-		if ( nif->blockInherits(idx, "BSSkin::Instance") ) {
+	if ( int link = nif->getLink( iBlock, "Skin" ); link >= 0 ) {
+		if ( auto idx = nif->getBlockIndex( link ); nif->blockInherits( idx, "BSSkin::Instance" ) ) {
 			iSkin = idx;
-			iSkinData = nif->getBlockIndex(nif->getLink(nif->getIndex(idx, "Data")));
+			iSkinData = nif->getBlockIndex( nif->getLink( nif->getIndex(idx, "Data") ) );
 
-			qsizetype numBones = nif->get<int>(iSkinData, "Num Bones");
+			qsizetype numBones = nif->get<int>( iSkinData, "Num Bones" );
 			boneData.fill( BoneData(), numBones );
 
-			bones = nif->getLinkArray(iSkin, "Bones");
-			qsizetype validBones = 0;
+			bones = nif->getLinkArray( iSkin, "Bones" );
 			for ( qsizetype i = 0; i < bones.size(); i++ ) {
 				int b = bones.at( i );
 				if ( i < numBones )
 					boneData[i].bone = b;
-				if ( b >= 0 )
-					validBones++;
 			}
-			isSkinned = ( validBones >= numBones );
+			isSkinned = true;
 
-			auto iBoneList = nif->getIndex(iSkinData, "Bone List");
+			auto iBoneList = nif->getIndex( iSkinData, "Bone List" );
 			for ( int i = 0; i < numBones; i++ )
 				boneData[i].setTransform( nif, nif->getIndex( iBoneList, i ) );
 
-			if ( weights && isSkinned ) {
+			if ( weights ) {
 				size_t	n = size_t( numWeights );
 				boneWeights0.assign( n, FloatVector4( 0.0f ) );
 				for ( size_t i = 0; i < n; i++ ) {
