@@ -148,8 +148,6 @@ void BSShape::updateData( const NifModel * nif )
 	// Fill skeleton data
 	resetSkeletonData();
 	if ( isSkinned && iSkin.isValid() ) {
-		skeletonRoot = nif->getLink( iSkin, "Skeleton Root" );
-
 		bones = nif->getLinkArray( iSkin, "Bones" );
 		auto nTotalBones = bones.size();
 

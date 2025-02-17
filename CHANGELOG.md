@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+* Fixed rendering Skyrim, Fallout 4 and 76 skinned meshes with a non-zero skeleton root.
+
 #### NifSkope-2.0.dev9-20250216
 
 * Implemented experimental glTF export and import for Skyrim: Special Edition, Fallout 4 and Fallout 76. See [README\_GLTF.md](https://github.com/fo76utils/nifskope/blob/develop/README_GLTF.md) for details, and known limitations and issues.
