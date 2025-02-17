@@ -255,7 +255,7 @@ bool Matrix::toEuler( float & x, float & y, float & z ) const
 }
 
 
-Matrix Matrix::inverted () const
+Matrix Matrix::inverted() const
 {
 	Matrix i;
 
@@ -271,7 +271,7 @@ Matrix Matrix::inverted () const
 
 	float d = m[0][0] * i( 0, 0 ) + m[0][1] * i( 1, 0 ) + m[0][2] * i( 2, 0 );
 
-	if ( fabs( d ) <= 0.0 )
+	if ( std::fabs( d ) <= 0.0f )
 		return Matrix();
 
 	for ( int x = 0; x < 3; x++ ) {
@@ -724,6 +724,15 @@ void Transform::writeBack( NifModel * nif, const QModelIndex & transform ) const
 	nif->set<Matrix>( t, "Rotation", rotation );
 	nif->set<Vector3>( t, "Translation", translation );
 	nif->set<float>( t, "Scale", scale );
+}
+
+Transform Transform::inverted() const
+{
+	Transform	t( *this );
+	t.rotation = t.rotation.inverted();
+	t.scale = 1.0f / t.scale;
+	t.translation = ( t.rotation * t.translation ) * ( t.scale * -1.0f );
+	return t;
 }
 
 QString Transform::toString() const
