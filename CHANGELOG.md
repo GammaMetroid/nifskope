@@ -1,8 +1,6 @@
  == CHANGELOG ==
 
-* Fixed rendering Skyrim, Fallout 4 and 76 skinned meshes with a non-zero skeleton root.
-
-#### NifSkope-2.0.dev9-20250216
+#### NifSkope-2.0.dev11-20250217
 
 * Implemented experimental glTF export and import for Skyrim: Special Edition, Fallout 4 and Fallout 76. See [README\_GLTF.md](https://github.com/fo76utils/nifskope/blob/develop/README_GLTF.md) for details, and known limitations and issues.
 * Updating bounds has been implemented for skinned BSTriShape meshes, and 'Update All Bounds' is now applicable to Skyrim Special Edition NIFs.
@@ -12,6 +10,7 @@
 * Fixed incorrect sorting of link rows.
 * Fixed errors on drawing bhkPackedNiTriStripsShape.
 * Fixes to Fallout 3/New Vegas rendering: depth buffer flags are now checked only on BSShaderNoLightingProperty, added support for Lighting30ShaderProperty and TallGrassShaderProperty.
+* Fixes to skinned mesh rendering and glTF import.
 * Fixed the light direction being reset on changes to the render settings.
 * Fixed loading Fallout 76 and Starfield cube maps with legacy DDS header.
 * Fixed restoring the background color after silhouette mode.
