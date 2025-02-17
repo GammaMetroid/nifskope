@@ -1,4 +1,4 @@
-﻿# NifSkope 2.0.dev9
+﻿# NifSkope 2.0.dev11
 
 NifSkope is a tool for opening and editing the NetImmerse file format (NIF). NIF is used by video games such as Morrowind, Oblivion, Skyrim, Fallout 3/NV/4/76, Starfield, Civilization IV, and more.
 
@@ -20,7 +20,7 @@ The resource manager in this version of NifSkope is optimized for PCs with solid
 
 #### Building from source code
 
-Compiling NifSkope requires Qt 6.2 or newer. On Windows, [MSYS2](https://www.msys2.org/) can be used for building. After running the MSYS2 installer, use the following commands in the MSYS2-UCRT64 shell to install required packages:
+Compiling NifSkope requires Qt 6.4 or newer. On Windows, [MSYS2](https://www.msys2.org/) can be used for building. After running the MSYS2 installer, use the following commands in the MSYS2-UCRT64 shell to install required packages:
 
     pacman -S base-devel mingw-w64-ucrt-x86_64-gcc
     pacman -S mingw-w64-ucrt-x86_64-qt6-base
