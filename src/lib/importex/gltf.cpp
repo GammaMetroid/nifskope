@@ -1423,6 +1423,7 @@ protected:
 	static void normalizeFloats( float * p, size_t n, int dataType );
 	template< typename T > bool loadBuffer( std::vector< T > & outBuf, int accessor, int typeRequired );
 	void applyXYZScale( Transform & t, const Vector3 & scale );
+	QModelIndex insertNiBlock( const char * blockType );
 	void loadSkin( const QPersistentModelIndex & index, const tinygltf::Skin & skin );
 	int loadTriangles( const QModelIndex & index, const tinygltf::Primitive & p );
 	void loadSkinnedLODMesh( const QPersistentModelIndex & index, const tinygltf::Primitive & p, int lod );
@@ -1599,11 +1600,20 @@ void ImportGltf::applyXYZScale( Transform & t, const Vector3 & scale )
 	t.rotation( 2, 2 ) *= tmp[2];
 }
 
+QModelIndex ImportGltf::insertNiBlock( const char * blockType )
+{
+	nif->setState( BaseModel::Loading );
+	QModelIndex	index = nif->insertNiBlock( blockType );
+	nif->updateChildArraySizes( nif->getItem( index ) );
+	nif->restoreState();
+	return index;
+}
+
 void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::Skin & skin )
 {
 	QPersistentModelIndex	iSkinBMP;
 	if ( nif->getBSVersion() >= 170 ) {
-		iSkinBMP = nif->insertNiBlock( "SkinAttach" );
+		iSkinBMP = insertNiBlock( "SkinAttach" );
 		nif->set<QString>( iSkinBMP, "Name", "SkinBMP" );
 		if ( auto iNumExtraData = nif->getIndex( index, "Num Extra Data List" ); iNumExtraData.isValid() ) {
 			quint32	n = nif->get<quint32>( iNumExtraData );
@@ -1616,11 +1626,11 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 		}
 	}
 
-	QPersistentModelIndex	iSkin = nif->insertNiBlock( "BSSkin::Instance" );
+	QPersistentModelIndex	iSkin = insertNiBlock( "BSSkin::Instance" );
 	nif->setLink( index, "Skin", qint32( nif->getBlockNumber(iSkin) ) );
 	nif->setLink( iSkin, "Skeleton Root", qint32( 0 ) );
 
-	QPersistentModelIndex	iBoneData = nif->insertNiBlock( "BSSkin::BoneData" );
+	QPersistentModelIndex	iBoneData = insertNiBlock( "BSSkin::BoneData" );
 	nif->setLink( iSkin, "Data", qint32( nif->getBlockNumber(iBoneData) ) );
 
 	size_t	numBones = skin.joints.size();
@@ -2264,7 +2274,7 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 		}
 
 		QPersistentModelIndex	iBlock =
-			nif->insertNiBlock( !haveMesh ? "NiNode" : ( bsVersion < 170 ? "BSTriShape" : "BSGeometry" ) );
+			insertNiBlock( !haveMesh ? "NiNode" : ( bsVersion < 170 ? "BSTriShape" : "BSGeometry" ) );
 		if ( !haveMesh )
 			nodeMap[nodeNum] = nif->getBlockNumber( iBlock );
 		if ( index.isValid() ) {
@@ -2326,7 +2336,7 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 		if ( meshPrim ) {
 			QPersistentModelIndex	iMaterialID;
 			if ( bsVersion >= 170 ) {
-				iMaterialID = nif->insertNiBlock( "NiIntegerExtraData" );
+				iMaterialID = insertNiBlock( "NiIntegerExtraData" );
 				nif->set<QString>( iMaterialID, "Name", "MaterialID" );
 				if ( auto iNumExtraData = nif->getIndex( iBlock, "Num Extra Data List" ); iNumExtraData.isValid() ) {
 					quint32	n = nif->get<quint32>( iNumExtraData );
@@ -2362,7 +2372,7 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 				}
 			}
 			QPersistentModelIndex	iShaderProperty =
-				nif->insertNiBlock( isEffect ? "BSEffectShaderProperty" : "BSLightingShaderProperty" );
+				insertNiBlock( isEffect ? "BSEffectShaderProperty" : "BSLightingShaderProperty" );
 			nif->setLink( iBlock, "Shader Property", qint32( nif->getBlockNumber(iShaderProperty) ) );
 
 			if ( !materialPath.empty() ) {
@@ -2377,7 +2387,7 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 					hashFunctionCRC32( matPathHash, (unsigned char) ( c != '/' ? c : '\\' ) );
 				nif->set<quint32>( iMaterialID, "Integer Data", matPathHash );
 			} else if ( !isEffect && ( bsVersion < 151 || materialPath.empty() ) ) {
-				QModelIndex	iTextureSet = nif->insertNiBlock( "BSShaderTextureSet" );
+				QModelIndex	iTextureSet = insertNiBlock( "BSShaderTextureSet" );
 				QModelIndex	iShaderPropertyData = nif->getIndex( iShaderProperty, "Shader Property Data" );
 				if ( !iShaderPropertyData.isValid() )
 					iShaderPropertyData = iShaderProperty;
@@ -2414,8 +2424,8 @@ void ImportGltf::importModel( const QPersistentModelIndex & iBlock )
 				loadNode( iBlock, j, true );
 		}
 	}
-	nif->updateHeader();
 	nif->restoreState();
+	nif->updateModel();
 }
 
 static bool dummyImageLoadFunction(
