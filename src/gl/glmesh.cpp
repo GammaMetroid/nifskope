@@ -827,10 +827,10 @@ void Mesh::drawSelection() const
 	auto idx = scene->currentIndex;
 	auto blk = scene->currentBlock;
 
-	if ( blk != iBlock && blk != iData && blk != iSkinPart && blk != iSkinData
-		&& ( !iTangentData.isValid() || blk != iTangentData ) && !scene->isSelModeVertex() )
-	{
-		return;
+	if ( !blk.isValid()
+		|| !( blk == iBlock || blk == iData || blk == iSkinPart || blk == iSkinData || blk == iTangentData ) ) {
+		if ( !scene->isSelModeVertex() )
+			return;
 	}
 
 	auto	context = scene->renderer;

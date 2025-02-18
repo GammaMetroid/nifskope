@@ -87,14 +87,13 @@ void BSMesh::drawShapes( NodeList * secondPass )
 
 void BSMesh::drawSelection() const
 {
+	const auto &	blk = scene->currentBlock;
 	if ( !scene->isSelModeVertex() ) {
 		if ( scene->hasOption(Scene::ShowNodes) )
 			Node::drawSelection();
 
-		if ( !( scene->isSelModeObject() && scene->currentBlock.isValid()
-				&& ( scene->currentBlock == iBlock || scene->currentBlock == iSkinData ) ) ) {
+		if ( !( scene->isSelModeObject() && blk.isValid() && ( blk == iBlock || blk == iSkinData ) ) )
 			return;
-		}
 	}
 
 	auto &	idx = scene->currentIndex;
@@ -185,8 +184,8 @@ void BSMesh::drawSelection() const
 		// Draw all bones' bounding spheres
 
 		// Get shape block
-		if ( nif->getBlockIndex( nif->getParent( nif->getParent( scene->currentBlock ) ) ) == iBlock ) {
-			auto iBones = nif->getIndex( scene->currentBlock, "Bone List" );
+		if ( nif->getBlockIndex( nif->getParent( nif->getParent( blk ) ) ) == iBlock ) {
+			auto iBones = nif->getIndex( blk, "Bone List" );
 			int ct = nif->rowCount( iBones );
 
 			for ( int i = 0; i < ct; i++ ) {

@@ -351,17 +351,18 @@ void BSShape::drawSelection() const
 	auto idx = scene->currentIndex;
 	auto blk = scene->currentBlock;
 
-	// Is the current block extra data
 	bool extraData = false;
-
-	// Set current block name and detect if extra data
-	auto blockName = nif->itemName( blk );
-	// Don't do anything if this block is not the current block
-	//	or if there is not extra data
-	if ( blockName.startsWith( QLatin1StringView("BSPackedCombined") ) )
-		extraData = true;
-	else if ( blk != iBlock && blk != iSkin && blk != iSkinData && blk != iSkinPart && !scene->isSelModeVertex() )
-		return;
+	if ( !scene->isSelModeVertex() ) {
+		if ( !blk.isValid() )
+			return;
+		// Is the current block extra data
+		if ( auto i = nif->getItem( blk ); i != nullptr )
+			extraData = i->name().startsWith( QLatin1StringView("BSPackedCombined") );
+		// Don't do anything if this block is not the current block
+		//	or if there is not extra data
+		if ( blk != iBlock && blk != iSkin && blk != iSkinData && blk != iSkinPart && !extraData )
+			return;
+	}
 
 	auto	context = scene->renderer;
 	if ( !( context && bindShape() ) )
@@ -410,9 +411,8 @@ void BSShape::drawSelection() const
 			if ( minVal > 0.0f && maxVal < 2.1e9f )
 				Shape::drawBoundingBox( boundsCenter, boundsDims, FloatVector4( 1.0f, 1.0f, 1.0f, 0.33f ) );
 		}
-	}
 
-	if ( blockName.startsWith( QLatin1StringView("BSPackedCombined") ) && pBlock == iBlock ) {
+	} else if ( pBlock == iBlock ) {
 		QVector<QModelIndex> idxs;
 		if ( n == "Bounding Sphere" ) {
 			idxs += idx;
