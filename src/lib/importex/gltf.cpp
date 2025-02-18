@@ -1602,10 +1602,8 @@ void ImportGltf::applyXYZScale( Transform & t, const Vector3 & scale )
 
 QModelIndex ImportGltf::insertNiBlock( const char * blockType )
 {
-	nif->setState( BaseModel::Loading );
 	QModelIndex	index = nif->insertNiBlock( blockType );
 	nif->updateChildArraySizes( nif->getItem( index ) );
-	nif->restoreState();
 	return index;
 }
 
@@ -2083,19 +2081,38 @@ bool ImportGltf::loadMeshCE1(
 	}
 
 	std::vector< float >	positions;
+	std::vector< float >	uvs;
+	std::vector< float >	normals;
+	std::vector< float >	tangents;
+	std::vector< float >	colors;
+	std::vector< float >	weights;
+	std::vector< std::uint16_t >	joints;
 	bool	haveTexCoord1 = false;
 	bool	haveVertexColors = false;
-	bool	haveWeights = false;
+	bool	haveAlpha = false;
 	for ( const auto & i : p.attributes ) {
-		if ( i.first == "POSITION" )
+		if ( i.first == "POSITION" ) {
 			(void) loadBuffer< float >( positions, i.second, TINYGLTF_TYPE_VEC3 );
-		else if ( i.first == "TEXCOORD_1" )
+		} else if ( i.first == "TEXCOORD_0" ) {
+			(void) loadBuffer< float >( uvs, i.second, TINYGLTF_TYPE_VEC2 );
+		} else if ( i.first == "TEXCOORD_1" ) {
 			haveTexCoord1 = true;
-		else if ( i.first == "COLOR_0" )
+		} else if ( i.first == "NORMAL" ) {
+			(void) loadBuffer< float >( normals, i.second, TINYGLTF_TYPE_VEC3 );
+		} else if ( i.first == "TANGENT" ) {
+			(void) loadBuffer< float >( tangents, i.second, TINYGLTF_TYPE_VEC4 );
+		} else if ( i.first == "COLOR_0" ) {
 			haveVertexColors = true;
-		else if ( i.first == "WEIGHTS_0" || i.first == "JOINTS_0" )
-			haveWeights = true;
+			haveAlpha = loadBuffer< float >( colors, i.second, TINYGLTF_TYPE_VEC4 );
+			if ( !haveAlpha )
+				haveVertexColors = loadBuffer< float >( colors, i.second, TINYGLTF_TYPE_VEC3 );
+		} else if ( i.first == "WEIGHTS_0" ) {
+			(void) loadBuffer< float >( weights, i.second, TINYGLTF_TYPE_VEC4 );
+		} else if ( i.first == "JOINTS_0" ) {
+			(void) loadBuffer< std::uint16_t >( joints, i.second, TINYGLTF_TYPE_VEC4 );
+		}
 	}
+	bool	haveWeights = ( weights.size() >= 4 && joints.size() >= 4 );
 	std::uint64_t	vertexDesc = 0x0001B00000000405ULL;
 	if ( haveTexCoord1 )
 		vertexDesc = ( vertexDesc + 1U ) | ( ( vertexDesc & 0x0FU ) << 12 ) | 0x0000400000000000ULL;
@@ -2128,123 +2145,66 @@ bool ImportGltf::loadMeshCE1(
 		return false;
 	nif->updateArraySize( iVertexData );
 
-	bool	haveNormals = false;
-	bool	haveTangents = false;
-	bool	tangentSpaceValid = false;
-	for ( const auto & i : p.attributes ) {
-		if ( i.first == "POSITION" ) {
-			for ( int j = 0; j < numVerts; j++ ) {
-				if ( QModelIndex iVertex = nif->getIndex( iVertexData, j ); iVertex.isValid() ) {
-					Vector3	v( positions[j * 3], positions[j * 3 + 1], positions[j * 3 + 2] );
-					v = fromMeters( v );		// convert from meters
-					nif->set<Vector3>( iVertex, "Vertex", v );
-				}
+	for ( size_t i = 0; i < size_t( numVerts ); i++ ) {
+		if ( QModelIndex iVertex = nif->getIndex( iVertexData, int( i ) ); iVertex.isValid() ) {
+			Vector3	v( positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2] );
+			nif->set<Vector3>( iVertex, "Vertex", fromMeters( v ) );	// convert from meters
+
+			HalfVector2	uv;
+			if ( ( i * 2 + 2 ) <= uvs.size() )
+				uv = HalfVector2( uvs[i * 2], uvs[i * 2 + 1] );
+			nif->set<HalfVector2>( iVertex, "UV", uv );
+
+			FloatVector4	n( 0.0f, 0.0f, 1.0f, 0.0f );
+			if ( ( i * 3 + 3 ) <= normals.size() )
+				n = FloatVector4::convertVector3( normals.data() + ( i * 3 ) );
+			nif->set<ByteVector3>( iVertex, "Normal", ByteVector3( n[0], n[1], n[2] ) );
+
+			FloatVector4	t( 0.0f, -1.0f, 0.0f, 0.0f );
+			FloatVector4	b( 1.0f, 0.0f, 0.0f, 0.0f );
+			if ( ( i * 4 + 4 ) <= tangents.size() ) {
+				b = FloatVector4( tangents.data() + ( i * 4 ) );
+				t = b.crossProduct3( n ) * b[3];
 			}
-		} else if ( i.first == "TEXCOORD_0" ) {
-			std::vector< float >	uvs;
-			if ( !loadBuffer< float >( uvs, i.second, TINYGLTF_TYPE_VEC2 ) )
-				continue;
-			for ( int j = 0; j < numVerts; j++ ) {
-				if ( ( size_t( j ) * 2 + 2 ) > uvs.size() )
-					break;
-				if ( QModelIndex iVertex = nif->getIndex( iVertexData, j ); iVertex.isValid() ) {
-					HalfVector2	v( uvs[j * 2], uvs[j * 2 + 1] );
-					nif->set<HalfVector2>( iVertex, "UV", v );
+			nif->set<ByteVector3>( iVertex, "Tangent", ByteVector3( t[0], t[1], t[2] ) );
+			nif->set<float>( iVertex, "Bitangent X", b[0] );
+			nif->set<float>( iVertex, "Bitangent Y", b[1] );
+			nif->set<float>( iVertex, "Bitangent Z", b[2] );
+
+			if ( haveVertexColors ) {
+				FloatVector4	c( 1.0f );
+				size_t	componentCnt = ( !haveAlpha ? 3 : 4 );
+				if ( ( i * componentCnt + componentCnt ) <= colors.size() ) {
+					if ( !haveAlpha )
+						c.blendValues( FloatVector4::convertVector3( colors.data() + ( i * componentCnt ) ), 0x07 );
+					else
+						c = FloatVector4( colors.data() + ( i * componentCnt ) );
 				}
+				nif->set<ByteColor4>( iVertex, "Vertex Colors", ByteColor4( c ) );
 			}
-		} else if ( i.first == "NORMAL" ) {
-			std::vector< float >	normals;
-			if ( !loadBuffer< float >( normals, i.second, TINYGLTF_TYPE_VEC3 ) )
-				continue;
-			for ( int j = 0; j < numVerts; j++ ) {
-				if ( ( size_t( j ) * 3 + 3 ) > normals.size() )
-					break;
-				if ( QModelIndex iVertex = nif->getIndex( iVertexData, j ); iVertex.isValid() ) {
-					ByteVector3	v( normals[j * 3], normals[j * 3 + 1], normals[j * 3 + 2] );
-					nif->set<ByteVector3>( iVertex, "Normal", v );
-					if ( haveTangents && !tangentSpaceValid ) {
-						FloatVector4	t = FloatVector4( nif->get<Vector3>( iVertex, "Tangent" ) );
-						t = t.crossProduct3( FloatVector4::convertVector3( &(v[0]) ) );
-						nif->set<ByteVector3>( iVertex, "Tangent", ByteVector3( t[0], t[1], t[2] ) );
-					}
+
+			if ( haveWeights ) {
+				FloatVector4	w( 0.0f );
+				if ( ( i * 4 + 4 ) <= weights.size() )
+					w = FloatVector4( weights.data() + ( i * 4 ) );
+				if ( QModelIndex iWeights = nif->getIndex( iVertex, "Bone Weights" ); iWeights.isValid() ) {
+					nif->updateArraySize( iWeights );
+					for ( int k = 0; k < 4; k++ )
+						nif->set<float>( nif->getIndex( iWeights, k ), w[k] );
 				}
-			}
-			haveNormals = true;
-			tangentSpaceValid = haveTangents;
-		} else if ( i.first == "TANGENT" ) {
-			std::vector< float >	tangents;
-			if ( !loadBuffer< float >( tangents, i.second, TINYGLTF_TYPE_VEC4 ) )
-				continue;
-			for ( int j = 0; j < numVerts; j++ ) {
-				if ( ( size_t( j ) * 4 + 4 ) > tangents.size() )
-					break;
-				if ( QModelIndex iVertex = nif->getIndex( iVertexData, j ); iVertex.isValid() ) {
-					FloatVector4	v( tangents.data() + ( j * 4 ) );
-					nif->set<float>( iVertex, "Bitangent X", v[0] );
-					nif->set<float>( iVertex, "Bitangent Y", v[1] );
-					nif->set<float>( iVertex, "Bitangent Z", v[2] );
-					v = v * v[3];
-					if ( haveNormals && !tangentSpaceValid ) {
-						FloatVector4	n = FloatVector4( nif->get<Vector3>( iVertex, "Normal" ) );
-						v = v.crossProduct3( n );
-					}
-					nif->set<ByteVector3>( iVertex, "Tangent", ByteVector3( v[0], v[1], v[2] ) );
-				}
-			}
-			haveTangents = true;
-			tangentSpaceValid = haveNormals;
-		} else if ( i.first == "COLOR_0" ) {
-			std::vector< float >	colors;
-			bool	haveAlpha = loadBuffer< float >( colors, i.second, TINYGLTF_TYPE_VEC4 );
-			if ( !haveAlpha && !loadBuffer< float >( colors, i.second, TINYGLTF_TYPE_VEC3 ) )
-				continue;
-			size_t	componentCnt = ( !haveAlpha ? 3 : 4 );
-			for ( int j = 0; j < numVerts; j++ ) {
-				if ( ( size_t( j ) * componentCnt + componentCnt ) > colors.size() )
-					break;
-				if ( QModelIndex iVertex = nif->getIndex( iVertexData, j ); iVertex.isValid() ) {
-					FloatVector4	v;
-					if ( componentCnt < 4 ) {
-						v = FloatVector4::convertVector3( colors.data() + ( j * 3 ) );
-						v[3] = 1.0f;
-					} else {
-						v = FloatVector4( colors.data() + ( j * 4 ) );
-					}
-					nif->set<ByteColor4>( iVertex, "Vertex Colors", ByteColor4( v ) );
-				}
-			}
-		} else if ( i.first == "WEIGHTS_0" ) {
-			std::vector< float >	weights;
-			if ( !loadBuffer< float >( weights, i.second, TINYGLTF_TYPE_VEC4 ) )
-				continue;
-			for ( int j = 0; j < numVerts; j++ ) {
-				if ( ( size_t( j ) * 4 + 4 ) > weights.size() )
-					break;
-				if ( QModelIndex iVertex = nif->getIndex( iVertexData, j ); iVertex.isValid() ) {
-					if ( QModelIndex iWeights = nif->getIndex( iVertex, "Bone Weights" ); iWeights.isValid() ) {
-						for ( int k = 0; k < 4; k++ )
-							nif->set<float>( nif->getIndex( iWeights, k ), weights[j * 4 + k] );
-					}
-				}
-			}
-		} else if ( i.first == "JOINTS_0" ) {
-			std::vector< std::uint16_t >	joints;
-			if ( !loadBuffer< std::uint16_t >( joints, i.second, TINYGLTF_TYPE_VEC4 ) )
-				continue;
-			for ( int j = 0; j < numVerts; j++ ) {
-				if ( ( size_t( j ) * 4 + 4 ) > joints.size() )
-					break;
-				if ( QModelIndex iVertex = nif->getIndex( iVertexData, j ); iVertex.isValid() ) {
-					if ( QModelIndex iBones = nif->getIndex( iVertex, "Bone Indices" ); iBones.isValid() ) {
-						for ( int k = 0; k < 4; k++ )
-							nif->set<quint8>( nif->getIndex( iBones, k ), quint8( joints[j * 4 + k] ) );
-					}
+				std::uint16_t	j[4] = { 0, 0, 0, 0 };
+				if ( ( i * 4 + 4 ) <= joints.size() )
+					std::memcpy( j, joints.data() + ( i * 4 ), sizeof( std::uint16_t ) * 4 );
+				if ( QModelIndex iBones = nif->getIndex( iVertex, "Bone Indices" ); iBones.isValid() ) {
+					nif->updateArraySize( iBones );
+					for ( int k = 0; k < 4; k++ )
+						nif->set<quint8>( nif->getIndex( iBones, k ), quint8( j[k] ) );
 				}
 			}
 		}
 	}
 
-	return !tangentSpaceValid;
+	return ( normals.size() < 3 || ( tangents.size() * 3 ) < ( normals.size() * 4 ) );
 }
 
 void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, bool isRoot )
@@ -2415,7 +2375,7 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 void ImportGltf::importModel( const QPersistentModelIndex & iBlock )
 {
 	nodeMap.assign( model.nodes.size(), -1 );
-	nif->setState( BaseModel::Processing );
+	nif->setState( BaseModel::Loading );
 	if ( model.scenes.empty() ) {
 		loadNode( iBlock, 0, true );
 	} else {
