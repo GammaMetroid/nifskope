@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20250219
+
 * Implemented experimental glTF export and import for Skyrim: Special Edition, Fallout 4 and Fallout 76. See [README\_GLTF.md](https://github.com/fo76utils/nifskope/blob/develop/README_GLTF.md) for details, and known limitations and issues.
 * Updating bounds has been implemented for skinned BSTriShape meshes, and 'Update All Bounds' is now applicable to Skyrim Special Edition NIFs.
 * The viewport is now enabled by default on opening a new window, and not only after loading a NIF. This allows models imported to a new window to be visible, but may increase startup time, because resources need to be initialized for the default game (the default NIF version can be configured in the general settings).
