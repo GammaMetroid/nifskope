@@ -1610,7 +1610,8 @@ QModelIndex ImportGltf::insertNiBlock( const char * blockType )
 void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::Skin & skin )
 {
 	QPersistentModelIndex	iSkinBMP;
-	if ( nif->getBSVersion() >= 170 ) {
+	quint32	bsVersion = nif->getBSVersion();
+	if ( bsVersion >= 170 ) {
 		iSkinBMP = insertNiBlock( "SkinAttach" );
 		nif->set<QString>( iSkinBMP, "Name", "SkinBMP" );
 		if ( auto iNumExtraData = nif->getIndex( index, "Num Extra Data List" ); iNumExtraData.isValid() ) {
@@ -1624,15 +1625,16 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 		}
 	}
 
-	QPersistentModelIndex	iSkin = insertNiBlock( "BSSkin::Instance" );
+	// TODO: implement support for Skyrim skin partitions
+	QPersistentModelIndex	iSkin = insertNiBlock( bsVersion < 130 ? "NiSkinInstance" : "BSSkin::Instance" );
 	nif->setLink( index, "Skin", qint32( nif->getBlockNumber(iSkin) ) );
 	nif->setLink( iSkin, "Skeleton Root", qint32( 0 ) );
 
-	QPersistentModelIndex	iBoneData = insertNiBlock( "BSSkin::BoneData" );
+	QPersistentModelIndex	iBoneData = insertNiBlock( bsVersion < 130 ? "NiSkinData" : "BSSkin::BoneData" );
 	nif->setLink( iSkin, "Data", qint32( nif->getBlockNumber(iBoneData) ) );
 
 	size_t	numBones = skin.joints.size();
-	if ( nif->getBSVersion() >= 170 ) {
+	if ( bsVersion >= 170 ) {
 		nif->set<quint32>( iSkinBMP, "Num Bones", quint32(numBones) );
 		iSkinBMP = nif->getIndex( iSkinBMP, "Bones" );
 		if ( iSkinBMP.isValid() )
@@ -1702,7 +1704,7 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 			Vector3	tmpScale;
 			m.decompose( t.translation, t.rotation, tmpScale );
 			applyXYZScale( t, tmpScale );
-			if ( nif->getBSVersion() < 170 )
+			if ( bsVersion < 170 )
 				t.translation = fromMeters( t.translation );		// convert from meters
 			QModelIndex	iBone = nif->getIndex( iBones, int(i) );
 			if ( iBone.isValid() )
