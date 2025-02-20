@@ -669,20 +669,17 @@ QModelIndex Mesh::triangleAt( int idx ) const
 					if ( !( iPoints.isValid() && nif->isArray( iPoints ) ) )
 						break;
 					const Triangle &	t = triangles.at( idx );
-					int	n = nif->rowCount( iPoints );
-					quint16	v0 = 0;
-					quint16	v1 = 0;
-					for ( int k = 0; k < n; k++ ) {
+					quint32	v1 = quint32( -1 );
+					quint32	v2 = quint32( -1 );
+					for ( int k = nif->rowCount( iPoints ); k-- > 0; ) {
 						QModelIndex	iPoint = nif->getIndex( iPoints, k );
 						if ( !iPoint.isValid() )
 							continue;
-						quint16	v2 = nif->get<quint16>( iPoint );
-						if ( k >= 2 ) {
-							if ( v0 == t.v1() && ( !(k & 1) ? v1 : v2 ) == t.v2() && ( !(k & 1) ? v2 : v1 ) == t.v3() )
-								return iPoint;
-						}
-						v0 = v1;
-						v1 = v2;
+						quint16	v0 = nif->get<quint16>( iPoint );
+						if ( v0 == t.v1() && ( !(k & 1) ? v1 : v2 ) == t.v2() && ( !(k & 1) ? v2 : v1 ) == t.v3() )
+							return iPoint;
+						v2 = v1;
+						v1 = v0;
 					}
 					break;
 				}
