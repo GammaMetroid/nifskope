@@ -48,13 +48,18 @@ public:
 			return false;
 		do {
 			if ( item->parent() && nif && nif->getBSVersion() >= 130 ) {
-				if ( item->hasName( "Name" ) && ( item->parent()->hasName( "BSLightingShaderProperty" ) || item->parent()->hasName( "BSEffectShaderProperty" ) ) )
+				if ( item->hasName( "Name" )
+					&& ( item->parent()->hasName( "BSLightingShaderProperty" )
+						|| item->parent()->hasName( "BSEffectShaderProperty" ) ) ) {
 					break;		// Fallout 4, 76 or Starfield material
+				}
 			}
 			if ( item->parent() && item->parent()->hasName( "Textures" ) )
 				break;
-			if ( item->hasName( "Path" ) || item->hasName( "Mesh Path" ) || item->name().startsWith( QLatin1StringView( "Texture " ) ) )
+			if ( item->hasName( "Path" ) || item->hasName( "Mesh Path" ) || item->hasName( "File Name" )
+				|| item->name().contains( QLatin1StringView( "Texture" ) ) ) {
 				break;
+			}
 			return false;
 		} while ( false );
 		return !( nif->resolveString( item ).isEmpty() );
@@ -87,7 +92,8 @@ std::string spResourceFileExtract::getNifItemFilePath( NifModel * nif, const Nif
 			archiveFolder = "materials/";
 			extension = ( bsVersion < 170 ? ".bgem" : ".mat" );
 		}
-	} else if ( ( item->parent() && item->parent()->hasName( "Textures" ) )
+	} else if ( ( item->parent()
+					&& ( item->parent()->hasName( "Textures" ) || item->parent()->hasName( "NiSourceTexture" ) ) )
 				|| item->name().contains( QLatin1StringView( "Texture" ) )
 				|| ( bsVersion >= 170 && item->hasName( "Path" ) ) ) {
 		archiveFolder = "textures/";
@@ -227,16 +233,30 @@ public:
 		return ( !index.isValid() && nif );
 	}
 
+	static void addPath( std::set< std::string > & fileSet, NifModel * nif, const std::string & filePath );
 	static void findPaths( std::set< std::string > & fileSet, NifModel * nif, const NifItem * item );
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final;
 };
+
+void spExtractAllResources::addPath( std::set< std::string > & fileSet, NifModel * nif, const std::string & filePath )
+{
+	if ( filePath.empty() || nif->findResourceFile( QString::fromStdString( filePath ), nullptr, nullptr ).isEmpty() )
+		return;
+	fileSet.insert( filePath );
+}
 
 void spExtractAllResources::findPaths( std::set< std::string > & fileSet, NifModel * nif, const NifItem * item )
 {
 	if ( spResourceFileExtract::is_Applicable( nif, item ) ) {
 		std::string	filePath( spResourceFileExtract::getNifItemFilePath( nif, item ) );
-		if ( !filePath.empty() )
-			fileSet.insert( filePath );
+		addPath( fileSet, nif, filePath );
+		if ( Game::GameManager::get_game( nif ) == Game::OBLIVION && filePath.ends_with( ".dds" ) ) {
+			filePath.resize( filePath.length() - 4 );
+			filePath += "_n.dds";
+			addPath( fileSet, nif, filePath );
+			filePath[filePath.length() - 5] = 'g';
+			addPath( fileSet, nif, filePath );
+		}
 	}
 
 	for ( int i = 0; i < item->childCount(); i++ ) {

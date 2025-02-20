@@ -1,11 +1,12 @@
  == CHANGELOG ==
 
-#### NifSkope-2.0.dev11-20250219
+#### NifSkope-2.0.dev11-20250220
 
 * Implemented experimental glTF export and import for Skyrim: Special Edition, Fallout 4 and Fallout 76. See [README\_GLTF.md](https://github.com/fo76utils/nifskope/blob/develop/README_GLTF.md) for details, and known limitations and issues.
+* The 'Extract Resource Files' spell has improved support for texture paths in older games, including Oblivion normal and glow maps.
 * Updating bounds has been implemented for skinned BSTriShape meshes, and 'Update All Bounds' is now applicable to Skyrim Special Edition NIFs.
 * The viewport is now enabled by default on opening a new window, and not only after loading a NIF. This allows models imported to a new window to be visible, but may increase startup time, because resources need to be initialized for the default game (the default NIF version can be configured in the general settings).
-* Implemented triangle selection on triangle strips, shift-clicking selects the last point of the triangle.
+* Implemented triangle selection on triangle strips, shift-clicking selects the first point of the triangle.
 * Added keyboard controls for setting the light direction: F, L, T, Up, Down, Left and Right control the light source instead of the camera if Shift is held down.
 * Fixed incorrect sorting of link rows.
 * Fixed errors on drawing bhkPackedNiTriStripsShape.
