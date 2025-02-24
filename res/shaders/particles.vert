@@ -1,7 +1,7 @@
 #version 410 core
 
-out vec3 LightDir;
-out vec3 ViewDir;
+out vec3 vsLightDir;
+out vec3 vsViewDir;
 
 out vec4 vsColor;
 out float vsParticleSize;
@@ -24,10 +24,10 @@ void main()
 	gl_Position = v;
 
 	if ( projectionMatrix[3][3] == 1.0 )
-		ViewDir = vec3(0.0, 0.0, 1.0);	// orthographic view
+		vsViewDir = vec3(0.0, 0.0, 1.0);	// orthographic view
 	else
-		ViewDir = -v.xyz;
-	LightDir = lightSourcePosition[0].xyz;
+		vsViewDir = -v.xyz;
+	vsLightDir = lightSourcePosition[0].xyz;
 
 	vsColor = mix( vertexColor, vertexColorOverride, greaterThan( vertexColorOverride, vec4( 0.0 ) ) );
 	vsParticleSize = particleSize;

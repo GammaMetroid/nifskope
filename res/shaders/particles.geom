@@ -7,8 +7,14 @@ layout ( triangle_strip, max_vertices = 4 ) out;
 
 uniform vec2 particleScale;
 
+in vec3 vsLightDir[];
+in vec3 vsViewDir[];
+
 in vec4 vsColor[];
 in float vsParticleSize[];
+
+out vec3 LightDir;
+out vec3 ViewDir;
 
 out vec2 texCoords[9];
 
@@ -20,6 +26,9 @@ out vec3 N;
 
 void main()
 {
+	LightDir = vsLightDir[0];
+	ViewDir = vsViewDir[0];
+
 	A = vec4( sqrt(lightSourceAmbient.rgb) * 0.375, toneMapScale );
 	C = vsColor[0];
 	D = sqrt( vec4(lightSourceDiffuse[0].rgb, brightnessScale) );
