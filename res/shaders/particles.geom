@@ -29,9 +29,9 @@ void main()
 	LightDir = vsLightDir[0];
 	ViewDir = vsViewDir[0];
 
-	A = vec4( sqrt(lightSourceAmbient.rgb) * 0.375, toneMapScale );
+	A = vec4( vec3(1.0), toneMapScale );
 	C = vsColor[0];
-	D = sqrt( vec4(lightSourceDiffuse[0].rgb, brightnessScale) );
+	D = vec4( vec3(0.0), sqrt(brightnessScale) );
 
 	N = vec3( 0.0, 0.0, 1.0 );
 

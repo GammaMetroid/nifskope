@@ -155,12 +155,12 @@ void Particles::drawShapes( NodeList * secondPass )
 
 		// setup vertex colors
 
-		VertexColorProperty::glProperty( findProperty<VertexColorProperty>(),
-											FloatVector4( colors.size() < verts.size() ? 1.0f : 0.0f ), prog );
+		VertexColorProperty::glProperty( nullptr, FloatVector4( colors.size() < verts.size() ? 1.0f : 0.0f ), prog );
 
 		// setup material
 
 		MaterialProperty::glProperty( findProperty<MaterialProperty>(), findProperty<SpecularProperty>(), prog );
+		prog->uni4f( "frontMaterialEmission", FloatVector4( 0.0f ) );
 
 		// setup texturing
 

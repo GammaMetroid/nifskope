@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+* Fixed potential link time error in particle shader, and disabled lighting on particles.
+
 #### NifSkope-2.0.dev11-20250220
 
 * Implemented experimental glTF export and import for Skyrim: Special Edition, Fallout 4 and Fallout 76. See [README\_GLTF.md](https://github.com/fo76utils/nifskope/blob/develop/README_GLTF.md) for details, and known limitations and issues.
