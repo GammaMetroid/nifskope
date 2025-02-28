@@ -2678,7 +2678,7 @@ void NifModel::adjustLinks( NifItem * parent, int block, int delta )
 	if ( !parent )
 		return;
 
-	if ( parent->childCount() > 0 ) {
+	if ( parent->childCount() > 0 && parent->hasChildLinks() ) {
 		for ( auto child : parent->children() )
 			adjustLinks( child, block, delta );
 	} else if ( parent->isLink() ) {
