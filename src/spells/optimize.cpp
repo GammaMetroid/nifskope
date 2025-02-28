@@ -60,7 +60,8 @@ public:
 						nif->set<QString>( iBlock, "Name", "Default" );
 				}
 
-				if ( nif->blockInherits( iBlock, "BSShaderProperty" ) || nif->isNiBlock( iBlock, "BSShaderTextureSet" ) ) {
+				if ( nif->blockInherits( iBlock, "BSShaderProperty" )
+					|| ( nif->getBSVersion() < 100 && nif->isNiBlock( iBlock, "BSShaderTextureSet" ) ) ) {
 					// these need to be unique
 					continue;
 				}
