@@ -49,6 +49,14 @@ public:
 
 			for ( qint32 b = 0; b < nif->getBlockCount(); b++ ) {
 				QModelIndex iBlock = nif->getBlockIndex( b );
+
+				if ( !nif->blockInherits( iBlock, "NiProperty" ) && !nif->blockInherits( iBlock, "NiSourceTexture" ) ) {
+					if ( !nif->isNiBlock( iBlock, "BSShaderTextureSet" ) || nif->getBSVersion() < 83 )
+						continue;
+				}
+				if ( nif->blockInherits( iBlock, "BSShaderProperty" ) )	// this needs to be unique
+					continue;
+
 				QString original_material_name;
 
 				if ( nif->isNiBlock( iBlock, "NiMaterialProperty" ) ) {
@@ -60,13 +68,7 @@ public:
 						nif->set<QString>( iBlock, "Name", "Default" );
 				}
 
-				if ( nif->blockInherits( iBlock, "BSShaderProperty" )
-					|| ( nif->getBSVersion() < 100 && nif->isNiBlock( iBlock, "BSShaderTextureSet" ) ) ) {
-					// these need to be unique
-					continue;
-				}
-
-				if ( nif->blockInherits( iBlock, "NiProperty" ) || nif->blockInherits( iBlock, "NiSourceTexture" ) ) {
+				{
 					QBuffer data;
 					data.open( QBuffer::WriteOnly );
 					data.write( nif->itemName( iBlock ).toLatin1() );
@@ -81,17 +83,10 @@ public:
 			}
 
 			for ( const auto x : props.keys() ) {
+				qsizetype	n = props[x].size();
 				for ( const auto y : props.keys() ) {
-					if ( x < y && ( !map.contains( y ) ) && props[x].size() == props[y].size() ) {
-						int c = 0;
-
-						while ( c < props[x].size() ) {
-							if ( props[x][c] != props[y][c] )
-								break;
-							c++;
-						}
-
-						if ( c == props[x].size() )
+					if ( x < y && ( !map.contains( y ) ) && props[y].size() == n ) {
+						if ( n < 1 || std::memcmp( props[x].constData(), props[y].constData(), size_t( n ) ) == 0 )
 							map.insert( y, x );
 					}
 				}
@@ -102,9 +97,11 @@ public:
 				nif->mapLinks( map );
 				QList<qint32> l = map.keys();
 				std::sort( l.begin(), l.end(), std::greater<qint32>() );
+				nif->holdUpdates( true );
 				for ( const auto b : l ) {
 					nif->removeNiBlock( b );
 				}
+				nif->holdUpdates( false );
 			}
 		} while ( !map.isEmpty() );
 
