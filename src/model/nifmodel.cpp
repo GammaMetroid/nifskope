@@ -806,11 +806,13 @@ void NifModel::removeNiBlock( int blocknum )
 	if ( !isValidBlockNumber( blocknum ) )
 		return;
 
-	adjustLinks( root, blocknum, 0 );
 	adjustLinks( root, blocknum, -1 );
 	beginRemoveRows( QModelIndex(), blocknum + 1, blocknum + 1 );
 	root->removeChild( blocknum + 1 );
 	endRemoveRows();
+	if ( state == Loading )
+		return;
+
 	updateLinks();
 	updateFooter();
 	emit linksChanged();
@@ -2684,8 +2686,8 @@ void NifModel::adjustLinks( NifItem * parent, int block, int delta )
 	} else if ( parent->isLink() ) {
 		int l = parent->getLinkValue();
 
-		if ( l >= 0 && ( ( delta != 0 && l >= block ) || l == block ) ) {
-			if ( delta == 0 )
+		if ( l >= 0 && l >= block ) {
+			if ( l < ( block - delta ) )
 				parent->setLinkValue( -1 );
 			else
 				parent->setLinkValue( l + delta );

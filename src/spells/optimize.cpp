@@ -97,11 +97,12 @@ public:
 				nif->mapLinks( map );
 				QList<qint32> l = map.keys();
 				std::sort( l.begin(), l.end(), std::greater<qint32>() );
-				nif->holdUpdates( true );
+				nif->setState( BaseModel::Loading );
 				for ( const auto b : l ) {
 					nif->removeNiBlock( b );
 				}
-				nif->holdUpdates( false );
+				nif->restoreState();
+				nif->updateModel();
 			}
 		} while ( !map.isEmpty() );
 
