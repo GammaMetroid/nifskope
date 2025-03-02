@@ -21,7 +21,7 @@ uniform bool hasGlowMap;
 uniform bool hasCubeMap;
 uniform bool hasCubeMask;
 uniform float cubeMapScale;
-// <= 0: disabled, 1: simple parallax mapping using BaseMap.a, >= 2: POM using HeightMap.r
+// <= 0: disabled, 1 or 2: simple parallax mapping using BaseMap.a or HeightMap.r, >= 3: POM using HeightMap.r
 uniform int parallaxMaxSteps;
 uniform float parallaxScale;
 uniform float glowMult;
@@ -77,8 +77,14 @@ vec3 tonemap(vec3 x)
 
 vec2 parallaxMapping( vec3 V, vec2 offset )
 {
-	if ( parallaxMaxSteps < 2 )
-		return offset + V.xy * ( ( 0.5 - texture( BaseMap, offset ).a ) * parallaxScale );
+	if ( parallaxMaxSteps < 3 ) {
+		float	h;
+		if ( parallaxMaxSteps < 2 )
+			h = texture( BaseMap, offset ).a;
+		else
+			h = texture( HeightMap, offset ).r;
+		return offset + V.xy * ( ( h - 0.5 ) * parallaxScale );
+	}
 
 	// determine optimal height of each layer
 	float	layerHeight = 1.0 / mix( max( float(parallaxMaxSteps), 4.0 ), 4.0, abs(V.z) );

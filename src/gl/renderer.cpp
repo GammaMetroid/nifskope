@@ -1121,7 +1121,7 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 			if ( i )
 				parallaxScale *= nif->get<float>( i );
 		} else if ( bsprop->hasSF1( ShaderFlags::SLSF1_Parallax ) ) {
-			parallaxMaxSteps = 1;
+			parallaxMaxSteps = 2;
 		}
 		if ( esp ) {
 			glowMult = 1.0f;
