@@ -914,21 +914,22 @@ bool Renderer::setupProgramCE1( const NifModel * nif, Program * prog, Shape * me
 			GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_SRC_ALPHA_SATURATE
 		};
 
+		int	alphaFlags = 0;
 		if ( mat->hasAlphaBlend() && scene->hasOption(Scene::DoBlending) ) {
 			glEnable( GL_BLEND );
 			fn->glBlendFuncSeparate( blendMap[mat->iAlphaSrc], blendMap[mat->iAlphaDst],
 										GL_ONE, blendMap[mat->iAlphaDst] );
+			alphaFlags = 8;
 		} else {
 			glDisable( GL_BLEND );
 		}
 
-		int	alphaTestFunc = -1;
 		float	alphaThreshold = 0.0f;
 		if ( mat->hasAlphaTest() && scene->hasOption(Scene::DoBlending) ) {
-			alphaTestFunc = 4;	// greater
+			alphaFlags |= 4;	// greater
 			alphaThreshold = float( mat->iAlphaTestRef ) / 255.0f;
 		}
-		prog->uni1i( "alphaTestFunc", alphaTestFunc );
+		prog->uni1i( "alphaFlags", alphaFlags );
 		prog->uni1f( "alphaThreshold", alphaThreshold );
 
 		if ( mat->bDecal ) {
@@ -942,7 +943,7 @@ bool Renderer::setupProgramCE1( const NifModel * nif, Program * prog, Shape * me
 			glEnable( GL_BLEND );
 			fn->glBlendFuncSeparate( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA );
 			// If mesh is alpha tested, override threshold
-			prog->uni1i( "alphaTestFunc", ( mesh->alphaProperty && mesh->alphaProperty->hasAlphaTest() ? 4 : -1 ) );
+			prog->uni1i( "alphaFlags", ( mesh->alphaProperty && mesh->alphaProperty->hasAlphaTest() ? 12 : 8 ) );
 			prog->uni1f( "alphaThreshold", 0.1f );
 		} else {
 			AlphaProperty::glProperty( mesh->alphaProperty, prog );
@@ -975,7 +976,7 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 	bool	hasCubeMask = false;
 	float	cubeMapScale = 1.0f;
 	int	parallaxMaxSteps = 0;
-	float	parallaxScale = 0.03f;
+	float	parallaxScale = 0.04f;
 	float	glowMult = ( scene->hasOption( Scene::DoGlow ) && scene->hasOption( Scene::DoLighting ) ? 1.0f : 0.0f );
 	FloatVector4	glowColor( 1.0f );
 	FloatVector4	uvScaleAndOffset( 1.0f, 1.0f, 0.0f, 0.0f );
