@@ -20,7 +20,7 @@ uniform vec3 glowColor;
 uniform float glowMult;
 
 uniform float alpha;
-uniform int alphaTestFunc;
+uniform int alphaFlags;			// bits 0 to 2: alpha test mode, bit 3: alpha blending enabled
 uniform float alphaThreshold;
 
 uniform vec3 tintColor;
@@ -90,15 +90,15 @@ void main()
 
 	vec4 baseMap = texture( BaseMap, offset );
 
-	vec4 color = baseMap;
-	color.a = C.a * baseMap.a * alpha;
-	if ( alphaTestFunc > 0 ) {
-		if ( color.a < alphaThreshold && alphaTestFunc != 1 && alphaTestFunc != 3 && alphaTestFunc != 5 )
+	vec4 color = vec4( baseMap.rgb, 1.0 );
+	if ( alphaFlags > 0 ) {
+		float	a = C.a * baseMap.a * alpha;
+		// 0: always, 1: <, 2: ==, 3: <=, 4: >, 5: !=, 6: >=, 7: never
+		int	m = ( a < alphaThreshold ? 0x2B2B : ( a > alphaThreshold ? 0x7171 : 0x4D4D ) );
+		if ( ( m & ( 1 << alphaFlags ) ) == 0 )
 			discard;
-		if ( color.a == alphaThreshold && alphaTestFunc != 2 && alphaTestFunc != 3 && alphaTestFunc != 6 )
-			discard;
-		if ( color.a > alphaThreshold && ( alphaTestFunc < 4 || alphaTestFunc > 6 ) )
-			discard;
+		if ( ( alphaFlags & 8 ) != 0 )
+			color.a = a;
 	}
 
 	vec4 normalMap = texture( NormalMap, offset );

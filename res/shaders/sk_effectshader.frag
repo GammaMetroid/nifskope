@@ -19,7 +19,7 @@ uniform bool hasWeaponBlood;
 uniform vec4 glowColor;
 uniform float glowMult;
 
-uniform int alphaTestFunc;
+uniform int alphaFlags;			// bits 0 to 2: alpha test mode, bit 3: alpha blending enabled
 uniform float alphaThreshold;
 
 uniform vec2 uvScale;
@@ -73,16 +73,16 @@ void main()
 
 	float alphaMult = glowColor.a * glowColor.a;
 
-	color.rgb = baseMap.rgb;
-	color.a = baseMap.a;
+	color = baseMap;
 
 	if ( hasWeaponBlood ) {
 		color.rgb = vec3( 1.0, 0.0, 0.0 ) * baseMap.r;
 		color.a = baseMap.a * baseMap.g;
 	}
 
-	color.rgb *= C.rgb * glowColor.rgb;
-	color.a *= C.a * falloff * alphaMult;
+	color *= C;
+	color.rgb *= glowColor.rgb;
+	color.a *= falloff * alphaMult;
 
 	if ( greyscaleColor ) {
 		// Only Red emissive channel is used
@@ -99,14 +99,14 @@ void main()
 		color.a = luA.a;
 	}
 
-	if ( alphaTestFunc > 0 ) {
-		if ( color.a < alphaThreshold && alphaTestFunc != 1 && alphaTestFunc != 3 && alphaTestFunc != 5 )
-			discard;
-		if ( color.a == alphaThreshold && alphaTestFunc != 2 && alphaTestFunc != 3 && alphaTestFunc != 6 )
-			discard;
-		if ( color.a > alphaThreshold && ( alphaTestFunc < 4 || alphaTestFunc > 6 ) )
+	if ( alphaFlags > 0 ) {
+		// 0: always, 1: <, 2: ==, 3: <=, 4: >, 5: !=, 6: >=, 7: never
+		int	m = ( color.a < alphaThreshold ? 0x2B2B : ( color.a > alphaThreshold ? 0x7171 : 0x4D4D ) );
+		if ( ( m & ( 1 << alphaFlags ) ) == 0 )
 			discard;
 	}
+	if ( alphaFlags < 8 )
+		color.a = 1.0;
 
 	fragColor = vec4( color.rgb * ( glowMult * sqrt(brightnessScale) ), color.a );
 }

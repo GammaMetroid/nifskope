@@ -29,7 +29,7 @@ uniform bool hasWeaponBlood;
 uniform vec4 glowColor;
 uniform float glowMult;
 
-uniform int alphaTestFunc;
+uniform int alphaFlags;			// bits 0 to 2: alpha test mode, bit 3: alpha blending enabled
 uniform float alphaThreshold;
 
 uniform vec2 uvScale;
@@ -124,9 +124,9 @@ void main()
 
 	float alphaMult = baseColor.a * baseColor.a;
 
-	vec4 color;
-	color.rgb = baseMap.rgb * C.rgb * baseColor.rgb;
-	color.a = alphaMult * C.a * baseMap.a;
+	vec4 color = baseMap * C;
+	color.rgb *= baseColor.rgb;
+	color.a *= alphaMult;
 
 	if ( greyscaleColor ) {
 		vec4 luG = colorLookup( texture( BaseMap, offset ).g, baseColor.r * C.r * falloff );
@@ -140,14 +140,14 @@ void main()
 		color.a = luA.a;
 	}
 
-	if ( alphaTestFunc > 0 ) {
-		if ( color.a < alphaThreshold && alphaTestFunc != 1 && alphaTestFunc != 3 && alphaTestFunc != 5 )
-			discard;
-		if ( color.a == alphaThreshold && alphaTestFunc != 2 && alphaTestFunc != 3 && alphaTestFunc != 6 )
-			discard;
-		if ( color.a > alphaThreshold && ( alphaTestFunc < 4 || alphaTestFunc > 6 ) )
+	if ( alphaFlags > 0 ) {
+		// 0: always, 1: <, 2: ==, 3: <=, 4: >, 5: !=, 6: >=, 7: never
+		int	m = ( color.a < alphaThreshold ? 0x2B2B : ( color.a > alphaThreshold ? 0x7171 : 0x4D4D ) );
+		if ( ( m & ( 1 << alphaFlags ) ) == 0 )
 			discard;
 	}
+	if ( alphaFlags < 8 )
+		color.a = 1.0;
 
 	vec3 diffuse = lightSourceAmbient.rgb + (lightSourceDiffuse[0].rgb * NdotL);
 	color.rgb = mix( color.rgb, color.rgb * lightSourceDiffuse[0].rgb, lightingInfluence );

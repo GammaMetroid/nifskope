@@ -264,9 +264,11 @@ void AlphaProperty::setController( const NifModel * nif, const QModelIndex & con
 
 void AlphaProperty::glProperty( AlphaProperty * p, NifSkopeOpenGLContext::Program * prog )
 {
+	int	alphaFlags = 0;
 	if ( p && p->alphaBlend && p->scene->hasOption(Scene::DoBlending) ) {
 		glEnable( GL_BLEND );
 		prog->f->glBlendFuncSeparate( p->alphaSrc, p->alphaDst, GL_ONE, p->alphaDst );
+		alphaFlags = 8;
 	} else {
 		glDisable( GL_BLEND );
 	}
@@ -275,13 +277,12 @@ void AlphaProperty::glProperty( AlphaProperty * p, NifSkopeOpenGLContext::Progra
 		return;
 
 	// test function (-1: disabled, 0: always, 1: <, 2: ==, 3: <=, 4: >, 5: !=, 6: >=, 7: never)
-	int	alphaTestFunc = -1;
 	float	alphaTestThreshold = 0.0f;
 	if ( p && p->alphaTest && p->scene->hasOption(Scene::DoBlending) ) {
-		alphaTestFunc = p->alphaFunc;
+		alphaFlags |= std::max< int >( p->alphaFunc, 0 );
 		alphaTestThreshold = p->alphaThreshold;
 	}
-	prog->uni1i( "alphaTestFunc", alphaTestFunc );
+	prog->uni1i( "alphaFlags", alphaFlags );
 	prog->uni1f( "alphaThreshold", alphaTestThreshold );
 }
 
