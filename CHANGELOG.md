@@ -3,6 +3,7 @@
 * 'Optimize/Combine Properties' now works on BSShaderTextureSet blocks in models from Skyrim and newer games.
 * Fixed potential link time error in particle shader, and disabled lighting on particles.
 * Fixes to Oblivion and Fallout 3 parallax mapping.
+* Fixed rendering NiGeomMorpherController and NiUVController animations.
 * Fixed Fallout 3 specular flag and specular color not being ignored.
 * Fixed warnings on sanitizing Fallout 3/New Vegas geometry data.
 

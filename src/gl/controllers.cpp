@@ -418,6 +418,7 @@ void MorphController::updateTime( float time )
 	if ( target->verts.count() != morph[0]->verts.count() )
 		return;
 
+	target->clearHash();
 	target->verts = morph[0]->verts;
 
 	float x;
@@ -509,6 +510,8 @@ void UVController::updateTime( float time )
 			interpolate( val[i], nif->getIndex( uvGroups, i ), ctrlTime( time ), luv );
 		}
 
+		target->clearHash();
+
 		// adjust coords; verified in SceneImmerse
 		for ( int i = 0; i < target->coords[0].size(); i++ ) {
 			// operating on pointers makes this too complicated, so we don't
@@ -522,8 +525,6 @@ void UVController::updateTime( float time )
 			target->coords[0][i] = current;
 		}
 	}
-
-	target->needUpdateData = true; // TODO (Gavrant): it's probably wrong (because the target shape would reset its UV map then)
 }
 
 bool UVController::update( const NifModel * nif, const QModelIndex & index )
