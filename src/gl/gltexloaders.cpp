@@ -1304,6 +1304,18 @@ GLuint TexCache::texLoad( const NifModel * nif, const QString & filepath,
 		case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
 			format.imageEncoding = TexFmt::TEXFMT_DXT5;
 			break;
+		case GL_R8:
+		case GL_R16:
+			format.imageEncoding = TexFmt::TEXFMT_GRAYSCALE;
+			break;
+		case GL_RGB8:
+		case GL_SRGB8:
+			format.imageEncoding = TexFmt::TEXFMT_RGB8;
+			break;
+		case GL_RGBA8:
+		case GL_SRGB8_ALPHA8:
+			format.imageEncoding = TexFmt::TEXFMT_RGBA8;
+			break;
 		}
 		GLint tmp = 0;
 		glGetTexLevelParameteriv( t, 0, GL_TEXTURE_COMPRESSED, &tmp );
