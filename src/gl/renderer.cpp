@@ -1028,11 +1028,14 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 		hasCubeMap = false;
 	}
 
+	const TexCache::Tex::ImageInfo *	txtInfo = nullptr;
 	if ( bsprop ) {
 		const QString *	forced = &emptyString;
 		if ( esp || !scene->hasOption(Scene::DoLighting) )
 			forced = &default_n;
 		prog->uniSampler( bsprop, "NormalMap", 1, texunit, emptyString, clamp, *forced );
+		if ( hasSpecular )
+			txtInfo = scene->getTextureInfo( bsprop->fileName( 1 ) );
 	} else {
 		GLint uniNormalMap = prog->uniLocation( "NormalMap" );
 		if ( uniNormalMap >= 0 ) {
@@ -1046,17 +1049,18 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 					fname = fname.insert( pos, "_n" );
 			}
 
-			if ( fname.isEmpty() || !texprop->bind( 0, fname ) ) {
+			if ( fname.isEmpty() || !texprop->bind( 0, fname ) )
 				texprop->bind( 0, default_n );
-			} else {
-				auto	t = scene->getTextureInfo( fname );
-				if ( t && ( t->format.imageEncoding & TexCache::TexFmt::TEXFMT_DXT1 ) != 0 ) {
-					// disable specular for Oblivion normal maps in BC1 format
-					hasSpecular = false;
-				}
-			}
+			else
+				txtInfo = scene->getTextureInfo( fname );
 			fn->glUniform1i( uniNormalMap, texunit++ );
 		}
+	}
+	if ( !( txtInfo && ( txtInfo->format.imageEncoding
+							& ( TexCache::TexFmt::TEXFMT_DXT3 | TexCache::TexFmt::TEXFMT_DXT5
+								| TexCache::TexFmt::TEXFMT_RGBA8 ) ) != 0 ) ) {
+		// disable specular if the normal map has no alpha channel
+		hasSpecular = false;
 	}
 
 	if ( bsprop && !esp ) {
@@ -1110,7 +1114,6 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 	}
 	if ( bsprop ) {
 		isDecal = bsprop->hasSF1( ShaderFlags::SF1( ShaderFlags::SLSF1_Decal | ShaderFlags::SLSF1_Dynamic_Decal ) );
-		hasSpecular = hasSpecular && bsprop->hasSF1( ShaderFlags::SLSF1_Specular );
 		hasCubeMap = hasCubeMap && bsprop->hasSF1( ShaderFlags::SLSF1_Environment_Mapping );
 		cubeMapScale = bsprop->environmentReflection;
 		if ( bsprop->hasSF1( ShaderFlags::SLSF1_Parallax_Occlusion ) ) {
@@ -1199,6 +1202,7 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 
 	MaterialProperty::glProperty( mesh->findProperty< MaterialProperty >(), mesh->findProperty< SpecularProperty >(),
 									prog );
+	prog->uni4f( "frontMaterialSpecular", FloatVector4( 1.0f ) );		// ignore specular color
 
 	// setup Z buffer
 
