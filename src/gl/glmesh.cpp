@@ -876,10 +876,14 @@ void Mesh::drawSelection() const
 		Shape::drawVerts( GLView::Settings::vertexPointSize, i );
 
 	} else if ( n == "Normals" || n == "Tangents" || n == "Bitangents" || n == "TSpace" ) {
-		int	btnMask = ( n == "Bitangents" ? 0x01 : ( n == "Tangents" ? 0x02 : 0x04 ) );
+		qsizetype	l = n.length();
+		int	btnMask = ( l == 7 ? 0x04 : ( l == 8 ? 0x02 : 0x01 ) );
 		Shape::drawVerts( GLView::Settings::tbnPointSize, i );
 		float	normalScale = std::max< float >( bounds().radius / ( btnMask == 0x04 ? 8.0f : 16.0f ), 0.25f );
-		Shape::drawNormals( btnMask, i, normalScale * viewTrans().scale );
+		normalScale *= viewTrans().scale;
+		Shape::drawNormals( btnMask, i, normalScale );
+		if ( l == 6 )
+			Shape::drawNormals( 0x02, i, normalScale );
 	}
 
 	if ( n == "Points" ) {
