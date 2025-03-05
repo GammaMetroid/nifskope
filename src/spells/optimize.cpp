@@ -50,9 +50,9 @@ public:
 			for ( qint32 b = 0; b < nif->getBlockCount(); b++ ) {
 				QModelIndex iBlock = nif->getBlockIndex( b );
 
-				if ( !nif->blockInherits( iBlock, "NiProperty" ) && !nif->blockInherits( iBlock, "NiSourceTexture" ) ) {
-					if ( !nif->isNiBlock( iBlock, "BSShaderTextureSet" ) || nif->getBSVersion() < 83 )
-						continue;
+				if ( !( nif->blockInherits( iBlock, "NiProperty" ) || nif->blockInherits( iBlock, "NiSourceTexture" )
+						|| nif->isNiBlock( iBlock, "BSShaderTextureSet" ) ) ) {
+					continue;
 				}
 				if ( nif->blockInherits( iBlock, "BSShaderProperty" ) )	// this needs to be unique
 					continue;
