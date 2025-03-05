@@ -240,8 +240,8 @@ public:
 				nif->set<uint>( iListShape, "Num Sub Shapes", shapeLinks.size() );
 				nif->updateArraySize( iListShape, "Sub Shapes" );
 				nif->setLinkArray( iListShape, "Sub Shapes", shapeLinks );
-				nif->set<uint>( iListShape, "Num Unknown Ints", shapeLinks.size() );
-				nif->updateArraySize( iListShape, "Unknown Ints" );
+				nif->set<uint>( iListShape, "Num Filters", shapeLinks.size() );
+				nif->updateArraySize( iListShape, "Filters" );
 				replace = false;
 			}
 		}
@@ -586,10 +586,10 @@ public:
 		auto iLS = nif->insertNiBlock( "bhkListShape" );
 
 		nif->set<uint>( iLS, "Num Sub Shapes", nif->get<uint>( iShape, "Num Sub Shapes" ) );
-		nif->set<uint>( iLS, "Num Unknown Ints", nif->get<uint>( iShape, "Num Sub Shapes" ) );
+		nif->set<uint>( iLS, "Num Filters", nif->get<uint>( iShape, "Num Sub Shapes" ) );
 		nif->set<uint>( iLS, "Material", nif->get<uint>( iShape, "Material" ) );
 		nif->updateArraySize( iLS, "Sub Shapes" );
-		nif->updateArraySize( iLS, "Unknown Ints" );
+		nif->updateArraySize( iLS, "Filters" );
 
 		nif->setLinkArray( iLS, "Sub Shapes", nif->getLinkArray( iShape, "Sub Shapes" ) );
 		nif->setLinkArray( iShape, "Sub Shapes", {} );
