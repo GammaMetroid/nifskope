@@ -7733,6 +7733,11 @@
         <field name="Emissive Multiple" type="float" default="1.0" range="#F0_10#">Multiplied emissive colors</field>
         <field name="Luminance" type="BSSPLuminanceParams" cond="Version #GTE# 12" />
         <field name="Hair Tint Color" type="Color3" />
+        <field name="Displacement Texture Bias" type="float" cond="Version #LT# 3" />
+        <field name="Displacement Texture Scale" type="float" cond="Version #LT# 3" />
+        <field name="Tessellation Pn Scale" type="float" cond="Version #LT# 3" />
+        <field name="Tessellation Base Factor" type="float" cond="Version #LT# 3" />
+        <field name="Tessellation Fade Distance" type="float" cond="Version #LT# 3" />
         <field name="Grayscale to Palette Scale" type="float" default="1.0" range="#F0_1#" />
         <field name="Terrain Threshold Falloff" type="float" cond="Shader Flags 2 #BITAND# 0x01000000" />
         <field name="Terrain Tiling Distance" type="float" cond="Shader Flags 2 #BITAND# 0x01000000" />

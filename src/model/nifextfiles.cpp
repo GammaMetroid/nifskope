@@ -660,6 +660,13 @@ void NifModel::loadFO76Material( const QModelIndex & parent, const void * materi
 			}
 		}
 		setValue<Color3>( p, "Hair Tint Color", bgsm->cHairTintColor );
+		if ( mat.version < 3 ) {
+			setValue<float>( p, "Displacement Texture Bias", bgsm->fDisplacementTextureBias );
+			setValue<float>( p, "Displacement Texture Scale", bgsm->fDisplacementTextureScale );
+			setValue<float>( p, "Tessellation Pn Scale", bgsm->fTessellationPnScale );
+			setValue<float>( p, "Tessellation Base Factor", bgsm->fTessellationBaseFactor );
+			setValue<float>( p, "Tessellation Fade Distance", bgsm->fTessellationFadeDistance );
+		}
 		setValue<float>( p, "Grayscale to Palette Scale", bgsm->fGrayscaleToPaletteScale );
 		if ( ( shaderFlags2 & 0x01000000 ) != 0 && mat.version >= 3 ) {
 			setValue<float>( p, "Terrain Threshold Falloff", bgsm->fTerrainThresholdFalloff );

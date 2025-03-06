@@ -182,7 +182,7 @@ bool ShaderMaterial::readFile( QDataStream & in )
 	in >> bHair >> cHairTintColor[0] >> cHairTintColor[1] >> cHairTintColor[2];
 
 	in >> bTree >> bFacegen >> bSkinTint >> bTessellate;
-	if ( version == 1 )
+	if ( version < 3 )
 		in >> fDisplacementTextureBias >> fDisplacementTextureScale >>
 		fTessellationPnScale >> fTessellationBaseFactor >> fTessellationFadeDistance;
 	in >> fGrayscaleToPaletteScale >> bSkewSpecularAlpha;
@@ -423,6 +423,13 @@ void Material::createMaterialData( QByteArray & data, const NifModel * nif, cons
 		s << quint8( bool( sf2 & 0x00100000 ) );	// FaceGen
 		s << quint8( bool( sf2 & 0x00200000 ) );	// skin tint
 		s << quint8( bool( sf2 & 0x00400000 ) );	// tessellate
+		if ( version < 3 ) {
+			s << nif->get<float>( m, "Displacement Texture Bias" );
+			s << nif->get<float>( m, "Displacement Texture Scale" );
+			s << nif->get<float>( m, "Tessellation Pn Scale" );
+			s << nif->get<float>( m, "Tessellation Base Factor" );
+			s << nif->get<float>( m, "Tessellation Fade Distance" );
+		}
 		s << nif->get<float>( m, "Grayscale to Palette Scale" );
 		s << quint8( bool( sf2 & 0x00800000 ) );	// skew specular alpha
 		if ( version >= 3 ) {
