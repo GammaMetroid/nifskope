@@ -58,15 +58,11 @@ out vec4 fragColor;
 vec3 ViewDir_norm = normalize( ViewDir );
 mat3 btnMatrix_norm = mat3( normalize( btnMatrix[0] ), normalize( btnMatrix[1] ), normalize( btnMatrix[2] ) );
 
-vec4 colorLookup( float x, float y ) {
-
-	return texture( GreyscaleMap, vec2( clamp(x, 0.0, 1.0), clamp(y, 0.0, 1.0)) );
-}
-
 vec3 fresnelSchlickRoughness(float NdotV, vec3 F0, float roughness)
 {
 	return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - NdotV, 5.0);
 }
+
 
 void main()
 {
@@ -128,17 +124,11 @@ void main()
 	color.rgb *= baseColor.rgb;
 	color.a *= alphaMult;
 
-	if ( greyscaleColor ) {
-		vec4 luG = colorLookup( texture( BaseMap, offset ).g, baseColor.r * C.r * falloff );
+	if ( greyscaleColor )
+		color.rgb = textureLod( GreyscaleMap, vec2( texture( BaseMap, offset ).g, baseColor.r * C.r * falloff ), 0.0 ).rgb;
 
-		color.rgb = luG.rgb;
-	}
-
-	if ( greyscaleAlpha ) {
-		vec4 luA = colorLookup( texture( BaseMap, offset ).a, color.a );
-
-		color.a = luA.a;
-	}
+	if ( greyscaleAlpha )
+		color.a = textureLod( GreyscaleMap, vec2( texture( BaseMap, offset ).a, color.a ), 0.0 ).a;
 
 	if ( alphaFlags > 0 ) {
 		// 0: always, 1: <, 2: ==, 3: <=, 4: >, 5: !=, 6: >=, 7: never

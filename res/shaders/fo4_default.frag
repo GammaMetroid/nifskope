@@ -206,9 +206,6 @@ vec3 tonemap(vec3 x)
 	return sqrt(z / (A.a * 0.93333333));
 }
 
-vec4 colorLookup( float x, float y ) {
-	return texture( GreyscaleMap, vec2( clamp(x, 0.0, 1.0), clamp(y, 0.0, 1.0) ) );
-}
 
 void main()
 {
@@ -254,11 +251,8 @@ void main()
 
 	vec3 albedo = baseMap.rgb * C.rgb;
 	vec3 diffuse = A.rgb + D.rgb * NdotL0;
-	if ( greyscaleColor ) {
-		vec4 luG = colorLookup( baseMap.g, paletteScale - (1 - C.r) );
-
-		albedo = luG.rgb;
-	}
+	if ( greyscaleColor )
+		albedo = textureLod( GreyscaleMap, vec2( baseMap.g, paletteScale * C.r ), 0.0 ).rgb;
 
 	// Emissive
 	vec3 emissive = vec3(0.0);

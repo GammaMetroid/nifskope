@@ -5,6 +5,7 @@
 * Fixed potential link time error in particle shader, and disabled lighting on particles.
 * Fixes to Oblivion and Fallout 3 parallax mapping.
 * Fixed rendering NiGeomMorpherController and NiUVController animations.
+* Fixed bugs in Fallout 4 grayscale to palette mapping.
 * Fixed Fallout 3 specular flag and specular color not being ignored.
 * Fixed warnings on sanitizing Fallout 3/New Vegas geometry data, and on processing bhkListShape blocks.
 * Fixed drawing Oblivion tangent space when selected.
