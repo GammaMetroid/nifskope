@@ -483,7 +483,7 @@ namespace ShaderFlags
 		SLSF1_Greyscale_To_PaletteAlpha = 1 << 5,  // 5
 		SLSF1_Use_Falloff = 1 << 6,  // 6
 		SLSF1_Environment_Mapping = 1 << 7,  // 7
-		SLSF1_Recieve_Shadows = 1 << 8,  // 8
+		SLSF1_Receive_Shadows = 1 << 8,  // 8
 		SLSF1_Cast_Shadows = 1 << 9,  // 9
 		SLSF1_Facegen_Detail_Map = 1 << 10,  // 10
 		SLSF1_Parallax = 1 << 11,  // 11

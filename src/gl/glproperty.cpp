@@ -1707,7 +1707,7 @@ namespace ShaderFlags
 		{EMIT_ENABLED, SLSF1_Own_Emit},
 		{REFRACTION, SLSF1_Refraction},
 		{SKIN_TINT, SLSF1_FaceGen_RGB_Tint},
-		{RGB_FALLOFF, SLSF1_Recieve_Shadows},
+		{RGB_FALLOFF, SLSF1_Receive_Shadows},
 		{EXTERNAL_EMITTANCE, SLSF1_External_Emittance},
 		{MODELSPACENORMALS, SLSF1_Model_Space_Normals},
 		{FALLOFF, SLSF1_Use_Falloff},

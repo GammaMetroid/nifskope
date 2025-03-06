@@ -6924,7 +6924,7 @@
         <option bit="5" name="Greyscale_To_PaletteAlpha">in EffectShaderProperty</option>
         <option bit="6" name="Use_Falloff">Use Falloff value in EffectShaderProperty</option>
         <option bit="7" name="Environment_Mapping">Environment mapping (uses Envmap Scale).</option>
-        <option bit="8" name="Recieve_Shadows">Object can recieve shadows.</option>
+        <option bit="8" name="Receive_Shadows">Object can recieve shadows.</option>
         <option bit="9" name="Cast_Shadows">Can cast shadows</option>
         <option bit="10" name="Facegen_Detail_Map">Use a face detail map in the 4th texture slot.</option>
         <option bit="11" name="Parallax">Unused?</option>
