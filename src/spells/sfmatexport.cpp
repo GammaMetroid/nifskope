@@ -1209,7 +1209,7 @@ public:
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
-		if ( !( nif && nif->getBSVersion() >= 151 && index.isValid() ) )
+		if ( !( nif && nif->getBSVersion() >= 130 && index.isValid() ) )
 			return false;
 		if ( nif->getBSVersion() < 170 )
 			return canExportFO76Material( nif, index );

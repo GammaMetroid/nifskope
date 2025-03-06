@@ -57,7 +57,7 @@ bool Material::openFile( const QString & name, const NifModel * nif, const QMode
 
 	QByteArray	data;
 
-	if ( index.isValid() && nif->getBSVersion() >= 151 )
+	if ( index.isValid() && nif->getBSVersion() >= 130 )
 		createMaterialData( data, nif, index );
 	if ( data.isEmpty() && !name.isEmpty() )
 		nif->getResourceFile( data, name, "materials", "" );
@@ -263,7 +263,7 @@ bool EffectMaterial::readFile( QDataStream & in )
 
 void Material::createMaterialData( QByteArray & data, const NifModel * nif, const QModelIndex & index )
 {
-	if ( !( nif && nif->getBSVersion() >= 151 && index.isValid() ) )
+	if ( !( nif && nif->getBSVersion() >= 130 && index.isValid() ) )
 		return;
 	const NifItem *	m = nif->getItem( index );
 	if ( !m )
@@ -281,7 +281,7 @@ void Material::createMaterialData( QByteArray & data, const NifModel * nif, cons
 	s.setFloatingPointPrecision( QDataStream::SinglePrecision );
 
 	s << quint32( !isEffect ? BGSM : BGEM );
-	quint32	version = std::max<quint32>( nif->get<quint32>( m, "Version" ), 20U );
+	quint32	version = std::max<quint32>( nif->get<quint32>( m, "Version" ), 2U );
 	s << version;
 	quint32	sf1 = nif->get<quint32>( m, "Shader Flags 1" );
 	quint32	sf2 = nif->get<quint32>( m, "Shader Flags 2" );
@@ -310,11 +310,14 @@ void Material::createMaterialData( QByteArray & data, const NifModel * nif, cons
 	s << quint8( bool( sf1 & 0x2000 ) );	// refraction falloff
 	s << nif->get<float>( m, "Refraction Power" );
 	s << quint8( bool( sf1 & 0x4000 ) );	// environment mapping
+	if ( version < 10 )
+		s << nif->get<float>( m, "Environment Map Scale" );
 	s << quint8( bool( sf1 & 0x8000 ) );	// grayscale to palette mapping
-	s << nif->get<quint8>( m, "Write Mask" );
+	if ( version >= 6 )
+		s << nif->get<quint8>( m, "Write Mask" );
 
 	std::string	tmp;
-	int	numTex = ( !( version < 21 && isEffect ) ? 10 : 8 );
+	int	numTex = ( !isEffect ? ( version < 17 ? 9 : 10 ) : ( version < 10 ? 5 : ( version < 21 ? 8 : 10 ) ) );
 	for ( int i = 0; i < numTex; i++ ) {
 		tmp = nif->get<QString>( m, QString( "Texture %1" ).arg( i ) ).toStdString();
 		s << tmp.c_str();
@@ -322,17 +325,25 @@ void Material::createMaterialData( QByteArray & data, const NifModel * nif, cons
 
 	if ( !isEffect ) {
 		s << quint8( bool( sf2 & 0x0001 ) );	// enable editor alpha ref
-		s << quint8( bool( sf2 & 0x0002 ) );	// translucency
-		s << quint8( bool( sf2 & 0x0004 ) );	// translucency thick object
-		s << quint8( bool( sf2 & 0x0008 ) );	// translucency mix albedo with subsurface color
-		Color3	c = nif->get<Color3>( m, "Translucency Subsurface Color" );
-		s << c[0];
-		s << c[1];
-		s << c[2];
-		s << nif->get<float>( m, "Translucency Transmissive Scale" );
-		s << nif->get<float>( m, "Translucency Turbulence" );
+		if ( version < 8 ) {
+			s << quint8( bool( sf2 & 0x02000000 ) );	// rim lighting
+			s << nif->get<float>( m, "Rimlight Power" );
+			s << nif->get<float>( m, "Backlight Power" );
+			s << quint8( bool( sf2 & 0x04000000 ) );	// subsurface lighting
+			s << nif->get<float>( m, "Subsurface Rolloff" );
+		} else {
+			s << quint8( bool( sf2 & 0x0002 ) );	// translucency
+			s << quint8( bool( sf2 & 0x0004 ) );	// translucency thick object
+			s << quint8( bool( sf2 & 0x0008 ) );	// translucency mix albedo with subsurface color
+			Color3	c = nif->get<Color3>( m, "Translucency Subsurface Color" );
+			s << c[0];
+			s << c[1];
+			s << c[2];
+			s << nif->get<float>( m, "Translucency Transmissive Scale" );
+			s << nif->get<float>( m, "Translucency Turbulence" );
+		}
 		s << quint8( bool( sf2 & 0x0010 ) );	// specular enabled
-		c = nif->get<Color3>( m, "Specular Color" );
+		Color3	c = nif->get<Color3>( m, "Specular Color" );
 		s << c[0];
 		s << c[1];
 		s << c[2];
@@ -345,14 +356,21 @@ void Material::createMaterialData( QByteArray & data, const NifModel * nif, cons
 			v[0] = nif->get<float>( o, "Spec Scale" );
 			v[1] = nif->get<float>( o, "Spec Power" );
 			v[2] = nif->get<float>( o, "Min Var" );
-			v[3] = nif->get<float>( o, "Fresnel Power" );
-			v[4] = nif->get<float>( o, "Metalness" );
+			if ( version < 10 )
+				v[3] = nif->get<float>( o, "Env Map Scale" );
+			v[4] = nif->get<float>( o, "Fresnel Power" );
+			v[5] = nif->get<float>( o, "Metalness" );
 		}
-		for ( size_t i = 0; i < 5; i++ )
-			s << v[i];
-		s << quint8( bool( sf2 & 0x0020 ) );	// PBR
-		s << quint8( bool( sf2 & 0x0040 ) );	// custom porosity
-		s << nif->get<float>( m, "Porosity Value" );
+		for ( size_t i = 0; i < 6; i++ ) {
+			if ( i != 3 || version < 10 )
+				s << v[i];
+		}
+		if ( version > 2 )
+			s << quint8( bool( sf2 & 0x0020 ) );	// PBR
+		if ( version >= 9 ) {
+			s << quint8( bool( sf2 & 0x0040 ) );	// custom porosity
+			s << nif->get<float>( m, "Porosity Value" );
+		}
 		tmp = nif->get<QString>( m, "Root Material" ).toStdString();
 		s << tmp.c_str();
 		s << quint8( bool( sf2 & 0x0080 ) );	// anisotropic lighting
@@ -366,24 +384,36 @@ void Material::createMaterialData( QByteArray & data, const NifModel * nif, cons
 		s << nif->get<float>( m, "Emissive Multiple" );
 		s << quint8( bool( sf2 & 0x0200 ) );	// model space normals
 		s << quint8( bool( sf2 & 0x0400 ) );	// external emittance
-		v = FloatVector8( 100.0f, 13.5f, 2.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f );
-		o = nif->getItem( m, "Luminance" );
-		if ( o ) {
-			v[0] = nif->get<float>( o, "Lum Emittance" );
-			v[1] = nif->get<float>( o, "Exposure Offset" );
-			v[2] = nif->get<float>( o, "Final Exposure Min" );
-			v[3] = nif->get<float>( o, "Final Exposure Max" );
+		if ( version >= 12 ) {
+			v = FloatVector8( 100.0f, 13.5f, 2.0f, 3.0f, 0.0f, 0.0f, 0.0f, 0.0f );
+			o = nif->getItem( m, "Luminance" );
+			if ( o ) {
+				v[0] = nif->get<float>( o, "Lum Emittance" );
+				if ( version >= 13 ) {
+					v[1] = nif->get<float>( o, "Exposure Offset" );
+					v[2] = nif->get<float>( o, "Final Exposure Min" );
+					v[3] = nif->get<float>( o, "Final Exposure Max" );
+				}
+			}
+			s << v[0];
+			if ( version >= 13 ) {
+				s << quint8( bool( sf2 & 0x0800 ) );	// use adaptive emissive
+				for ( size_t i = 1; i < 4; i++ )
+					s << v[i];
+			}
 		}
-		s << v[0];
-		s << quint8( bool( sf2 & 0x0800 ) );	// use adaptive emissive
-		for ( size_t i = 1; i < 4; i++ )
-			s << v[i];
+		if ( version < 8 )
+			s << quint8( bool( sf2 & 0x08000000 ) );	// back lighting
 		s << quint8( bool( sf2 & 0x1000 ) );	// receive shadows
 		s << quint8( bool( sf2 & 0x2000 ) );	// hide secret
 		s << quint8( bool( sf2 & 0x4000 ) );	// cast shadows
 		s << quint8( bool( sf2 & 0x8000 ) );	// dissolve fade
 		s << quint8( bool( sf2 & 0x00010000 ) );	// assume shadow mask
 		s << quint8( bool( sf2 & 0x00020000 ) );	// glow map
+		if ( version < 7 ) {
+			s << quint8( bool( sf2 & 0x10000000 ) );	// window environment mapping
+			s << quint8( bool( sf2 & 0x20000000 ) );	// eye environment mapping
+		}
 		s << quint8( bool( sf2 & 0x00040000 ) );	// hair
 		c = nif->get<Color3>( m, "Hair Tint Color" );
 		s << c[0];
@@ -395,29 +425,35 @@ void Material::createMaterialData( QByteArray & data, const NifModel * nif, cons
 		s << quint8( bool( sf2 & 0x00400000 ) );	// tessellate
 		s << nif->get<float>( m, "Grayscale to Palette Scale" );
 		s << quint8( bool( sf2 & 0x00800000 ) );	// skew specular alpha
-		s << quint8( bool( sf2 & 0x01000000 ) );	// terrain
-		if ( sf2 & 0x01000000 ) {
-			s << nif->get<float>( m, "Terrain Threshold Falloff" );
-			s << nif->get<float>( m, "Terrain Tiling Distance" );
-			s << nif->get<float>( m, "Terrain Rotation Angle" );
+		if ( version >= 3 ) {
+			s << quint8( bool( sf2 & 0x01000000 ) );	// terrain
+			if ( sf2 & 0x01000000 ) {
+				if ( version == 3 )
+					s << quint32( 0 );
+				s << nif->get<float>( m, "Terrain Threshold Falloff" );
+				s << nif->get<float>( m, "Terrain Tiling Distance" );
+				s << nif->get<float>( m, "Terrain Rotation Angle" );
+			}
 		}
 	} else {
 		// effect material
-		if ( version >= 21 ) {
-			s << quint8( bool( sf2 & 0x0200 ) );	// glass enabled
-			if ( sf2 & 0x0200 ) {
-				Color3	c = nif->get<Color3>( m, "Glass Fresnel Color" );
-				s << c[0];
-				s << c[1];
-				s << c[2];
-				s << nif->get<float>( m, "Glass Refraction Scale" );
-				s << nif->get<float>( m, "Glass Blur Scale Base" );
-				if ( version >= 22 )
-					s << nif->get<float>( m, "Glass Blur Scale Factor" );
+		if ( version >= 10 ) {
+			if ( version >= 21 ) {
+				s << quint8( bool( sf2 & 0x0200 ) );	// glass enabled
+				if ( sf2 & 0x0200 ) {
+					Color3	c = nif->get<Color3>( m, "Glass Fresnel Color" );
+					s << c[0];
+					s << c[1];
+					s << c[2];
+					s << nif->get<float>( m, "Glass Refraction Scale" );
+					s << nif->get<float>( m, "Glass Blur Scale Base" );
+					if ( version >= 22 )
+						s << nif->get<float>( m, "Glass Blur Scale Factor" );
+				}
 			}
+			s << quint8( bool( sf2 & 0x0001 ) );	// environment mapping
+			s << nif->get<float>( m, "Environment Map Scale" );
 		}
-		s << quint8( bool( sf2 & 0x0001 ) );	// environment mapping
-		s << nif->get<float>( m, "Environment Map Scale" );
 		s << quint8( bool( sf2 & 0x0002 ) );	// blood enabled
 		s << quint8( bool( sf2 & 0x0004 ) );	// effect lighting
 		s << quint8( bool( sf2 & 0x0008 ) );	// use falloff
@@ -436,14 +472,20 @@ void Material::createMaterialData( QByteArray & data, const NifModel * nif, cons
 		s << nif->get<float>( m, "Lighting Influence" );
 		s << nif->get<quint8>( m, "Env Map Min LOD" );
 		s << nif->get<float>( m, "Soft Falloff Depth" );
-		c = nif->get<Color3>( m, "Emittance Color" );
-		s << c[0];
-		s << c[1];
-		s << c[2];
-		s << nif->get<float>( m, "Adaptive Emissive Exposure Offset" );
-		s << nif->get<float>( m, "Adaptive Emissive Exposure Min" );
-		s << nif->get<float>( m, "Adaptive Emissive Exposure Max" );
-		s << quint8( bool( sf2 & 0x0080 ) );	// glow map
-		s << quint8( bool( sf2 & 0x0100 ) );	// effect PBR specular
+		if ( version >= 11 ) {
+			c = nif->get<Color3>( m, "Emittance Color" );
+			s << c[0];
+			s << c[1];
+			s << c[2];
+			if ( version >= 15 ) {
+				s << nif->get<float>( m, "Adaptive Emissive Exposure Offset" );
+				s << nif->get<float>( m, "Adaptive Emissive Exposure Min" );
+				s << nif->get<float>( m, "Adaptive Emissive Exposure Max" );
+			}
+			if ( version >= 16 )
+				s << quint8( bool( sf2 & 0x0080 ) );	// glow map
+			if ( version >= 20 )
+				s << quint8( bool( sf2 & 0x0100 ) );	// effect PBR specular
+		}
 	}
 }

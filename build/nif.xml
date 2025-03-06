@@ -7671,6 +7671,11 @@
         <option bit="22" name="Tessellate" />
         <option bit="23" name="Skew_Specular_Alpha" />
         <option bit="24" name="Terrain" />
+        <option bit="25" name="Rim_Lighting" />
+        <option bit="26" name="Subsurface_Lighting" />
+        <option bit="27" name="Back_Lighting" />
+        <option bit="28" name="Window_Environment_Mapping" />
+        <option bit="29" name="Eye_Environment_Mapping" />
     </bitflags>
 
     <bitflags name="Fallout76MaterialPropertyFlags3" storage="ushort" versions="#F76#">
@@ -7687,8 +7692,8 @@
         <option bit="9" name="Glass_Enabled" />
     </bitflags>
 
-    <struct name="BSShaderMaterialDataFO76" abstract="true" module="BSMain" versions="#BS_F76#">
-        Bethesda material file (.bgsm) for Fallout 76.
+    <struct name="BSMaterialDataBGSM" abstract="true" module="BSMain" versions="#FO4# #F76#">
+        Bethesda material file (.bgsm) for Fallout 4 and 76.
         <field name="Version" type="uint" />
         <field name="Shader Flags 1" type="Fallout76MaterialPropertyFlags1" />
         <field name="Shader Flags 2" type="Fallout76MaterialPropertyFlags2" />
@@ -7699,30 +7704,34 @@
         <field name="Alpha Destination Blend Mode" type="AlphaFunction" />
         <field name="Alpha Test Threshold" type="byte" />
         <field name="Refraction Power" type="float" />
-        <field name="Write Mask" type="byte" />
+        <field name="Environment Map Scale" type="float" default="1.0" range="#F0_10#" cond="Version #LT# 10">Scales the intensity of the environment/cube map.</field>
+        <field name="Write Mask" type="byte" cond="Version #GTE# 6" />
         <field name="Texture 0" type="SizedString">Diffuse Texture</field>
         <field name="Texture 1" type="SizedString">Normal Map Texture</field>
-        <field name="Texture 2" type="SizedString" />
+        <field name="Texture 2" type="SizedString">FO4 Specular Map Texture</field>
         <field name="Texture 3" type="SizedString">Grayscale To Palette Texture</field>
-        <field name="Texture 4" type="SizedString">Glow Map Texture</field>
-        <field name="Texture 5" type="SizedString" />
-        <field name="Texture 6" type="SizedString">Reflectance Texture</field>
-        <field name="Texture 7" type="SizedString">Lighting Texture</field>
+        <field name="Texture 4" type="SizedString">FO4 Cube Map or FO76 Glow Map Texture</field>
+        <field name="Texture 5" type="SizedString">FO4 Glow Map or Environment Mask Texture</field>
+        <field name="Texture 6" type="SizedString">FO76 Reflectance Texture</field>
+        <field name="Texture 7" type="SizedString">FO76 Lighting Texture</field>
         <field name="Texture 8" type="SizedString" />
-        <field name="Texture 9" type="SizedString" />
-        <field name="Translucency Subsurface Color" type="Color3" />
-        <field name="Translucency Transmissive Scale" type="float" />
-        <field name="Translucency Turbulence" type="float" />
+        <field name="Texture 9" type="SizedString" cond="Version #GTE# 17" />
+        <field name="Rimlight Power" type="float" default="#FLT_MAX#" cond="Version #LT# 8" />
+        <field name="Backlight Power" type="float" range="#F0_1000#" cond="Version #LT# 8" />
+        <field name="Subsurface Rolloff" type="float" default="0.0" range="#F0_10#" cond="Version #LT# 8" />
+        <field name="Translucency Subsurface Color" type="Color3" cond="Version #GTE# 8" />
+        <field name="Translucency Transmissive Scale" type="float" cond="Version #GTE# 8" />
+        <field name="Translucency Turbulence" type="float" cond="Version #GTE# 8" />
         <field name="Specular Color" type="Color3" default="#VEC3_ONE#">Adds a colored highlight.</field>
         <field name="Specular Strength" type="float" default="1.0" range="#F0_10#">Brightness of specular highlight. (0=not visible)</field>
         <field name="Smoothness" type="float" default="1.0" range="#F0_10#">The base roughness, multiplied by the smoothness map.</field>
         <field name="Fresnel Power" type="float" default="5.0" range="#F_PNZ#" />
         <field name="Wetness" type="BSSPWetnessParams" />
-        <field name="Porosity Value" type="float" />
+        <field name="Porosity Value" type="float" cond="Version #GTE# 9" />
         <field name="Root Material" type="SizedString" />
         <field name="Emissive Color" type="Color3" default="#VEC3_ZERO#" cond="Shader Flags 2 #BITAND# 0x0100">Glow color</field>
         <field name="Emissive Multiple" type="float" default="1.0" range="#F0_10#">Multiplied emissive colors</field>
-        <field name="Luminance" type="BSSPLuminanceParams" />
+        <field name="Luminance" type="BSSPLuminanceParams" cond="Version #GTE# 12" />
         <field name="Hair Tint Color" type="Color3" />
         <field name="Grayscale to Palette Scale" type="float" default="1.0" range="#F0_1#" />
         <field name="Terrain Threshold Falloff" type="float" cond="Shader Flags 2 #BITAND# 0x01000000" />
@@ -7734,9 +7743,8 @@
     <niobject name="BSLightingShaderProperty" inherit="BSShaderProperty" module="BSMain" versions="#SKY_AND_LATER#">
         Bethesda shader property for Skyrim and later.
         <field name="Material" type="BSLayeredMaterial" abstract="true" vercond="#BS_GTE_STF#" cond="$Name">Starfield material (.mat).</field>
-        <field name="Shader Property Data" type="BSLightingShaderPropertyDataGTEFO76" vercond="#BS_F76#" cond="!$Name" />
-        <field name="Material" type="BSShaderMaterialDataFO76" abstract="true" vercond="#BS_F76#" cond="$Name" />
-        <field name="Shader Property Data (Deprecated)" type="BSLightingShaderPropertyDataGTEFO76" vercond="#BS_GTE_STF#" cond="!$Name" />
+        <field name="Material" type="BSMaterialDataBGSM" abstract="true" vercond="#BS_FO4_F76#" cond="$Name">Fallout 4 or 76 material (.bgsm).</field>
+        <field name="Shader Property Data" type="BSLightingShaderPropertyDataGTEFO76" vercond="#BS_GTE_F76#" cond="!$Name">Shader property data when not using a material file, deprecated after Fallout 76.</field>
         <field name="Shader Flags 1" suffix="SK" type="SkyrimShaderPropertyFlags1" vercond="#NI_BS_LT_FO4#" default="0x82400301">Skyrim Shader Flags for setting render/shader options.</field>
         <field name="Shader Flags 2" suffix="SK" type="SkyrimShaderPropertyFlags2" vercond="#NI_BS_LT_FO4#" default="0x8021">Skyrim Shader Flags for setting render/shader options.</field>
         <field name="Shader Flags 1" suffix="FO4" type="Fallout4ShaderPropertyFlags1" vercond="#BS_FO4#" default="0x80400201">Fallout 4 Shader Flags. Mostly overridden if "Name" is a path to a BGSM/BGEM file.</field>
@@ -7821,8 +7829,8 @@
         <field name="Unknown Byte" type="byte" vercond="#BS_GTE_STF#" />
     </struct>
 
-    <struct name="BSEffectMaterialDataFO76" abstract="true" module="BSMain" versions="#BS_F76#">
-        Bethesda material file (.bgem) for Fallout 76.
+    <struct name="BSMaterialDataBGEM" abstract="true" module="BSMain" versions="#FO4# #F76#">
+        Bethesda material file (.bgem) for Fallout 4 and 76.
         <field name="Version" type="uint" />
         <field name="Shader Flags 1" type="Fallout76MaterialPropertyFlags1" />
         <field name="Shader Flags 2" type="Fallout76MaterialPropertyFlags3" />
@@ -7833,15 +7841,15 @@
         <field name="Alpha Destination Blend Mode" type="AlphaFunction" />
         <field name="Alpha Test Threshold" type="byte" />
         <field name="Refraction Power" type="float" />
-        <field name="Write Mask" type="byte" />
+        <field name="Write Mask" type="byte" cond="Version #GTE# 6" />
         <field name="Texture 0" type="SizedString">Source Texture</field>
         <field name="Texture 1" type="SizedString">Grayscale To Palette Texture</field>
         <field name="Texture 2" type="SizedString">Cube Map Texture</field>
         <field name="Texture 3" type="SizedString">Normal Map Texture</field>
         <field name="Texture 4" type="SizedString">Environment Mask Texture</field>
-        <field name="Texture 5" type="SizedString">Reflectance Texture</field>
-        <field name="Texture 6" type="SizedString">Lighting Texture</field>
-        <field name="Texture 7" type="SizedString">Emit Gradient Texture</field>
+        <field name="Texture 5" type="SizedString" cond="Version #GTE# 10">Reflectance Texture</field>
+        <field name="Texture 6" type="SizedString" cond="Version #GTE# 10">Lighting Texture</field>
+        <field name="Texture 7" type="SizedString" cond="Version #GTE# 10">Emit Gradient Texture</field>
         <field name="Texture 8" type="SizedString" cond="Version #GTE# 21">Glass Roughness and Scratch Texture</field>
         <field name="Texture 9" type="SizedString" cond="Version #GTE# 21">Glass Dirt Overlay Texture</field>
         <field name="Glass Fresnel Color" type="Color3" cond="Shader Flags 2 #BITAND# 0x0200" />
@@ -7858,19 +7866,18 @@
         <field name="Lighting Influence" type="float" />
         <field name="Env Map Min LOD" type="byte" range="0:16" />
         <field name="Soft Falloff Depth" type="float" default="100.0" range="0.0:9999.0" />
-        <field name="Emittance Color" type="Color3" />
-        <field name="Adaptive Emissive Exposure Offset" type="float" />
-        <field name="Adaptive Emissive Exposure Min" type="float" />
-        <field name="Adaptive Emissive Exposure Max" type="float" />
+        <field name="Emittance Color" type="Color3" cond="Version #GTE# 11" />
+        <field name="Adaptive Emissive Exposure Offset" type="float" cond="Version #GTE# 15" />
+        <field name="Adaptive Emissive Exposure Min" type="float" cond="Version #GTE# 15" />
+        <field name="Adaptive Emissive Exposure Max" type="float" cond="Version #GTE# 15" />
         <field name="Is Modified" type="bool" />
     </struct>
 
     <niobject name="BSEffectShaderProperty" inherit="BSShaderProperty" module="BSMain" versions="#SKY_AND_LATER#">
         Bethesda effect shader property for Skyrim and later.
         <field name="Material" type="BSLayeredMaterial" abstract="true" vercond="#BS_GTE_STF#" cond="$Name">Starfield material (.mat).</field>
-        <field name="Shader Property Data" type="BSEffectShaderPropertyDataGTEFO76" vercond="#BS_F76#" cond="!$Name" />
-        <field name="Material" type="BSEffectMaterialDataFO76" abstract="true" vercond="#BS_F76#" cond="$Name" />
-        <field name="Shader Property Data (Deprecated)" type="BSEffectShaderPropertyDataGTEFO76" vercond="#BS_GTE_STF#" cond="!$Name" />
+        <field name="Material" type="BSMaterialDataBGEM" abstract="true" vercond="#BS_FO4_F76#" cond="$Name">Fallout 4 or 76 material (.bgem).</field>
+        <field name="Shader Property Data" type="BSEffectShaderPropertyDataGTEFO76" vercond="#BS_GTE_F76#" cond="!$Name">Shader property data when not using a material file, deprecated after Fallout 76.</field>
         <field name="Shader Flags 1" suffix="SK" type="SkyrimShaderPropertyFlags1" default="0x80000000" vercond="#NI_BS_LT_FO4#" />
         <field name="Shader Flags 2" suffix="SK" type="SkyrimShaderPropertyFlags2" default="0x20" vercond="#NI_BS_LT_FO4#" />
         <field name="Shader Flags 1" suffix="FO4" type="Fallout4ShaderPropertyFlags1" default="0x80000000" vercond="#BS_FO4#" />

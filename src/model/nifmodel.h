@@ -506,7 +506,9 @@ protected:
 	const void * createSFTextureSet( AllocBuffers & bufs, const NifItem * parent ) const;
 	const void * createSFUVStream( AllocBuffers & bufs, const NifItem * parent ) const;
 public:
+	//! Load shader property data from a Starfield material file ('matPtr' should point to a CE2Material object).
 	void loadSFMaterial( const QModelIndex & parent, const void * matPtr, int lodLevel = 0 );
+	//! Load shader property data from a Fallout 4 or 76 material file ('material' should point to a Material object).
 	void loadFO76Material( const QModelIndex & parent, const void * material );
 	//! Create and return CE2Material object from abstract material data in Starfield shader property block.
 	const void * updateSFMaterial( AllocBuffers & bufs, const QModelIndex & parent ) const;

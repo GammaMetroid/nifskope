@@ -115,14 +115,14 @@ public:
 			if ( static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton ) {
 				if ( model->inherits( "NifModel" ) ) {
 					NifModel *	nif = static_cast< NifModel * >( model );
-					if ( nif->getBSVersion() >= 151 ) {
+					if ( nif->getBSVersion() >= 130 ) {
 						const NifItem *	item = nif->getItem( index );
 						for ( const NifItem * i = item; i; i = i->parent() ) {
 							if ( i->isAbstract() && i->hasName( "Material" ) ) {
 								if ( !nif->blockInherits( i, "BSShaderProperty" ) )
 									break;
 								const QString &	t = i->strType();
-								if ( !( t == "BSLayeredMaterial" || t.endsWith( QLatin1StringView( "MaterialDataFO76" ) ) ) )
+								if ( !( t == "BSLayeredMaterial" || t.startsWith( QLatin1StringView( "BSMaterialData" ) ) ) )
 									continue;
 								if ( !item->hasName( "Is Modified" ) || !nif->get<bool>( item ) ) {
 									if ( !nif->get<bool>( i, "Is Modified" ) ) {

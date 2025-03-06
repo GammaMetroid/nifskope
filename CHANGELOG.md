@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Implemented support for editing and saving Fallout 4 materials.
 * 'Optimize/Combine Properties' now works on BSShaderTextureSet blocks.
 * Fixed potential link time error in particle shader, and disabled lighting on particles.
 * Fixes to Oblivion and Fallout 3 parallax mapping.

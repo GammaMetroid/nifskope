@@ -962,7 +962,7 @@ void BSShaderLightingProperty::setMaterial( const NifModel * nif, const QModelIn
 	bool	isAbstract = false;
 	Material *	newMaterial = nullptr;
 	if ( name.endsWith( QLatin1StringView( !isEffect ? ".bgsm" : ".bgem" ), Qt::CaseInsensitive ) ) {
-		if ( bsVersion >= 151 && !nameChanged ) {
+		if ( bsVersion >= 130 && !nameChanged ) {
 			const NifItem *	i = nif->getItem( index, "Material" );
 			isAbstract = ( i && nif->get<bool>( i, "Is Modified" ) );
 		}
@@ -971,7 +971,7 @@ void BSShaderLightingProperty::setMaterial( const NifModel * nif, const QModelIn
 		else
 			newMaterial = new ShaderMaterial( name, nif, ( isAbstract ? index : QModelIndex() ) );
 	}
-	if ( bsVersion >= 151 && !isAbstract )
+	if ( bsVersion >= 130 && !isAbstract )
 		const_cast< NifModel * >(nif)->loadFO76Material( index, newMaterial );
 
 	if ( newMaterial && !newMaterial->isValid() )

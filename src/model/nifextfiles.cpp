@@ -579,8 +579,13 @@ void NifModel::loadFO76Material( const QModelIndex & parent, const void * materi
 		shaderFlags2 |= ( quint32(bool(bgsm->bFacegen)) << 20 ) | ( quint32(bool(bgsm->bSkinTint)) << 21 );
 		shaderFlags2 |= ( quint32(bool(bgsm->bTessellate)) << 22 ) | ( quint32(bool(bgsm->bSkewSpecularAlpha)) << 23 );
 		shaderFlags2 |= ( quint32(bool(bgsm->bTerrain)) << 24 );
+		shaderFlags2 |= ( quint32(bool(bgsm->bRimLighting)) << 25 );
+		shaderFlags2 |= ( quint32(bool(bgsm->bSubsurfaceLighting)) << 26 );
+		shaderFlags2 |= ( quint32(bool(bgsm->bBackLighting)) << 27 );
+		shaderFlags2 |= ( quint32(bool(bgsm->bEnvironmentMappingWindow)) << 28 );
+		shaderFlags2 |= ( quint32(bool(bgsm->bEnvironmentMappingEye)) << 29 );
 		setValue<quint32>( p, "Shader Flags 2", shaderFlags2 );
-		textureCnt = 10;
+		textureCnt = ( mat.version < 17 ? 9 : 10 );
 	}
 	if ( bgem ) {
 		shaderFlags3 = quint16( bool(bgem->bEnvironmentMapping) ) | ( quint16(bool(bgem->bBloodEnabled)) << 1 );
@@ -590,7 +595,7 @@ void NifModel::loadFO76Material( const QModelIndex & parent, const void * materi
 		shaderFlags3 |= ( quint16(bool(bgem->bEffectPbrSpecular)) << 8 );
 		shaderFlags3 |= ( quint16(bool(bgem->bGlassEnabled)) << 9 );
 		setValue<quint16>( p, "Shader Flags 2", shaderFlags3 );
-		textureCnt = ( bgem->version < 21 ? 8 : 10 );
+		textureCnt = ( mat.version < 10 ? 5 : ( mat.version < 21 ? 8 : 10 ) );
 	}
 
 	// common material properties
@@ -601,7 +606,8 @@ void NifModel::loadFO76Material( const QModelIndex & parent, const void * materi
 	setValue<quint16>( p, "Alpha Destination Blend Mode", quint16(mat.iAlphaDst & 0x0F) );
 	setValue<quint8>( p, "Alpha Test Threshold", mat.iAlphaTestRef );
 	setValue<float>( p, "Refraction Power", mat.fRefractionPower );
-	setValue<quint8>( p, "Write Mask", mat.ucMaskWrites );
+	if ( mat.version >= 6 )
+		setValue<quint8>( p, "Write Mask", mat.ucMaskWrites );
 
 	// texture set
 	for ( qsizetype i = 0; i < textureCnt; i++ ) {
@@ -613,9 +619,17 @@ void NifModel::loadFO76Material( const QModelIndex & parent, const void * materi
 
 	// shader material properties
 	if ( bgsm ) {
-		setValue<Color3>( p, "Translucency Subsurface Color", bgsm->cTranslucencySubsurfaceColor );
-		setValue<float>( p, "Translucency Transmissive Scale", bgsm->fTranslucencyTransmissiveScale );
-		setValue<float>( p, "Translucency Turbulence", bgsm->fTranslucencyTurbulence );
+		if ( mat.version < 10 )
+			setValue<float>( p, "Environment Map Scale", bgsm->fEnvironmentMappingMaskScale );
+		if ( mat.version < 8 ) {
+			setValue<float>( p, "Rimlight Power", bgsm->fRimPower );
+			setValue<float>( p, "Backlight Power", bgsm->fBacklightPower );
+			setValue<float>( p, "Subsurface Rolloff", bgsm->fSubsurfaceLightingRolloff );
+		} else {
+			setValue<Color3>( p, "Translucency Subsurface Color", bgsm->cTranslucencySubsurfaceColor );
+			setValue<float>( p, "Translucency Transmissive Scale", bgsm->fTranslucencyTransmissiveScale );
+			setValue<float>( p, "Translucency Turbulence", bgsm->fTranslucencyTurbulence );
+		}
 		setValue<Color3>( p, "Specular Color", bgsm->cSpecularColor );
 		setValue<float>( p, "Specular Strength", bgsm->fSpecularMult );
 		setValue<float>( p, "Smoothness", bgsm->fSmoothness );
@@ -625,24 +639,29 @@ void NifModel::loadFO76Material( const QModelIndex & parent, const void * materi
 			setValue<float>( o, "Spec Scale", bgsm->fWetnessControl_SpecScale );
 			setValue<float>( o, "Spec Power", bgsm->fWetnessControl_SpecPowerScale );
 			setValue<float>( o, "Min Var", bgsm->fWetnessControl_SpecMinvar );
+			if ( mat.version < 10 )
+				setValue<float>( o, "Env Map Scale", bgsm->fWetnessControl_EnvMapScale );
 			setValue<float>( o, "Fresnel Power", bgsm->fWetnessControl_FresnelPower );
 			setValue<float>( o, "Metalness", bgsm->fWetnessControl_Metalness );
 		}
-		setValue<float>( p, "Porosity Value", bgsm->fPorosityValue );
+		if ( mat.version >= 9 )
+			setValue<float>( p, "Porosity Value", bgsm->fPorosityValue );
 		setValue<QString>( p, "Root Material", bgsm->sRootMaterialPath );
 		if ( shaderFlags2 & 0x00000100 )
 			setValue<Color3>( p, "Emissive Color", bgsm->cEmittanceColor );
 		setValue<float>( p, "Emissive Multiple", bgsm->fEmittanceMult );
-		o = getItem( p, "Luminance" );
-		if ( o ) {
-			setValue<float>( o, "Lum Emittance", mat.fLumEmittance );
-			setValue<float>( o, "Exposure Offset", mat.fAdaptativeEmissive_ExposureOffset );
-			setValue<float>( o, "Final Exposure Min", mat.fAdaptativeEmissive_FinalExposureMin );
-			setValue<float>( o, "Final Exposure Max", mat.fAdaptativeEmissive_FinalExposureMax );
+		if ( mat.version >= 12 ) {
+			o = getItem( p, "Luminance" );
+			if ( o ) {
+				setValue<float>( o, "Lum Emittance", mat.fLumEmittance );
+				setValue<float>( o, "Exposure Offset", mat.fAdaptativeEmissive_ExposureOffset );
+				setValue<float>( o, "Final Exposure Min", mat.fAdaptativeEmissive_FinalExposureMin );
+				setValue<float>( o, "Final Exposure Max", mat.fAdaptativeEmissive_FinalExposureMax );
+			}
 		}
 		setValue<Color3>( p, "Hair Tint Color", bgsm->cHairTintColor );
 		setValue<float>( p, "Grayscale to Palette Scale", bgsm->fGrayscaleToPaletteScale );
-		if ( shaderFlags2 & 0x01000000 ) {
+		if ( ( shaderFlags2 & 0x01000000 ) != 0 && mat.version >= 3 ) {
 			setValue<float>( p, "Terrain Threshold Falloff", bgsm->fTerrainThresholdFalloff );
 			setValue<float>( p, "Terrain Tiling Distance", bgsm->fTerrainTilingDistance );
 			setValue<float>( p, "Terrain Rotation Angle", bgsm->fTerrainRotationAngle );
@@ -668,10 +687,14 @@ void NifModel::loadFO76Material( const QModelIndex & parent, const void * materi
 		setValue<float>( p, "Lighting Influence", bgem->fLightingInfluence );
 		setValue<quint8>( p, "Env Map Min LOD", bgem->iEnvmapMinLOD );
 		setValue<float>( p, "Soft Falloff Depth", bgem->fSoftDepth );
-		setValue<Color3>( p, "Emittance Color", bgem->cEmittanceColor );
-		setValue<float>( p, "Adaptive Emissive Exposure Offset", bgem->fAdaptativeEmissive_ExposureOffset );
-		setValue<float>( p, "Adaptive Emissive Exposure Min", bgem->fAdaptativeEmissive_FinalExposureMin );
-		setValue<float>( p, "Adaptive Emissive Exposure Max", bgem->fAdaptativeEmissive_FinalExposureMax );
+		if ( mat.version >= 11 ) {
+			setValue<Color3>( p, "Emittance Color", bgem->cEmittanceColor );
+			if ( mat.version >= 15 ) {
+				setValue<float>( p, "Adaptive Emissive Exposure Offset", bgem->fAdaptativeEmissive_ExposureOffset );
+				setValue<float>( p, "Adaptive Emissive Exposure Min", bgem->fAdaptativeEmissive_FinalExposureMin );
+				setValue<float>( p, "Adaptive Emissive Exposure Max", bgem->fAdaptativeEmissive_FinalExposureMax );
+			}
+		}
 	}
 }
 

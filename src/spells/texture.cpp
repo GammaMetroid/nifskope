@@ -204,7 +204,7 @@ public:
 			return true;
 		else if ( nif->isNiBlock( iBlock, "TileShaderProperty" ) && itemName == "File Name" )
 			return true;
-		else if ( nif->getBSVersion() >= 151
+		else if ( nif->getBSVersion() >= 130
 					&& ( itemName == "Path"
 						|| ( itemName.back().isDigit() && itemName.startsWith( QLatin1StringView( "Texture " ) ) ) )
 					&& nif->blockInherits( iBlock, "BSShaderProperty" ) )
@@ -233,7 +233,7 @@ public:
 			iFile = idx;
 		} else if ( nif->isNiBlock( iBlock, "TileShaderProperty" ) && i->hasName( "File Name" ) ) {
 			iFile = idx;
-		} else if ( nif->getBSVersion() >= 151 && ( i->name() == "Path" || i->name().startsWith( QLatin1StringView( "Texture " ) ) )
+		} else if ( nif->getBSVersion() >= 130 && ( i->name() == "Path" || i->name().startsWith( QLatin1StringView( "Texture " ) ) )
 					&& nif->blockInherits( iBlock, "BSShaderProperty" ) ) {
 			iFile = ( nif->getBSVersion() < 170 || i->name() == "Path" ? idx : nif->getIndex( i, "Path" ) );
 			isMaterialFile = true;
@@ -274,7 +274,7 @@ public:
 						if ( !i->isAbstract() )
 							continue;
 						const QString &	t = i->strType();
-						if ( !( t == "BSLayeredMaterial" || t.endsWith( QLatin1StringView( "MaterialDataFO76" ) ) ) )
+						if ( !( t == "BSLayeredMaterial" || t.startsWith( QLatin1StringView( "BSMaterialData" ) ) ) )
 							continue;
 						if ( !nif->get<bool>( i, "Is Modified" ) ) {
 							nif->set<bool>( i, "Is Modified", true );
@@ -284,7 +284,7 @@ public:
 					}
 				}
 
-				nif->set<QString>( iFile, file.replace( "/", "\\" ) );
+				nif->set<QString>( iFile, file.replace( QChar('/'), QChar('\\') ) );
 			}
 		}
 
