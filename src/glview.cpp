@@ -451,6 +451,7 @@ void GLView::paintGL()
 	if ( doCompile ) [[unlikely]] {
 		if ( doCompile > 1 ) [[unlikely]] {
 			doCompile--;
+			update();
 			return;
 		}
 		// avoid potential infinite recursion in case a message box is opened while initializing the scene
