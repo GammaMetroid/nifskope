@@ -7,6 +7,7 @@
 * Fixed rendering NiGeomMorpherController and NiUVController animations.
 * Fixed bugs in Fallout 4 grayscale to palette mapping.
 * Fixed Fallout 3 specular flag and specular color not being ignored.
+* Fixed errors on uncompressed files in BSA archives with full paths.
 * Fixed warnings on sanitizing Fallout 3/New Vegas geometry data, and on processing bhkListShape blocks.
 * Fixed drawing Oblivion tangent space when selected.
 
