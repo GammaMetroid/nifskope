@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20250309
+
 * Implemented support for editing and saving Fallout 4 materials.
 * 'Optimize/Combine Properties' now works on BSShaderTextureSet blocks.
 * The 'Ignore errors on opening archives and data folders' resource setting has been changed to default to on, and multiple errors are shown with a single message box.
