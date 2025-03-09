@@ -202,7 +202,7 @@ void GameManager::GameResources::init_archives()
 		} catch ( NifSkopeError & e ) {
 			if ( !ignoreArchiveErrors ) {
 				Message::append( QString( "Error opening resource path(s)" ),
-									QString("'%1': %2").arg(i).arg(e.what()), QMessageBox::Critical );
+									QString( "'%1': %2" ).arg( i ).arg( e.what() ), QMessageBox::Critical );
 			}
 		}
 	}
@@ -244,7 +244,8 @@ CE2MaterialDB * GameManager::GameResources::init_materials()
 	try {
 		sfMaterials->loadArchives( *ba2File );
 	} catch ( NifSkopeError & e ) {
-		QMessageBox::critical( nullptr, "NifSkope error", QString("Error loading Starfield material database: %1").arg(e.what()) );
+		Message::append( nullptr, QString( "Error loading Starfield material database" ), QString( e.what() ),
+							QMessageBox::Critical );
 	}
 
 	return sfMaterials;
@@ -313,7 +314,9 @@ bool GameManager::GameResources::get_file( QByteArray & data, const std::string_
 			close_archives();
 			return get_file( data, fullPath );
 		}
-		QMessageBox::critical( nullptr, "NifSkope error", QString("Error loading resource file '%1': %2").arg( QLatin1String( fullPath.data(), qsizetype(fullPath.length()) ) ).arg( e.what() ) );
+		Message::append( nullptr, QString( "Error loading resource file(s)" ),
+							QString( "'%1': %2" ).arg( QLatin1String(fullPath.data(), qsizetype(fullPath.length())) ).arg( e.what() ),
+							QMessageBox::Critical );
 		data.resize( 0 );
 		return false;
 	}
