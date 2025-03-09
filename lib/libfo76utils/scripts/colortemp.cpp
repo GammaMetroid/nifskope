@@ -371,43 +371,47 @@ int main(int argc, char **argv)
       }
     }
     int     k = 6;
-    std::vector< double > a((k + 1) * 3, 0.0);
-    for (int i = 0; i < 3; i++)
+    std::vector< double > a((k + 1) * 4, 0.0);
+    for (int i = 0; i < 4; i++)
     {
       int     n = 512;
       std::vector< double > f(n + 1, 0.0);
       for (int j = 0; j <= n; j++)
       {
-        double  t = (double(j) / double(n)) * 2.0 - 1.0;
+        double  t = double(j) / double(n);
+        if (i >= 2)
+          t = t - 1.0;
         t = std::pow(6548.04 / 851.345, t) * 6548.04;
         YMM_Double  c = cieColorTemp(t) / c0;
-        f[j] = c[i] / ((c[0] + c[1]) * 0.5);
+        double  d1 = std::max(c[0], std::max(c[1], c[2]));
+        double  d0 = std::min(std::min(c[0], std::min(c[1], c[2])), 0.0);
+        c = (c - d0) / (d1 - d0);
+        f[j] = c[i < 3 ? i : 1];
 #if 0
         std::printf("%.10f\n", f[j]);
 #endif
       }
       std::printf("Channel %d: f[0] = %.10f, polynomial:\n", i, f[0]);
-      unsigned int  flags = (i != 1 ? 0x0082 : 0x00C2);
-      findPolynomial(a.data() + (i * (k + 1)), k, f.data(), n, -1.0, 1.0, flags,
-                     1000000);
+      unsigned int  flags = 0x0142;
+      findPolynomial(a.data() + (i * (k + 1)), k, f.data(), n,
+                     (i < 2 ? 0.0 : -1.0), (i < 2 ? 1.0 : 0.0), flags, 1000000);
     }
     {
       for (int x = 0; x < 1600; x++)
       {
         double  t = (double(x) / double(1599)) * 2.0 - 1.0;
-        double  r = 0.0;
-        double  g = 0.0;
-        double  b = 0.0;
+        YMM_Double  c = { 0.0, 0.0, 0.0, 0.0 };
         for (int i = k; i >= 0; i--)
         {
-          r = r * t + a[i];
-          g = g * t + a[i + (k + 1)];
-          b = b * t + a[i + (k * 2 + 2)];
+          c[0] = c[0] * t + a[i];
+          c[1] = c[1] * t + a[i + (k + 1)];
+          c[2] = c[2] * t + a[i + (k * 2 + 2)];
+          c[3] = c[3] * t + a[i + (k * 3 + 3)];
         }
-        YMM_Double  c = { r, g, b, 1.0 };
-        double  d1 = std::max(c[0], std::max(c[1], c[2]));
-        double  d0 = std::min(std::max(c[2], -0.0393391746), 0.0);
-        c = (c - d0) / (d1 - d0);
+        c[1] = std::min(c[1], c[3]);
+        if (t >= 0.0)
+          c[2] = 1.0;
+        c[3] = 1.0;
         c = srgbCompress(c);
         FloatVector4  tmp((float) c[0], (float) c[1], (float) c[2], 1.0f);
         outBuf2[x] = (tmp * 255.0f).shuffleValues(0xC6);
