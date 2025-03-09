@@ -2,7 +2,7 @@
 
 * Implemented support for editing and saving Fallout 4 materials.
 * 'Optimize/Combine Properties' now works on BSShaderTextureSet blocks.
-* The 'Ignore errors on opening archives and data folders' resource setting has been changed to default to on.
+* The 'Ignore errors on opening archives and data folders' resource setting has been changed to default to on, and multiple errors are shown with a single message box.
 * Fixed potential link time error in particle shader, and disabled lighting on particles.
 * Fixes to Oblivion and Fallout 3 parallax mapping.
 * Fixed rendering NiGeomMorpherController and NiUVController animations.

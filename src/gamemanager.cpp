@@ -200,8 +200,10 @@ void GameManager::GameResources::init_archives()
 			ba2File->loadArchivePath( i.toStdString().c_str(), archiveFilterFuncTable[game] );
 #endif
 		} catch ( NifSkopeError & e ) {
-			if ( !ignoreArchiveErrors )
-				QMessageBox::critical( nullptr, "NifSkope error", QString("Error opening resource path '%1': %2").arg(i).arg(e.what()) );
+			if ( !ignoreArchiveErrors ) {
+				Message::append( QString( "Error opening resource path(s)" ),
+									QString("'%1': %2").arg(i).arg(e.what()), QMessageBox::Critical );
+			}
 		}
 	}
 }
