@@ -79,7 +79,7 @@ std::unordered_map< const NifModel *, GameManager::GameResources * >	GameManager
 QString	GameManager::gamePaths[NUM_GAMES];
 bool	GameManager::gameStatus[NUM_GAMES] = { true, true, true, true, true, true, true, true, true };
 bool	GameManager::otherGamesFallback = false;
-bool	GameManager::ignoreArchiveErrors = false;
+bool	GameManager::ignoreArchiveErrors = true;
 
 static bool archiveFilterFunction_1( [[maybe_unused]] void * p, const std::string_view & s )
 {
@@ -797,7 +797,7 @@ void GameManager::load()
 	auto	folders = settings.value(GAME_FOLDERS).toMap();
 	auto	status = settings.value(GAME_STATUS).toMap();
 	bool	useOther = settings.value( "Settings/Resources/Other Games Fallback", false ).toBool();
-	bool	disableErrors = settings.value( "Settings/Resources/Ignore Archive Errors", false ).toBool();
+	bool	disableErrors = settings.value( "Settings/Resources/Ignore Archive Errors", true ).toBool();
 
 	clear();
 
@@ -819,7 +819,7 @@ void GameManager::clear()
 		gameStatus[i] = true;
 	}
 	otherGamesFallback = false;
-	ignoreArchiveErrors = false;
+	ignoreArchiveErrors = true;
 }
 
 void GameManager::insert_game( const GameMode game, const QString & path )

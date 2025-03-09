@@ -580,7 +580,7 @@ void SettingsResources::read()
 
 	ui->chkAlternateExt->setChecked( settings.value( "Settings/Resources/Alternate Extensions", false ).toBool() );
 	ui->chkOtherGamesFallback->setChecked( settings.value("Settings/Resources/Other Games Fallback", false ).toBool() );
-	ui->chkIgnoreArchiveErrors->setChecked( settings.value("Settings/Resources/Ignore Archive Errors", false ).toBool() );
+	ui->chkIgnoreArchiveErrors->setChecked( settings.value("Settings/Resources/Ignore Archive Errors", true ).toBool() );
 
 	setModified( false );
 }
