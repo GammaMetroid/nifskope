@@ -112,8 +112,6 @@ private:
 	bool bool32bit = false;
 	//! Whether link adjustment is required.
 	bool linkAdjust = false;
-	//! Whether the model is big-endian
-	bool bigEndian = false;
 };
 
 
