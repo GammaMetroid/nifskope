@@ -125,26 +125,26 @@ template< typename T > static inline void memset_YMM(T *p, T c, size_t n)
   unsigned char *r = endPtr - n;
   for ( ; q < r; q = q + 64) [[likely]]
   {
-    __asm__ ("vmovdqa %t1, %0" : "=m" (q[0]) : "x" (tmp));
-    __asm__ ("vmovdqa %t1, %0" : "=m" (q[32]) : "x" (tmp));
+    __asm__ ("vmovdqa %t1, %0" : "=m" (*((YMM_UInt8 *) q)) : "x" (tmp));
+    __asm__ ("vmovdqa %t1, %0" : "=m" (*((YMM_UInt8 *) (q + 32))) : "x" (tmp));
   }
   if (n & 32)
   {
-    __asm__ ("vmovdqa %t1, %0" : "=m" (*q) : "x" (tmp));
+    __asm__ ("vmovdqa %t1, %0" : "=m" (*((YMM_UInt8 *) q)) : "x" (tmp));
     q = q + 32;
   }
   if (n & 16)
   {
-    __asm__ ("vmovdqa %x1, %0" : "=m" (*q) : "x" (tmp));
+    __asm__ ("vmovdqa %x1, %0" : "=m" (*((XMM_UInt8 *) q)) : "x" (tmp));
     q = q + 16;
   }
   if (n & 8)
   {
-    __asm__ ("vmovq %x1, %0" : "=m" (*q) : "x" (tmp));
+    __asm__ ("vmovq %x1, %0" : "=m" (*((std::uint64_t *) q)) : "x" (tmp));
     q = q + 8;
   }
   if (sizeof(T) < 8 && (n & 4))
-    __asm__ ("vmovd %x1, %0" : "=m" (*q) : "x" (tmp));
+    __asm__ ("vmovd %x1, %0" : "=m" (*((std::uint32_t *) q)) : "x" (tmp));
 }
 #endif
 

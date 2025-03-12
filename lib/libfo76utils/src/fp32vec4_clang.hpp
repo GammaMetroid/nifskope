@@ -141,20 +141,20 @@ inline std::uint64_t FloatVector4::convertToFloat16(unsigned int mask) const
 
 inline void FloatVector4::convertToFloats(float *p) const
 {
-  __asm__ ("vmovups %1, %0" : "=m" (*p) : "x" (v));
+  __asm__ ("vmovups %1, %0" : "=m" (*((float (*)[4]) p)) : "x" (v));
 }
 
 inline FloatVector4 FloatVector4::convertVector3(const float *p)
 {
   XMM_Float tmp;
-  __asm__ ("vmovq %1, %0" : "=x" (tmp) : "m" (*p));
+  __asm__ ("vmovq %1, %0" : "=x" (tmp) : "m" (*((const float (*)[2]) p)));
   __asm__ ("vinsertps $0x20, %1, %0, %0" : "+x" (tmp) : "m" (p[2]));
   return FloatVector4(tmp);
 }
 
 inline void FloatVector4::convertToVector3(float *p) const
 {
-  __asm__ ("vmovq %1, %0" : "=m" (*p) : "x" (v));
+  __asm__ ("vmovq %1, %0" : "=m" (*((float (*)[2]) p)) : "x" (v));
   __asm__ ("vextractps $0x02, %1, %0" : "=m" (p[2]) : "x" (v));
 }
 
