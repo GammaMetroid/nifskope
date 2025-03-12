@@ -1029,7 +1029,8 @@ void BSShaderLightingProperty::loadSFMaterial()
 				loadSFMaterial();
 				return;
 			}
-			QMessageBox::critical( nullptr, "NifSkope error", QString("Error loading material '%1': %2" ).arg( fullPath.c_str() ).arg( e.what() ) );
+			Message::append( nullptr, QString( "Error loading material(s)" ),
+								QString( "'%1': %2" ).arg( fullPath.c_str() ).arg( e.what() ), QMessageBox::Critical );
 		}
 	}
 	sfMaterialDB_ID = nif->getCE2MaterialDB_ID();
