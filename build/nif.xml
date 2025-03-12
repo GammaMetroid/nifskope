@@ -622,7 +622,7 @@
         <option value="1560365355" name="SKY_HAV_MAT_STAIRS_SNOW">Stairs Snow</option>
         <option value="1570821952" name="SKY_HAV_MAT_HEAVY_STONE">Heavy Stone</option>
         <option value="1574477864" name="SKY_HAV_MAT_CHARACTER_BUMPER">Character Bumper</option>
-        <option value="1591009235" name="SKY_HAV_MAT_UNKNOWN_1591009235">Unknown in Creation Kit v1.6.89.0. Found in trap objects or clutter\displaycases\displaycaselgangled01.nif or actors\deer\character assets\skeleton.nif.</option>
+        <option value="1591009235" name="SKY_HAV_MAT_TRAP">Unknown in Creation Kit v1.6.89.0. Found in trap objects or clutter\displaycases\displaycaselgangled01.nif or actors\deer\character assets\skeleton.nif.</option>
         <option value="1607128641" name="SKY_HAV_MAT_MATERIAL_BOWS_STAVES">Material Bows Staves</option>
         <option value="1668849266" name="SKY_HAV_MAT_MATERIAL_SOLID_METAL">Material Solid Metal</option>
         <option value="1730220269" name="SKY_HAV_MAT_ALDUIN">Alduin</option>
@@ -674,7 +674,7 @@
         <option value="3941234649" name="SKY_HAV_MAT_MATERIAL_BLADE_1HAND_">Material Blade 1Hand </option>
         <option value="3969592277" name="SKY_HAV_MAT_MATERIAL_BLUNT_2HAND">Material Blunt 2Hand</option>
         <option value="3974071006" name="SKY_HAV_MAT_STAIRS_METAL">Stairs Metal</option>
-        <option value="4239621792" name="SKY_HAV_MAT_UNKNOWN_4239621792">Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\prototype\dlc1protoswingingbridge.nif.</option>
+        <option value="4239621792" name="SKY_HAV_MAT_DLC1_SWINGING_BRIDGE">Unknown in Creation Kit v1.9.32.0. Found in Dawnguard DLC in meshes\dlc01\prototype\dlc1protoswingingbridge.nif.</option>
         <option value="4283869410" name="SKY_HAV_MAT_MATERIAL_BOULDER_MEDIUM">Material Boulder Medium</option>
     </enum>
 
