@@ -55,7 +55,7 @@ namespace Ui {
 
 namespace nstypes
 {
-	QString operator"" _uip( const char * str, size_t sz );
+	QString operator""_uip( const char * str, size_t sz );
 }
 
 class GLView;
