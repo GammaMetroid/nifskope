@@ -199,7 +199,7 @@ void spEditStringIndex::browseMaterial( QLineEdit * le, const NifModel * nif )
 {
 	QString	newPath( browseMaterial( nif, le->text() ) );
 	if ( !newPath.isEmpty() )
-		le->setText( newPath );
+		le->setText( newPath.replace( QChar('/'), QChar('\\') ) );
 }
 
 REGISTER_SPELL( spEditStringIndex )
