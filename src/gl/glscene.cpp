@@ -58,6 +58,7 @@ Scene::Scene( TexCache * texcache, QObject * parent ) :
 	currentBlock = currentIndex = QModelIndex();
 	selecting = 0;
 	animate = true;
+	defaultSkeletonRoot = -1;
 
 	time = 0.0;
 	sceneBoundsValid = timeBoundsValid = false;
@@ -103,7 +104,7 @@ Scene::Scene( TexCache * texcache, QObject * parent ) :
 	currentGLPointSize = 1.0f;
 	currentModelViewMatrix = modelViewMatrixStack;
 
-	updateColors( settings );
+	updateSettings( settings );
 }
 
 Scene::~Scene()
@@ -124,7 +125,7 @@ void Scene::updateShaders()
 	renderer->updateShaders();
 }
 
-void Scene::updateColors( QSettings & settings )
+void Scene::updateSettings( QSettings & settings )
 {
 	settings.beginGroup( "Settings/Render/Colors/" );
 
@@ -133,6 +134,9 @@ void Scene::updateColors( QSettings & settings )
 	wireframeColor = FloatVector4( Color4( settings.value( "Wireframe", QColor( 0, 255, 0 ) ).value<QColor>() ) );
 
 	settings.endGroup();
+
+	int	tmp = settings.value( "Settings/Render/General/Default Skeleton Root", -1 ).toInt();
+	defaultSkeletonRoot = std::int16_t( std::clamp< int >( tmp, -1, 32767 ) );
 }
 
 void Scene::clear( [[maybe_unused]] bool flushTextures )
@@ -342,9 +346,7 @@ void Scene::transform( const Transform & trans, float time )
 	view = trans;
 	this->time = time;
 
-	worldTrans.clear();
-	viewTrans.clear();
-	bhkBodyTrans.clear();
+	transformCache.clear();
 
 	for ( Property * prop : properties ) {
 		prop->transform();
@@ -555,3 +557,86 @@ QString Scene::textStats()
 	return QString();
 }
 
+
+Scene::TransformCache::TransformCache()
+	: hashTable( nullptr ), hashMask( 0 ), numTransforms( 0 )
+{
+	rehashCache();
+}
+
+Scene::TransformCache::~TransformCache()
+{
+	delete[] hashTable;
+}
+
+const Transform * Scene::TransformCache::find( std::uint64_t key ) const
+{
+	std::uint64_t	h = 0xFFFFFFFFU;
+	hashFunctionUInt64( h, key );
+	const std::pair< Transform *, std::uint64_t > *	p = hashTable;
+	std::uint32_t	m = hashMask;
+	for ( size_t i = size_t( h & m ); p[i].first; i = ( i + 1 ) & m ) {
+		if ( p[i].second == key ) [[likely]]
+			return p[i].first;
+	}
+	return nullptr;
+}
+
+bool Scene::TransformCache::find( Transform *& valuePtr, std::uint64_t key )
+{
+	std::uint64_t	h = 0xFFFFFFFFU;
+	hashFunctionUInt64( h, key );
+	std::pair< Transform *, std::uint64_t > *	p = hashTable;
+	std::uint32_t	m = hashMask;
+	size_t	i = size_t( h & m );
+	for ( ; p[i].first; i = ( i + 1 ) & m ) {
+		if ( p[i].second == key ) [[likely]] {
+			valuePtr = p[i].first;
+			return true;
+		}
+	}
+
+	Transform *	t = transformBuf.allocateObject< Transform >();
+	p[i].first = t;
+	p[i].second = key;
+	valuePtr = t;
+	numTransforms++;
+	if ( ( size_t( numTransforms ) * 3 ) >= ( size_t( m ) * 2 ) ) [[unlikely]]
+		rehashCache();
+
+	return false;
+}
+
+void Scene::TransformCache::rehashCache()
+{
+	size_t	m = hashMask;
+	while ( ( size_t( numTransforms ) * 3 ) >= ( m * 2 ) )
+		m = ( m << 1 ) | 0x3F;
+	size_t	n = m + 1;
+	std::pair< Transform *, std::uint64_t > *	tmp = new std::pair< Transform *, std::uint64_t >[n]();
+	if ( numTransforms > 0 ) {
+		for ( size_t i = 0; i <= hashMask; i++ ) {
+			if ( !hashTable[i].first )
+				continue;
+			std::uint64_t	h = 0xFFFFFFFFU;
+			hashFunctionUInt64( h, hashTable[i].second );
+			size_t	j = size_t( h & m );
+			while ( tmp[j].first )
+				j = ( j + 1 ) & m;
+			tmp[j] = hashTable[i];
+		}
+	}
+	delete[] hashTable;
+	hashTable = tmp;
+	hashMask = std::uint32_t( m );
+}
+
+void Scene::TransformCache::clear()
+{
+	delete[] hashTable;
+	hashTable = nullptr;
+	hashMask = 0;
+	numTransforms = 0;
+	transformBuf.clear();
+	rehashCache();
+}

@@ -318,45 +318,45 @@ void Node::activeProperties( PropertyList & list ) const
 
 const Transform & Node::viewTrans() const
 {
-	if ( scene->viewTrans.contains( nodeId ) )
-		return scene->viewTrans[ nodeId ];
+	std::uint64_t	key = viewTransKey( nodeId );
+	Transform *	p;
+	if ( scene->transformCache.find( p, key ) )
+		return *p;
 
-	Transform t;
-
-	if ( parent )
-		t = parent->viewTrans() * local;
-	else
-		t = scene->view * worldTrans();
-
-	scene->viewTrans.insert( nodeId, t );
-	return scene->viewTrans[ nodeId ];
+	*p = ( !parent ? scene->view : parent->viewTrans() ) * local;
+	return *p;
 }
 
 const Transform & Node::worldTrans() const
 {
-	if ( scene->worldTrans.contains( nodeId ) )
-		return scene->worldTrans[ nodeId ];
+	std::uint64_t	key = worldTransKey( nodeId );
+	Transform *	p;
+	if ( scene->transformCache.find( p, key ) )
+		return *p;
 
-	Transform t = local;
-
+	*p = local;
 	if ( parent )
-		t = parent->worldTrans() * t;
+		*p = parent->worldTrans() * *p;
 
-	scene->worldTrans.insert( nodeId, t );
-	return scene->worldTrans[ nodeId ];
+	return *p;
 }
 
-Transform Node::localTrans( int root ) const
+const Transform & Node::localTrans( int root ) const
 {
+	std::uint64_t	key = localTransKey( root, nodeId );
+	Transform *	p;
+	if ( scene->transformCache.find( p, key ) )
+		return *p;
+
 	Transform trans;
-	const Node * node = this;
-
-	while ( node && node->nodeId != root ) {
-		trans = node->local * trans;
-		node  = node->parent;
+	if ( nodeId != root ) {
+		trans = local;
+		if ( parent && parent->nodeId != root )
+			trans = parent->localTrans( root ) * trans;
 	}
+	*p = trans;
 
-	return trans;
+	return *p;
 }
 
 const Vector3 Node::center() const
@@ -371,10 +371,11 @@ float Node::viewDepth() const
 
 Node * Node::findParent( int id ) const
 {
-	Node * node = parent;
-
-	while ( node && node->nodeId != id )
+	id = std::max< int >( id, 0 );
+	Node * node = const_cast< Node * >( this );
+	do {
 		node = node->parent;
+	} while ( node && node->nodeId != id );
 
 	return node;
 }
@@ -441,7 +442,7 @@ void Node::transform()
 					t.translation = Vector3( nif->get<Vector4>( cinfo, "Translation" ) * bhkScale( nif ) );
 				}
 
-				scene->bhkBodyTrans.insert( nif->getBlockNumber( iBody ), worldTrans() * t );
+				scene->transformCache.insert( bhkBodyTransKey( nif->getBlockNumber( iBody ) ), worldTrans() * t );
 			}
 		}
 	}
@@ -990,11 +991,14 @@ void Node::drawHvkConstraint( const NifModel * nif, const QModelIndex & iConstra
 
 	auto linkA = nif->getLink( iEntityA );
 	auto linkB = nif->getLink( iEntityB );
-	if ( !scene->bhkBodyTrans.contains( linkA ) || !scene->bhkBodyTrans.contains( linkB ) )
-		return;
-
-	tBodyA = scene->bhkBodyTrans.value( linkA );
-	tBodyB = scene->bhkBodyTrans.value( linkB );
+	{
+		const Transform *	p0 = scene->transformCache.find( bhkBodyTransKey( linkA ) );
+		const Transform *	p1 = scene->transformCache.find( bhkBodyTransKey( linkB ) );
+		if ( !p0 || !p1 )
+			return;
+		tBodyA = *p0;
+		tBodyB = *p1;
+	}
 
 	auto hkFactor = bhkScaleMult( nif );
 	auto hkFactorInv = 1.0 / hkFactor;
@@ -1376,8 +1380,8 @@ void Node::drawHavok()
 
 	QModelIndex iBody = nif->getBlockIndex( nif->getLink( iObject, "Body" ) );
 
-	scene->multModelViewMatrix( scene->bhkBodyTrans.value( nif->getBlockNumber( iBody ) ) );
-
+	if ( const Transform * t = scene->transformCache.find( bhkBodyTransKey( nif->getBlockNumber( iBody ) ) ); t )
+		scene->multModelViewMatrix( *t );
 
 	//qDebug() << "draw obj" << nif->getBlockNumber( iObject ) << nif->itemName( iObject );
 
@@ -1814,18 +1818,20 @@ BillboardNode::BillboardNode( Scene * scene, const QModelIndex & iBlock )
 
 const Transform & BillboardNode::viewTrans() const
 {
-	if ( scene->viewTrans.contains( nodeId ) )
-		return scene->viewTrans[ nodeId ];
+	std::uint64_t	key = viewTransKey( nodeId );
+	Transform *	p;
+	if ( scene->transformCache.find( p, key ) )
+		return *p;
 
 	Transform t;
 
 	if ( parent )
 		t = parent->viewTrans() * local;
 	else
-		t = scene->view * worldTrans();
+		t = scene->view * local;
 
 	t.rotation = Matrix();
 
-	scene->viewTrans.insert( nodeId, t );
-	return scene->viewTrans[ nodeId ];
+	*p = t;
+	return *p;
 }

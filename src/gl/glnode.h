@@ -116,10 +116,17 @@ public:
 	virtual float viewDepth() const;
 	virtual class BoundSphere bounds() const;
 	virtual const Vector3 center() const;
+	static inline std::uint64_t viewTransKey( int n ) { return ( std::uint64_t(-2) << 32 ) | std::uint32_t( n ); }
+	static inline std::uint64_t worldTransKey( int n ) { return ( std::uint64_t(-1) << 32 ) | std::uint32_t( n ); }
+	static inline std::uint64_t localTransKey( int r, int n )
+	{
+		return ( std::uint64_t( std::max< int >( r, -1 ) ) << 32 ) | std::uint32_t( n );
+	}
+	static inline std::uint64_t bhkBodyTransKey( int n ) { return ( std::uint64_t(-3) << 32 ) | std::uint32_t( n ); }
 	virtual const Transform & viewTrans() const;
 	virtual const Transform & worldTrans() const;
 	virtual const Transform & localTrans() const { return local; }
-	virtual Transform localTrans( int parentNode ) const;
+	virtual const Transform & localTrans( int parentNode ) const;
 
 	virtual bool isHidden() const;
 	virtual QString textStats() const;

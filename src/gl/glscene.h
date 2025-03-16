@@ -69,7 +69,7 @@ public:
 	}
 
 	void updateShaders();
-	void updateColors( QSettings & settings );
+	void updateSettings( QSettings & settings );
 
 	void clear( bool flushTextures = true );
 	void make( NifModel * nif, bool flushTextures = false );
@@ -196,14 +196,37 @@ public:
 
 	NodeList roots;
 
-	mutable QHash<int, Transform> worldTrans;
-	mutable QHash<int, Transform> viewTrans;
-	mutable QHash<int, Transform> bhkBodyTrans;
+	struct TransformCache
+	{
+		TransformCache();
+		~TransformCache();
+		// key = node ID | ( parent << 32 ), parent = -1: worldTrans, -2: viewTrans, -3: bhkBodyTrans
+		const Transform * find( std::uint64_t key ) const;
+		// find item and return true if it already exists, or allocate space and return false
+		bool find( Transform *& valuePtr, std::uint64_t key );
+		inline const Transform & insert( std::uint64_t key, const Transform & value )
+		{
+			Transform *	p;
+			find( p, key );
+			*p = value;
+			return *p;
+		}
+		void rehashCache();
+		void clear();
+
+		std::pair< Transform *, std::uint64_t > *	hashTable;
+		std::uint32_t	hashMask;
+		std::uint32_t	numTransforms;
+		AllocBuffers	transformBuf;
+	};
+
+	mutable TransformCache transformCache;
 
 	Transform view;
 
 	unsigned char selecting;	// 0: not selecting, 1: shape selection, 3: vertex selection, 5: triangle selection
 	bool animate;
+	std::int16_t defaultSkeletonRoot;
 
 	float time;
 
