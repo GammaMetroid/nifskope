@@ -109,7 +109,7 @@ void Shape::updateBoneTransforms()
 		if ( !bone )
 			t = bw.trans.inverted();
 		else
-			t = wtInv * bone->worldTrans();
+			t = wtInv * bone->localTrans( skeletonRoot );
 		boundSphere |= BoundSphere( t * bw.center, t.scale * bw.radius );
 		t = t * bw.trans;
 
@@ -436,17 +436,19 @@ void Shape::updateImpl( const NifModel * nif, const QModelIndex & index )
 
 void Shape::boneSphere( const NifModel * nif, const QModelIndex & index ) const
 {
-	Node * root = findParent( 0 );
+	Node * root = findParent( skeletonRoot );
 	Node * bone = root ? root->findChild( bones.value( index.row() ) ) : nullptr;
 
 	auto bSphere = BoundSphere( nif, index );
 	if ( bSphere.radius > 0.0 ) {
 		scene->setGLColor( 1.0f, 1.0f, 1.0f, 0.33f );
 		scene->setGLLineWidth( GLView::Settings::lineWidthWireframe );
-		if ( !bone )
+		if ( !( bone && scene->hasOption( Scene::DoSkinning ) ) ) {
 			scene->loadModelViewMatrix( viewTrans() * Transform( nif, index ).inverted() );
-		else
-			scene->loadModelViewMatrix( scene->view.toMatrix4() * bone->worldTrans() );
+		} else {
+			scene->loadModelViewMatrix( scene->view.toMatrix4() * localTrans( skeletonRoot )
+										* bone->localTrans( skeletonRoot ) );
+		}
 		scene->drawSphereSimple( bSphere.center, bSphere.radius, 36 );
 	}
 }
@@ -474,7 +476,7 @@ void Shape::resetVertexData()
 
 void Shape::resetSkeletonData()
 {
-	skeletonRoot = 0;
+	skeletonRoot = scene->defaultSkeletonRoot;
 
 	boneTransforms.clear();
 	boneWeights0.clear();
