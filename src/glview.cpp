@@ -227,7 +227,7 @@ void GLView::updateSettings()
 	settings.endGroup();
 
 	if ( scene )
-		scene->updateColors( settings );
+		scene->updateSettings( settings );
 
 	// TODO: make these configurable via the UI
 	double	p = devicePixelRatioF();
