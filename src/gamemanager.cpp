@@ -774,6 +774,69 @@ QStringList GameManager::find_paths( const GameMode game )
 	return folders;
 }
 
+QStringList GameManager::find_paths( const GameMode game, const QString & dataPath )
+{
+	QStringList	dataPaths;
+	if ( game > OTHER && game < NUM_GAMES ) {
+		QDir	d( dataPath );
+		dataPaths = d.entryList( QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::IgnoreCase );
+		dataPaths.append( d.entryList( { "*.ba2", "*.bsa" }, QDir::Files, QDir::Name | QDir::IgnoreCase ) );
+		for ( qsizetype i = 0; i < dataPaths.size(); ) {
+			QString	fullPath = d.filePath( dataPaths.at( i ) );
+			try {
+				void *	p = reinterpret_cast< void * >( reinterpret_cast< unsigned char * >( std::uintptr_t( game ) ) );
+				BA2File	ba2File( fullPath.toStdString().c_str(), &findPathsArchiveFilterFunc, p );
+				if ( ba2File.size() > 0 ) {
+					dataPaths[i] = fullPath;
+					i++;
+					continue;
+				}
+			} catch ( std::exception & ) {
+			}
+			dataPaths.remove( i, 1 );
+		}
+	}
+	return dataPaths;
+}
+
+void GameManager::remove_invalid_paths( QStringList & dataPaths, const GameMode game )
+{
+	QMap< QString, bool >	pathSet;
+
+	for ( qsizetype i = 0; i < dataPaths.size(); ) {
+		QString	tmp = dataPaths.at( i );
+		if ( !tmp.isEmpty() ) {
+			QDir	d( tmp );
+			tmp = d.absolutePath();
+#ifdef Q_OS_WIN32
+			tmp = tmp.toLower();
+#endif
+			if ( !pathSet.contains( tmp ) ) {
+				pathSet.insert( tmp, true );
+				i++;
+				continue;
+			}
+		}
+		dataPaths.remove( i, 1 );
+	}
+
+	if ( !( game >= OTHER && game < NUM_GAMES ) )
+		return;
+
+	for ( qsizetype i = 0; i < dataPaths.size(); ) {
+		try {
+			void *	p = reinterpret_cast< void * >( reinterpret_cast< unsigned char * >( std::uintptr_t( game ) ) );
+			BA2File	ba2File( dataPaths.at( i ).toStdString().c_str(), &findPathsArchiveFilterFunc, p );
+			if ( ba2File.size() > 0 ) {
+				i++;
+				continue;
+			}
+		} catch ( std::exception & ) {
+		}
+		dataPaths.remove( i, 1 );
+	}
+}
+
 void GameManager::save()
 {
 	QVariantMap paths, folders, status;

@@ -147,22 +147,21 @@ public:
 	static QStringList get_archive_list( const QString & dataPath );
 	//! Find applicable data folders and archives at the game installation path
 	static QStringList find_paths( const GameMode game );
+	//! Find applicable data folders and archives under dataPath
+	static QStringList find_paths( const GameMode game, const QString & dataPath );
+	//! Remove invalid paths (if game is valid) and duplicates
+	static void remove_invalid_paths( QStringList & dataPaths, const GameMode game = NUM_GAMES );
 
 	//! Game installation path
 	static inline QString path( const QString & game );
-	//! Game data path
-	static inline QString data( const QString & game );
 	//! Game folders managed by the GameManager
 	static inline QStringList folders( const QString & game );
 	//! Game enabled status in the GameManager
 	static inline bool status( const QString & game );
-	//! Find applicable data folders and archives at the game installation path
-	static inline QStringList find_paths( const QString & game );
 
 	static inline void update_game( const GameMode game, const QString & path );
 	static inline void update_game( const QString & game, const QString & path );
 	static inline void update_folders( const GameMode game, const QStringList & list );
-	static inline void update_folders( const QString & game, const QStringList & list );
 	static inline void update_status( const GameMode game, bool status );
 	static inline void update_status( const QString & game, bool status );
 	static inline void update_other_games_fallback( bool status );
@@ -206,11 +205,6 @@ QString GameManager::path( const QString & game )
 	return path( ModeForString(game) );
 }
 
-QString GameManager::data( const QString & game )
-{
-	return data( ModeForString(game) );
-}
-
 QStringList GameManager::folders( const QString & game )
 {
 	return folders( ModeForString(game) );
@@ -219,11 +213,6 @@ QStringList GameManager::folders( const QString & game )
 bool GameManager::status( const QString & game )
 {
 	return status( ModeForString(game) );
-}
-
-QStringList GameManager::find_paths( const QString & game )
-{
-	return find_paths( ModeForString(game) );
 }
 
 void GameManager::update_game( const GameMode game, const QString & path )
@@ -239,11 +228,6 @@ void GameManager::update_game( const QString & game, const QString & path )
 void GameManager::update_folders( const GameMode game, const QStringList & list )
 {
 	insert_folders( game, list );
-}
-
-void GameManager::update_folders( const QString & game, const QStringList & list )
-{
-	update_folders( ModeForString(game), list );
 }
 
 void GameManager::update_status( const GameMode game, bool status )
