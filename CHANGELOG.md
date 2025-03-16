@@ -2,8 +2,10 @@
 
 * Implemented support for editing and saving Fallout 4 materials.
 * 'Optimize/Combine Properties' now works on BSShaderTextureSet blocks.
+* Added new buttons to the resource settings to add all applicable subfolders and archives under a selected folder (useful for mod collections), and to remove invalid paths and duplicates from the list.
 * The 'Ignore errors on opening archives and data folders' resource setting has been changed to default to on, and multiple errors are shown with a single message box.
 * Paths set by the material chooser spell use backslash characters instead of forward slashes.
+* New render setting to override the skeleton root for skinned Skyrim and newer meshes. A value of -1 enables the use of the transform in node 0.
 * Fixed potential link time error in particle shader, and disabled lighting on particles.
 * Fixes to Oblivion and Fallout 3 parallax mapping.
 * Fixed rendering NiGeomMorpherController and NiUVController animations.
@@ -11,6 +13,7 @@
 * Fixed Fallout 3 specular flag and specular color not being ignored.
 * Fixed errors on uncompressed files in BSA archives with full paths.
 * Fixed warnings on sanitizing Fallout 3/New Vegas geometry data, and on processing bhkListShape blocks.
+* Fixed rendering bone bounds to correctly reproduce (buggy) game behavior.
 * Fixed drawing Oblivion tangent space when selected.
 
 #### NifSkope-2.0.dev11-20250220

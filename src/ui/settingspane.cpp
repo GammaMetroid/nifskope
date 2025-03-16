@@ -72,7 +72,7 @@ void SettingsPane::modifyPane()
 	}
 }
 
-QString humanize( QString str )
+static QString humanize( QString str )
 {
 	str = str.replace( QRegularExpression( "(?<=[A-Z])(?=[A-Z][a-z])|(?<=[^A-Z])(?=[A-Z])|(?<=[A-Za-z])(?=[^A-Za-z])" ), " " );
 	str[0] = str[0].toUpper();
@@ -706,11 +706,11 @@ void SettingsResources::onBrowseClicked()
 	SettingsPane::modifyPane();
 }
 
-QString SettingsResources::currentFolderItem()
+Game::GameMode SettingsResources::currentFolderItem()
 {
 	if ( !ui->foldersGameList->currentItem() )
-		return {};
-	return ui->foldersGameList->currentItem()->text();
+		return Game::OTHER;
+	return Game::ModeForString( ui->foldersGameList->currentItem()->text() );
 }
 
 void SettingsResources::modifyPane()
@@ -809,19 +809,47 @@ void SettingsResources::on_btnFolderUp_clicked()
 
 void SettingsResources::on_btnFolderAutoDetect_clicked()
 {
+	QStringList folders_list = folders->stringList() + GameManager::find_paths( currentFolderItem() );
+	GameManager::remove_invalid_paths( folders_list );
+	folders->setStringList( folders_list );
+
+	ui->foldersList->setCurrentIndex( folders->index(0, 0) );
+
+	modifyPane();
+}
+
+void SettingsResources::on_btnSubfoldersAdd_clicked()
+{
+	QFileDialog dialog( this );
+	dialog.setFileMode( QFileDialog::Directory );
+	dialog.setDirectory( GameManager::data(currentFolderItem()) );
+
+	QString path;
+	if ( dialog.exec() )
+		path = dialog.selectedFiles().at( 0 );
+
+	if ( path.isEmpty() )
+		return;
+
+	QStringList folders_list = folders->stringList() + GameManager::find_paths( currentFolderItem(), path );
+	GameManager::remove_invalid_paths( folders_list );
+	folders->setStringList( folders_list );
+
+	ui->foldersList->setCurrentIndex( folders->index(0, 0) );
+
+	modifyPane();
+}
+
+void SettingsResources::on_btnRemoveInvalidPaths_clicked()
+{
 	QStringList folders_list = folders->stringList();
-	for ( const auto& f : GameManager::find_paths(currentFolderItem()) ) {
-		qsizetype	i;
-		while ( ( i = folders_list.indexOf( f, Qt::CaseInsensitive ) ) >= 0 )
-			folders_list.removeAt( i );
-		folders_list << f;
-	}
+	qsizetype	prvSize = folders_list.size();
+	GameManager::remove_invalid_paths( folders_list, currentFolderItem() );
+	if ( folders_list.size() == prvSize )
+		return;
+	folders->setStringList( folders_list );
 
-	folders_list.removeDuplicates();
-
-	folders->setStringList(folders_list);
-
-	ui->foldersList->setCurrentIndex(folders->index(0, 0));
+	ui->foldersList->setCurrentIndex( folders->index(0, 0) );
 
 	modifyPane();
 }

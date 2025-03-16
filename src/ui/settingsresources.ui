@@ -807,7 +807,7 @@
             </widget>
            </item>
            <item>
-            <spacer name="verticalSpacer_3">
+            <spacer name="verticalSpacer">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
              </property>
@@ -970,6 +970,46 @@
               </widget>
              </item>
              <item>
+              <widget class="QPushButton" name="btnSubfoldersAdd">
+               <property name="text">
+                <string>Add Subfolders</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="verticalSpacer_2">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="btnFolderAutoDetect">
+               <property name="text">
+                <string>Auto Detect Game Paths</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="verticalSpacer_3">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
               <widget class="QPushButton" name="btnFolderRemove">
                <property name="text">
                 <string>Remo&amp;ve Path</string>
@@ -991,7 +1031,7 @@
               </widget>
              </item>
              <item>
-              <spacer name="verticalSpacer">
+              <spacer name="verticalSpacer_4">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -1004,9 +1044,9 @@
               </spacer>
              </item>
              <item>
-              <widget class="QPushButton" name="btnFolderAutoDetect">
+              <widget class="QPushButton" name="btnRemoveInvalidPaths">
                <property name="text">
-                <string>Auto Detect Game Paths</string>
+                <string>Remove Invalid Paths</string>
                </property>
               </widget>
              </item>
