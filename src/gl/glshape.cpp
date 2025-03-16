@@ -100,16 +100,17 @@ void Shape::updateBoneTransforms()
 
 	boundSphere = BoundSphere();
 
-	Transform	wtInv = worldTrans().inverted();
+	Transform	wtInv = ( !( scene->nifModel && scene->nifModel->getBSVersion() < 100 && partitions.isEmpty() ) ?
+							worldTrans().inverted() : Transform( scene->nifModel, iSkinData ) );
 
 	for ( qsizetype i = 0; i < numBones; i++ ) {
 		const BoneData &	bw = boneData.at( i );
-		Transform	t;
+		Transform	t = wtInv;
 		Node * bone = root ? root->findChild( bw.bone ) : nullptr;
 		if ( !bone )
-			t = bw.trans.inverted();
+			t = t * bw.trans.inverted();
 		else
-			t = wtInv * bone->localTrans( skeletonRoot );
+			t = t * bone->localTrans( skeletonRoot );
 		boundSphere |= BoundSphere( t * bw.center, t.scale * bw.radius );
 		t = t * bw.trans;
 
@@ -443,11 +444,20 @@ void Shape::boneSphere( const NifModel * nif, const QModelIndex & index ) const
 	if ( bSphere.radius > 0.0 ) {
 		scene->setGLColor( 1.0f, 1.0f, 1.0f, 0.33f );
 		scene->setGLLineWidth( GLView::Settings::lineWidthWireframe );
-		if ( !( bone && scene->hasOption( Scene::DoSkinning ) ) ) {
+		if ( !scene->hasOption( Scene::DoSkinning ) ) {
 			scene->loadModelViewMatrix( viewTrans() * Transform( nif, index ).inverted() );
 		} else {
-			scene->loadModelViewMatrix( scene->view.toMatrix4() * localTrans( skeletonRoot )
-										* bone->localTrans( skeletonRoot ) );
+			bool	useSkeletonTrans = ( nif->getBSVersion() < 100 && partitions.isEmpty() );
+			Matrix4	m = ( !useSkeletonTrans ?
+							scene->view.toMatrix4() : viewTrans().toMatrix4() * Transform( nif, iSkinData ) );
+			if ( !bone ) {
+				m = m * Transform( nif, index ).inverted();
+			} else {
+				if ( !useSkeletonTrans )
+					m = m * localTrans( skeletonRoot );
+				m = m * bone->localTrans( skeletonRoot );
+			}
+			scene->loadModelViewMatrix( m );
 		}
 		scene->drawSphereSimple( bSphere.center, bSphere.radius, 36 );
 	}

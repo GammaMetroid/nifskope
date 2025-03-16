@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20250316
+
 * Implemented support for editing and saving Fallout 4 materials.
 * 'Optimize/Combine Properties' now works on BSShaderTextureSet blocks.
 * Added new buttons to the resource settings to add all applicable subfolders and archives under a selected folder (useful for mod collections), and to remove invalid paths and duplicates from the list.

@@ -105,8 +105,7 @@ void Mesh::updateData( const NifModel * nif )
 		qsizetype	numVerts = verts.size();
 		boneWeights0.assign( size_t( numVerts ), FloatVector4( 0.0f ) );
 
-		if ( nif->getBSVersion() < 83 )
-			skeletonRoot = nif->getLink( iSkin, "Skeleton Root" );
+		skeletonRoot = nif->getLink( iSkin, "Skeleton Root" );
 
 		bones = nif->getLinkArray( iSkin, "Bones" );
 
