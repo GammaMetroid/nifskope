@@ -429,6 +429,10 @@ void GLView::glProjection( [[maybe_unused]] int x, [[maybe_unused]] int y )
 
 void GLView::paintGL()
 {
+#if DEBUG_FRAME_TIME
+	auto	prvTime = std::chrono::steady_clock::now();
+#endif
+
 	updatePending = 0;
 
 	glDisable( GL_FRAMEBUFFER_SRGB );
@@ -665,12 +669,13 @@ void GLView::paintGL()
 		qDebug() << tr( "glview.cpp - GL ERROR (paint): " ) << getGLErrorString( int(err) );
 
 #if DEBUG_FRAME_TIME
-	static std::chrono::steady_clock::time_point	prvTime = std::chrono::steady_clock::now();
+	glFlush();
+	glFinish();
+
 	static float	frameTimes[8] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 	static unsigned int	frameTimeIndex = 0;
 	auto	t = std::chrono::steady_clock::now();
 	double	dt = double( std::chrono::duration_cast< std::chrono::microseconds >( t - prvTime ).count() ) / 8000.0;
-	prvTime = t;
 	frameTimes[frameTimeIndex & 7] = float( dt );
 	frameTimeIndex++;
 	float	avgTime = 0.0f;
