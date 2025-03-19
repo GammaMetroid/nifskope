@@ -978,7 +978,6 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 	int	parallaxMaxSteps = 0;
 	float	parallaxScale = 0.04f;
 	float	glowMult = ( scene->hasOption( Scene::DoGlow ) && scene->hasOption( Scene::DoLighting ) ? 1.0f : 0.0f );
-	FloatVector4	glowColor( 1.0f );
 	FloatVector4	uvScaleAndOffset( 1.0f, 1.0f, 0.0f, 0.0f );
 	FloatVector4	uvCenterAndRotation( 0.5f, 0.5f, 0.0f, 0.0f );
 	FloatVector4	falloffParams( 1.0f, 0.0f, 1.0f, 1.0f );
@@ -1166,7 +1165,6 @@ bool Renderer::setupProgramFO3( const NifModel * nif, Program * prog, Shape * me
 	prog->uni1i( "parallaxMaxSteps", parallaxMaxSteps );
 	prog->uni1f( "parallaxScale", parallaxScale );
 	prog->uni1f( "glowMult", glowMult );
-	prog->uni4f( "glowColor", glowColor );
 	prog->uni2f( "uvCenter", uvCenterAndRotation[0], uvCenterAndRotation[1] );
 	prog->uni2f( "uvScale", uvScaleAndOffset[0], uvScaleAndOffset[1] );
 	prog->uni2f( "uvOffset", uvScaleAndOffset[2], uvScaleAndOffset[3] );

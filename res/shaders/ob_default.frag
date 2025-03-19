@@ -25,7 +25,6 @@ uniform float cubeMapScale;
 uniform int parallaxMaxSteps;
 uniform float parallaxScale;
 uniform float glowMult;
-uniform vec4 glowColor;
 
 uniform float alpha;
 uniform int alphaFlags;			// bits 0 to 2: alpha test mode, bit 3: alpha blending enabled
@@ -140,17 +139,19 @@ void main()
 	vec4 color = baseMap;
 
 	if ( isEffect ) {
-		float alphaMult = glowColor.a * glowColor.a;
+		float alphaMult = 1.0;
 
 		if ( falloffParams.y != falloffParams.x ) {
 			// TODO: When X and Y are both 0.0 or both 1.0 the effect is reversed.
 			float falloff = smoothstep( falloffParams.y, falloffParams.x, abs(E.z) );
 			falloff = mix( max(falloffParams.w, 0.0), min(falloffParams.z, 1.0), falloff );
-			alphaMult *= falloff;
+			alphaMult = falloff;
 		}
 
 		color *= C;
-		color.rgb = color.rgb * glowColor.rgb * glowMult;
+		if ( dot( frontMaterialEmission.rgb, vec3( 1.0 ) ) > 0.003 )
+			color.rgb = color.rgb * frontMaterialEmission.rgb;
+		color.rgb = color.rgb * glowMult;
 		color.a = color.a * alphaMult;
 	} else {
 		vec4 normalMap = texture( NormalMap, offset );
@@ -185,7 +186,7 @@ void main()
 		}
 
 		// Emissive
-		vec3 emissive = glowColor.rgb * ( glowMult * glowScaleSRGB );
+		vec3 emissive = vec3( glowMult * glowScaleSRGB );
 		if ( ( vertexColorFlags & 0x10 ) == 0 )
 			emissive *= frontMaterialEmission.rgb * frontMaterialEmission.a;
 		else

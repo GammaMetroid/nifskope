@@ -1,5 +1,8 @@
  == CHANGELOG ==
 
+* Fixed emissive color on Fallout 3/New Vegas meshes using BSShaderNoLightingProperty.
+* Fixed a rendering issue on Windows with AMD GPUs.
+
 #### NifSkope-2.0.dev11-20250316
 
 * Implemented support for editing and saving Fallout 4 materials.

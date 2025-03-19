@@ -607,7 +607,10 @@ void MaterialProperty::updateImpl( const NifModel * nif, const QModelIndex & ind
 			ambient = Color4( nif->get<Color3>( i ) );
 		diffuse  = Color4( nif->get<Color3>( iBlock, "Diffuse Color" ) );
 		specular = Color4( nif->get<Color3>( iBlock, "Specular Color" ) );
-		emissive = Color4( nif->get<Color3>( iBlock, "Emissive Color" ) );
+		Color3 tmp = nif->get<Color3>( iBlock, "Emissive Color" );
+		if ( nif->getBSVersion() > 21 )
+			tmp = tmp * nif->get<float>( iBlock, "Emissive Mult" );
+		emissive = Color4( tmp );
 
 		// OpenGL needs shininess clamped otherwise it generates GL_INVALID_VALUE
 		shininess = std::min( std::max( nif->get<float>( iBlock, "Glossiness" ), 0.0f ), 128.0f );
