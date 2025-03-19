@@ -88,7 +88,7 @@ protected:
 	} cfg;
 
 public:
-	void drawSkyBox( Scene * scene );
+	bool drawSkyBox( Scene * scene );
 };
 
 #endif

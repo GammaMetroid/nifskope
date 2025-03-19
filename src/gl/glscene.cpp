@@ -368,6 +368,7 @@ void Scene::draw()
 	drawShapes();
 
 	glDisable( GL_CULL_FACE );
+	glDisable( GL_STENCIL_TEST );
 	glDisable( GL_FRAMEBUFFER_SRGB );
 
 	if ( hasOption(ShowNodes) )
@@ -389,7 +390,6 @@ void Scene::drawShapes()
 			node->drawShapes( &secondPass );
 		}
 
-		renderer->drawSkyBox( this );
 		drawGrid();
 
 		if ( secondPass.list().count() > 0 )
@@ -405,7 +405,6 @@ void Scene::drawShapes()
 			node->drawShapes();
 		}
 
-		renderer->drawSkyBox( this );
 		drawGrid();
 	}
 }

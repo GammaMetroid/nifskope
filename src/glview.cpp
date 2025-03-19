@@ -449,7 +449,11 @@ void GLView::paintGL()
 		glClearColor( 1.0f, 1.0f, 1.0f, 1.0f );
 	}
 
-	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT );
+	bool	clearNeeded = true;
+	if ( !perspectiveMode || doCompile ) {
+		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT );
+		clearNeeded = false;
+	}
 
 	// Compile the model
 	if ( doCompile ) [[unlikely]] {
@@ -578,6 +582,14 @@ void GLView::paintGL()
 
 	if ( scene->hasOption(Scene::DoMultisampling) )
 		glEnable( GL_MULTISAMPLE );
+
+	if ( perspectiveMode ) {
+		bool	colorBufCleared = scene->renderer->drawSkyBox( scene );
+		if ( clearNeeded ) {
+			glClear( colorBufCleared ? GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT
+										: GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT );
+		}
+	}
 
 	if ( drawLightPos ) {
 		glEnable( GL_DEPTH_TEST );

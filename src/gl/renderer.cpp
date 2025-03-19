@@ -1328,7 +1328,7 @@ void Renderer::setupFixedFunction( Shape * mesh )
 	}
 }
 
-void Renderer::drawSkyBox( Scene * scene )
+bool Renderer::drawSkyBox( Scene * scene )
 {
 	static const std::uint16_t	skyBoxTriangles[36] = {
 		1, 5, 3,  3, 5, 7,  0, 2, 4,  4, 2, 6,	// +X, -X
@@ -1336,24 +1336,20 @@ void Renderer::drawSkyBox( Scene * scene )
 		4, 6, 5,  5, 6, 7,  0, 1, 2,  2, 1, 3	// +Z, -Z
 	};
 	static const float	skyBoxVertices[24] = {
-		-10.0f, -10.0f, -10.0f,   10.0f, -10.0f, -10.0f,  -10.0f,  10.0f, -10.0f,   10.0f,  10.0f, -10.0f,
-		-10.0f, -10.0f,  10.0f,   10.0f, -10.0f,  10.0f,  -10.0f,  10.0f,  10.0f,   10.0f,  10.0f,  10.0f
+		-1.125f, -1.125f, -1.125f,   1.125f, -1.125f, -1.125f,  -1.125f,  1.125f, -1.125f,   1.125f,  1.125f, -1.125f,
+		-1.125f, -1.125f,  1.125f,   1.125f, -1.125f,  1.125f,  -1.125f,  1.125f,  1.125f,   1.125f,  1.125f,  1.125f
 	};
 
 	if ( globalUniforms->cubeBgndMipLevel < 0 || !scene->nifModel || scene->nifModel->getBSVersion() < 151
 		|| scene->selecting || scene->hasVisMode( Scene::VisSilhouette ) ) {
-		return;
+		return false;
 	}
 
 	const NifModel *	nif = scene->nifModel;
 	quint32	bsVersion = nif->getBSVersion();
 	Program *	prog = useProgram( "skybox.prog" );
 	if ( !prog )
-		return;
-
-	Transform	vt = scene->view;
-	vt.translation = Vector3( 0.0, 0.0, 0.0 );
-	prog->uni4m( "modelViewMatrix", vt.toMatrix4() );
+		return false;
 
 	glDisable( GL_POLYGON_OFFSET_FILL );
 	glEnable( GL_FRAMEBUFFER_SRGB );
@@ -1367,7 +1363,7 @@ void Renderer::drawSkyBox( Scene * scene )
 	GLint	uniCubeMap = prog->uniLocation( "CubeMap" );
 	if ( uniCubeMap < 0 ) {
 		stopProgram();
-		return;
+		return false;
 	}
 	fn->glActiveTexture( GL_TEXTURE0 + texunit );
 	if ( hasCubeMap )
@@ -1380,9 +1376,9 @@ void Renderer::drawSkyBox( Scene * scene )
 	prog->uni1b( "invertZAxis", ( bsVersion < 170 ) );
 
 	glDisable( GL_BLEND );
-	glEnable( GL_DEPTH_TEST );
+	glDisable( GL_DEPTH_TEST );
 	glDepthMask( GL_FALSE );
-	glDepthFunc( GL_LEQUAL );
+	glDepthFunc( GL_ALWAYS );
 	glEnable( GL_CULL_FACE );
 	glCullFace( GL_BACK );
 	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
@@ -1392,4 +1388,7 @@ void Renderer::drawSkyBox( Scene * scene )
 	drawShape( 8, 3, 36, GL_TRIANGLES, GL_UNSIGNED_SHORT, &vertexPositions, skyBoxTriangles );
 
 	stopProgram();
+	glDepthMask( GL_TRUE );
+
+	return true;
 }
