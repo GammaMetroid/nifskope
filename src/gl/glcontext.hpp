@@ -315,6 +315,7 @@ public:
 
 	GlobalUniforms *	globalUniforms;
 	unsigned int	globalUniformsBufferObject;
+	unsigned int	boneTransformsBufferObject;
 
 	NifSkopeOpenGLContext( QOpenGLContext * context );
 	~NifSkopeOpenGLContext();

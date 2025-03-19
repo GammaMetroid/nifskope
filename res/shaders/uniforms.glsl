@@ -19,5 +19,4 @@ layout ( std140 ) uniform globalUniforms
 	float	sfParallaxOffset;
 	float	unusedUniform1;
 	float	unusedUniform2;
-	mat3x4	boneTransforms[256];		// bone transforms in row-major order
 };

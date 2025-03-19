@@ -1,3 +1,8 @@
+layout ( std140 ) uniform skinningUniforms
+{
+	mat3x4	boneTransforms[256];		// bone transforms in row-major order
+};
+
 layout ( location = 5 ) in vec4	boneWeights[2];
 
 #ifdef BT_POSITION_ONLY
