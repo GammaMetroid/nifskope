@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Added new batch spell to remove unused vertices from all shapes, and improved the performance of Remove Unused Vertices on BSTriShape geometry.
 * Fixed emissive color on Fallout 3/New Vegas meshes using BSShaderNoLightingProperty.
 * Fixed a rendering issue on Windows with AMD GPUs.
 

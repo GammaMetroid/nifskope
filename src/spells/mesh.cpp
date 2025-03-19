@@ -244,6 +244,25 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iData, cons
 	}
 }
 
+static void copyBSTriShapeVertexData( NifModel * nif, NifItem * dst, const NifItem * src )
+{
+	if ( !( dst && src && dst->valueType() == src->valueType() ) )
+		return;
+	if ( src->isCompound() || src->isArray() ) {
+		if ( dst->isCompound() != src->isCompound() || dst->isArray() != src->isArray()
+			|| dst->childCount() != src->childCount() ) {
+			return;
+		}
+		int	n = src->childCount();
+		for ( int i = 0; i < n; i++ )
+			copyBSTriShapeVertexData( nif, dst->children()[i], src->children()[i] );
+		return;
+	}
+	if ( dst->isCompound() || dst->isArray() || dst->isLink() || dst->value().isAllocated() )
+		return;
+	nif->setItemValue( dst, src->value() );
+}
+
 //! Removes waste vertices from the specified BSTriShape
 
 static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
@@ -259,7 +278,7 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 			throw QString( Spell::tr( "No triangles" ) );
 		if ( !numVertices || !iVertexData.isValid() )
 			throw QString( Spell::tr( "No vertices" ) );
-		if ( nif->getBlockIndex( nif->getLink( iShape, "Skin" ) ).isValid() )
+		if ( nif->getBlockIndex( nif->getLink( iShape, "Skin" ) ).isValid() && nif->getBSVersion() < 130 )
 			throw QString( Spell::tr( "Skinned meshes are not supported yet" ) );
 		if ( int(numVertices) != nif->rowCount( iVertexData ) )
 			throw QString( Spell::tr( "Vertex array size differs" ) );
@@ -277,31 +296,24 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 
 		// remove them
 
-		Message::info( nullptr, Spell::tr( "Removed %1 vertices" ).arg( qsizetype(numVertices) - used.count() ) );
-
-		if ( qsizetype(numVertices) == used.count() )
+		qsizetype numRemoved = qsizetype( numVertices ) - used.size();
+		if ( numRemoved < 1 )
 			return;
 
-		quint16	n = 0;
-		for ( auto i = used.begin(); i != used.end(); i++, n++ )
-			i.value() = n;
+		Message::append( nullptr, Spell::tr( "Removed unused vertices:" ),
+							QString( "Block %1: %2" ).arg( nif->getBlockNumber(iShape) ).arg( numRemoved ),
+							QMessageBox::Information );
 
-		int	firstRow = 0;
-		int	removeCnt = 0;
-		for ( size_t i = numVertices; i-- > 0; ) {
-			if ( used.contains(quint16(i)) ) {
-				if ( removeCnt )
-					nif->removeRows( firstRow, removeCnt, iVertexData );
-				removeCnt = 0;
-			} else {
-				firstRow = int(i);
-				removeCnt++;
-			}
+		NifItem *	vertexDataItem = nif->getItem( iVertexData );
+		quint32	n = 0;
+		for ( auto i = used.begin(); i != used.end(); i++, n++ ) {
+			if ( n < i.key() && vertexDataItem )
+				copyBSTriShapeVertexData( nif, vertexDataItem->child( int(n) ), vertexDataItem->child( i.key() ) );
+			i.value() = quint16( n );
 		}
-		if ( removeCnt )
-			nif->removeRows( firstRow, removeCnt, iVertexData );
+
+		nif->set<quint32>( iShape, "Num Vertices", n );
 		nif->updateArraySize( iVertexData );
-		nif->set<quint32>( iShape, "Num Vertices", quint32(used.count()) );
 
 		// adjust the faces
 
@@ -327,7 +339,7 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 	}
 	catch ( QString & e )
 	{
-		Message::warning( nullptr, Spell::tr( "There were errors during the operation" ), e );
+		Message::append( nullptr, Spell::tr( "There were errors during the operation" ), e, QMessageBox::Warning );
 	}
 }
 
@@ -544,29 +556,29 @@ REGISTER_SPELL( spFlipFace )
 class spSetTriangleToZero final : public Spell
 {
 public:
-    QString name() const override final { return Spell::tr("Set Triangle to 0"); }
+	QString name() const override final { return Spell::tr("Set Triangle to 0"); }
 
-    bool isApplicable(const NifModel* nif, const QModelIndex& index) override final
-    {
-        return (nif->getValue(index).type() == NifValue::tTriangle)
-            || (nif->isArray(index) && nif->getValue(nif->getIndex(index, 0)).type() == NifValue::tTriangle);
-    }
+	bool isApplicable( const NifModel* nif, const QModelIndex& index ) override final
+	{
+		return ( nif->getValue(index).type() == NifValue::tTriangle )
+			|| ( nif->isArray(index) && nif->getValue(nif->getIndex(index, 0)).type() == NifValue::tTriangle );
+	}
 
-    QModelIndex cast(NifModel* nif, const QModelIndex& index) override final
-    {
-        if (nif->isArray(index)) {
-            QVector<Triangle> tris = nif->getArray<Triangle>(index);
-            for (int t = 0; t < tris.count(); t++) {
-                tris[t].set(0, 0, 0);
-            }
-            nif->setArray<Triangle>(index, tris);
-        } else {
-            Triangle t = nif->get<Triangle>(index);
-            t.set(0, 0, 0);
-            nif->set<Triangle>(index, t);
-        }
-        return index;
-    }
+	QModelIndex cast( NifModel* nif, const QModelIndex& index ) override final
+	{
+		if ( nif->isArray(index) ) {
+			QVector<Triangle> tris = nif->getArray<Triangle>( index );
+			for ( int t = 0; t < tris.count(); t++ ) {
+				tris[t].set( 0, 0, 0 );
+			}
+			nif->setArray<Triangle>( index, tris );
+		} else {
+			Triangle t = nif->get<Triangle>( index );
+			t.set( 0, 0, 0 );
+			nif->set<Triangle>( index, t );
+		}
+		return index;
+	}
 };
 
 REGISTER_SPELL( spSetTriangleToZero )
@@ -1424,6 +1436,35 @@ QModelIndex spRemoveWasteVertices::cast( NifModel * nif, const QModelIndex & ind
 }
 
 REGISTER_SPELL( spRemoveWasteVertices )
+
+class spRemoveAllWasteVertices final : public Spell
+{
+public:
+	QString name() const override final { return Spell::tr( "Remove All Unused Vertices" ); }
+	QString page() const override final { return Spell::tr( "Batch" ); }
+
+	bool isApplicable( const NifModel * nif, const QModelIndex & idx ) override final
+	{
+		return ( nif && !idx.isValid() );
+	}
+
+	QModelIndex cast( NifModel * nif, const QModelIndex & ) override final
+	{
+		spRemoveWasteVertices sp;
+
+		for ( int n = 0; n < nif->getBlockCount(); n++ ) {
+			QModelIndex idx = nif->getBlockIndex( n );
+
+			if ( sp.isApplicable( nif, idx ) )
+				sp.cast( nif, idx );
+		}
+
+		return QModelIndex();
+	}
+};
+
+REGISTER_SPELL( spRemoveAllWasteVertices )
+
 
 static bool calculateBoundingBox( FloatVector4 & bndCenter, FloatVector4 & bndDims, const QVector< Vector3 > & verts )
 {
