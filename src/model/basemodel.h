@@ -422,6 +422,9 @@ public:
 
 	// Item value setters
 public:
+	//! Set an item value
+	bool setItemValue( NifItem * item, const NifValue & v );
+
 	//! Set the value of an item.
 	template <typename T> bool set( NifItem * item, const T & val );
 	//! Set the value of a child item.
@@ -546,9 +549,6 @@ signals:
 	void sigProgress( int c, int m ) const;
 
 protected:
-	//! Set an item value
-	bool setItemValue( NifItem * item, const NifValue & v );
-
 	//! Convert a version number to a string
 	virtual QString ver2str( quint32 ) const = 0;
 	//! Convert a version string to a number
