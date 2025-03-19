@@ -500,8 +500,15 @@ bool NifSkopeOpenGLContext::Program::load( const QString & filepath, NifSkopeOpe
 				id = 0;
 				throw errlog;
 			}
-		} else if ( unsigned int l = f->glGetUniformBlockIndex( id, "globalUniforms" ); l != GL_INVALID_INDEX ) {
-			f->glBindBufferBase( GL_UNIFORM_BUFFER, l, context->globalUniformsBufferObject );
+		} else {
+			if ( unsigned int l = f->glGetUniformBlockIndex( id, "globalUniforms" ); l != GL_INVALID_INDEX ) {
+				f->glUniformBlockBinding( id, l, 0 );
+				f->glBindBufferBase( GL_UNIFORM_BUFFER, 0, context->globalUniformsBufferObject );
+			}
+			if ( unsigned int l = f->glGetUniformBlockIndex( id, "skinningUniforms" ); l != GL_INVALID_INDEX ) {
+				f->glUniformBlockBinding( id, l, 1 );
+				f->glBindBufferBase( GL_UNIFORM_BUFFER, 1, context->boneTransformsBufferObject );
+			}
 		}
 	}
 	catch ( QString & x )
@@ -785,8 +792,7 @@ NifSkopeOpenGLContext::NifSkopeOpenGLContext( QOpenGLContext * context )
 		throw NifSkopeError( "failed to initialize OpenGL functions" );
 	rehashShaders();
 
-	globalUniforms = new GlobalUniforms;
-	std::memset( &( globalUniforms->viewMatrix[0][0] ), 0, sizeof( GlobalUniforms ) );
+	globalUniforms = new GlobalUniforms();
 	globalUniforms->lightSourcePosition[0][2] = 1.0f;
 	globalUniforms->lightSourceDiffuse[0] = FloatVector4( 1.0f );
 	globalUniforms->lightSourceAmbient = FloatVector4( 1.0f );
@@ -796,10 +802,9 @@ NifSkopeOpenGLContext::NifSkopeOpenGLContext( QOpenGLContext * context )
 	globalUniforms->glowScaleSRGB = 1.0f;
 
 	fn->glGenBuffers( 1, &globalUniformsBufferObject );
-	fn->glBindBuffer( GL_UNIFORM_BUFFER, globalUniformsBufferObject );
-	fn->glBufferData( GL_UNIFORM_BUFFER, GLsizeiptr( sizeof(FloatVector4) * 768 + sizeof(GlobalUniforms) ), (void *) 0,
-						GL_DYNAMIC_DRAW );
-	fn->glBindBuffer( GL_UNIFORM_BUFFER, 0 );
+	setGlobalUniforms();
+	fn->glGenBuffers( 1, &boneTransformsBufferObject );
+	updateBoneTransforms( nullptr, 0 );
 }
 
 NifSkopeOpenGLContext::~NifSkopeOpenGLContext()
@@ -815,6 +820,7 @@ NifSkopeOpenGLContext::~NifSkopeOpenGLContext()
 		else
 			delete s;
 	}
+	fn->glDeleteBuffers( 1, &boneTransformsBufferObject );
 	fn->glDeleteBuffers( 1, &globalUniformsBufferObject );
 	delete globalUniforms;
 }
@@ -1024,7 +1030,7 @@ void NifSkopeOpenGLContext::setViewTransform( const Transform & t, int upAxis, f
 void NifSkopeOpenGLContext::setGlobalUniforms()
 {
 	fn->glBindBuffer( GL_UNIFORM_BUFFER, globalUniformsBufferObject );
-	fn->glBufferSubData( GL_UNIFORM_BUFFER, 0, GLsizeiptr( sizeof(GlobalUniforms) ), globalUniforms );
+	fn->glBufferData( GL_UNIFORM_BUFFER, GLsizeiptr( sizeof(GlobalUniforms) ), globalUniforms, GL_DYNAMIC_DRAW );
 	fn->glBindBuffer( GL_UNIFORM_BUFFER, 0 );
 }
 
@@ -1048,12 +1054,17 @@ void NifSkopeOpenGLContext::setDefaultVertexAttribs( std::uint64_t attrMask, con
 
 void NifSkopeOpenGLContext::updateBoneTransforms( const FloatVector4 * boneTransforms, size_t numBones )
 {
-	if ( numBones < 1 )
-		return;
-	numBones = std::min< size_t >( numBones, 256 );
-	fn->glBindBuffer( GL_UNIFORM_BUFFER, globalUniformsBufferObject );
-	fn->glBufferSubData( GL_UNIFORM_BUFFER, GLintptr( sizeof(GlobalUniforms) ),
-							GLsizeiptr( numBones * sizeof(FloatVector4) * 3 ), boneTransforms );
+	FloatVector4	tmp[768];
+	size_t	n = std::min< size_t >( numBones, 256 ) * 3;
+	if ( n > 0 )
+		std::memcpy( &( tmp[0][0] ), &( boneTransforms[0][0] ), n * sizeof( FloatVector4 ) );
+	for ( ; n < 768; n = n + 3 ) {
+		tmp[n] = FloatVector4( 1.0f, 0.0f, 0.0f, 0.0f );
+		tmp[n + 1] = FloatVector4( 0.0f, 1.0f, 0.0f, 0.0f );
+		tmp[n + 2] = FloatVector4( 0.0f, 0.0f, 1.0f, 0.0f );
+	}
+	fn->glBindBuffer( GL_UNIFORM_BUFFER, boneTransformsBufferObject );
+	fn->glBufferData( GL_UNIFORM_BUFFER, GLsizeiptr( sizeof(FloatVector4) * 768 ), tmp, GL_DYNAMIC_DRAW );
 	fn->glBindBuffer( GL_UNIFORM_BUFFER, 0 );
 }
 
