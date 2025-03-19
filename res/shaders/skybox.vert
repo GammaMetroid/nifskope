@@ -28,5 +28,5 @@ void main()
 	if ( projectionMatrix[3][3] == 1.0 )
 		gl_Position = vec4(0.0, 0.0, 2.0, 1.0);	// orthographic view is not supported
 	else
-		gl_Position = vec4( ( projectionMatrix * v ).xy, 1.0, 1.0 );
+		gl_Position = vec4( ( projectionMatrix * v ).xy / clamp( projectionMatrix[0][0], 0.001, 1.0 ), 1.0, 1.0 );
 }

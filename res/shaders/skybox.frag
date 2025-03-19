@@ -44,20 +44,22 @@ void main()
 	vec3	V = normalize( -ViewDir );
 
 	float	VdotL = dot( V, L );
-	float	VdotL0 = max( VdotL, 0.0 );
 
 	vec3	viewWS = reflMatrix * V;
 
 	float	m = clamp( float(cubeBgndMipLevel), 0.0, 6.0 );
-	float	roughness = ( 5.0 - sqrt( 25.0 - 4.0 * m ) ) / 4.0;
-	vec3	color = lightSourceDiffuse[0].rgb * LightingFuncGGX_REF( VdotL, max(roughness, 0.02) ) * VdotL0;
 
 	// Environment
-	vec3	ambient = lightSourceAmbient.rgb;
+	vec3	color = lightSourceAmbient.rgb;
 	if ( hasCubeMap ) {
-		color += textureLod( CubeMap, viewWS, m ).rgb * ambient;
+		color *= textureLod( CubeMap, viewWS, m ).rgb;
 	} else {
-		color += ambient * 0.08;
+		color *= 0.08;
+	}
+	// Directional light
+	if ( VdotL > 0.0 ) {
+		float	roughness = ( 5.0 - sqrt( 25.0 - 4.0 * m ) ) / 4.0;
+		color += lightSourceDiffuse[0].rgb * LightingFuncGGX_REF( VdotL, max(roughness, 0.02) ) * VdotL;
 	}
 
 	fragColor = vec4( tonemap( color * brightnessScale, toneMapScale ), 0.0 );
