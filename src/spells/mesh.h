@@ -73,10 +73,10 @@ public:
 };
 
 //! Removes unused vertices
-class spRemoveWasteVertices final : public Spell
+class spRemoveWasteVertices : public Spell
 {
 public:
-	QString name() const override final { return Spell::tr( "Remove Unused Vertices" ); }
+	QString name() const override { return Spell::tr( "Remove Unused Vertices" ); }
 	QString page() const override final { return Spell::tr( "Mesh" ); }
 
 	static QModelIndex getShape( const NifModel * nif, const QModelIndex & index );
@@ -93,7 +93,7 @@ public:
 		return getShape( nif, index ).isValid();
 	}
 
-	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final;
+	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override;
 };
 
 #endif

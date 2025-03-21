@@ -278,7 +278,7 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 			throw QString( Spell::tr( "No triangles" ) );
 		if ( !numVertices || !iVertexData.isValid() )
 			throw QString( Spell::tr( "No vertices" ) );
-		if ( nif->getBlockIndex( nif->getLink( iShape, "Skin" ) ).isValid() && nif->getBSVersion() < 130 )
+		if ( nif->getBSVersion() < 130 && nif->getBlockIndex( nif->getLink( iShape, "Skin" ) ).isValid() )
 			throw QString( Spell::tr( "Skinned meshes are not supported yet" ) );
 		if ( int(numVertices) != nif->rowCount( iVertexData ) )
 			throw QString( Spell::tr( "Vertex array size differs" ) );
@@ -917,29 +917,35 @@ void spPruneRedundantTriangles::cast_Starfield( NifModel * nif, const QModelInde
 REGISTER_SPELL( spPruneRedundantTriangles )
 
 //! Removes duplicate vertices from a mesh
-class spRemoveDuplicateVertices final : public Spell
+class spRemoveDuplicateVertices final : public spRemoveWasteVertices
 {
 public:
 	QString name() const override final { return Spell::tr( "Remove Duplicate Vertices" ); }
-	QString page() const override final { return Spell::tr( "Mesh" ); }
-
-	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
-	{
-		if ( nif->getBSVersion() >= 170 && nif->isNiBlock( index, "BSGeometry" ) )
-			return true;
-		return spRemoveWasteVertices::getShape( nif, index ).isValid();
-	}
 
 	static void cast_Starfield( NifModel * nif, const QModelIndex & index );
+	static void cast_BSTriShape( NifModel * nif, const QModelIndex & index );
 
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
 	{
-		if ( nif->getBSVersion() >= 170 && nif->blockInherits( index, "BSGeometry" ) ) {
-			if ( nif->checkInternalGeometry( index ) ) {
-				nif->setState( BaseModel::Processing );
-				cast_Starfield( nif, index );
-				spRemoveWasteVertices::cast_Starfield( nif, index, false );
-				nif->restoreState();
+		if ( nif->getBSVersion() >= 100 ) {
+			QModelIndex	iBlock = nif->getBlockIndex( index );
+			if ( nif->blockInherits( iBlock, "BSTriShape" ) ) {
+				if ( nif->getBSVersion() < 130 && nif->getBlockIndex( nif->getLink( iBlock, "Skin" ) ).isValid() ) {
+					Message::append( nullptr, Spell::tr( "Remove Duplicate Vertices failed" ),
+										Spell::tr( "Skinned meshes are not supported yet" ), QMessageBox::Warning );
+				} else {
+					nif->setState( BaseModel::Processing );
+					cast_BSTriShape( nif, iBlock );
+					removeWasteVertices( nif, iBlock );
+					nif->restoreState();
+				}
+			} else if ( nif->blockInherits( iBlock, "BSGeometry" ) ) {
+				if ( nif->checkInternalGeometry( iBlock ) ) {
+					nif->setState( BaseModel::Processing );
+					cast_Starfield( nif, iBlock );
+					spRemoveWasteVertices::cast_Starfield( nif, iBlock, false );
+					nif->restoreState();
+				}
 			}
 			return index;
 		}
@@ -1082,30 +1088,11 @@ struct SFMeshVertexAttributes
 #endif
 		return v;
 	}
-	SFMeshVertexAttributes( const MeshFile & meshFile, qsizetype n )
-	{
-		std::memset( this, 0, sizeof( SFMeshVertexAttributes ) );
-		index = std::uint32_t( n );
-		if ( n < meshFile.positions.size() )
-			clearDenorm( FloatVector4( meshFile.positions.at( n ) ) ).convertToVector3( xyz );
-		if ( n < meshFile.normals.size() )
-			normal = FloatVector4( meshFile.normals.at( n ) ).convertToX10Y10Z10();
-		if ( n < meshFile.colors.size() )
-			color = std::uint32_t( FloatVector4( meshFile.colors.at( n ) ) * 255.0f );
-		FloatVector4	tmpCoords( 0.0f );
-		if ( n < meshFile.coords1.size() ) {
-			const auto &	tmp = meshFile.coords1.at( n );
-			tmpCoords[0] = tmp[0];
-			tmpCoords[1] = tmp[1];
-		}
-		if ( n < meshFile.coords2.size() ) {
-			const auto &	tmp = meshFile.coords2.at( n );
-			tmpCoords[2] = tmp[0];
-			tmpCoords[3] = tmp[1];
-		}
-		texCoords = clearDenorm( tmpCoords, 1.0e-12f ).convertToFloat16();
-		// TODO: should also test weights?
-	}
+	// TODO: should also test weights?
+	SFMeshVertexAttributes( qsizetype i, FloatVector4 position, FloatVector4 n, FloatVector4 c, FloatVector4 coords );
+	SFMeshVertexAttributes( const MeshFile & meshFile, qsizetype i );
+	// from BSTriShape vertex data
+	SFMeshVertexAttributes( const NifModel * nif, const QModelIndex & iVertexData, qsizetype i );
 	inline const unsigned char * data() const
 	{
 		return reinterpret_cast< const unsigned char * >( &( xyz[0] ) );
@@ -1119,6 +1106,60 @@ struct SFMeshVertexAttributes
 		return ( std::memcmp( data(), r.data(), size() ) == 0 );
 	}
 };
+
+SFMeshVertexAttributes::SFMeshVertexAttributes(
+	qsizetype i, FloatVector4 position, FloatVector4 n, FloatVector4 c, FloatVector4 coords )
+{
+	index = std::uint32_t( i );
+	clearDenorm( position ).convertToVector3( xyz );
+	normal = n.convertToX10Y10Z10();
+	color = std::uint32_t( c * 255.0f );
+	texCoords = clearDenorm( coords, 1.0e-12f ).convertToFloat16();
+}
+
+SFMeshVertexAttributes::SFMeshVertexAttributes( const MeshFile & meshFile, qsizetype i )
+{
+	FloatVector4	position( 0.0f );
+	FloatVector4	n( 0.0f );
+	FloatVector4	c( 0.0f );
+	FloatVector4	coords( 0.0f );
+	if ( i < meshFile.positions.size() )
+		position = FloatVector4( meshFile.positions.at( i ) );
+	if ( i < meshFile.normals.size() )
+		n = FloatVector4( meshFile.normals.at( i ) );
+	if ( i < meshFile.colors.size() )
+		c = FloatVector4( meshFile.colors.at( i ) );
+	if ( i < meshFile.coords1.size() ) {
+		const auto &	tmp = meshFile.coords1.at( i );
+		coords[0] = tmp[0];
+		coords[1] = tmp[1];
+	}
+	if ( i < meshFile.coords2.size() ) {
+		const auto &	tmp = meshFile.coords2.at( i );
+		coords[2] = tmp[0];
+		coords[3] = tmp[1];
+	}
+	( void ) new ( this ) SFMeshVertexAttributes( i, position, n, c, coords );
+}
+
+SFMeshVertexAttributes::SFMeshVertexAttributes( const NifModel * nif, const QModelIndex & iVertexData, qsizetype i )
+{
+	FloatVector4	position( 0.0f );
+	FloatVector4	n( 0.0f );
+	FloatVector4	c( 0.0f );
+	FloatVector4	coords( 0.0f );
+	if ( QModelIndex iVertex = nif->getIndex( iVertexData, int( i ) ); iVertex.isValid() ) {
+		if ( QModelIndex v = nif->getIndex( iVertex, "Vertex" ); v.isValid() )
+			position = FloatVector4( nif->get<Vector3>( v ) );
+		if ( QModelIndex v = nif->getIndex( iVertex, "Normal" ); v.isValid() )
+			n = FloatVector4( nif->get<Vector3>( v ) );
+		if ( QModelIndex v = nif->getIndex( iVertex, "Vertex Colors" ); v.isValid() )
+			c = FloatVector4( nif->get<Color4>( v ) );
+		if ( QModelIndex v = nif->getIndex( iVertex, "UV" ); v.isValid() )
+			coords = FloatVector4( Vector3( nif->get<Vector2>( v ), 0.0f ) );
+	}
+	( void ) new ( this ) SFMeshVertexAttributes( i, position, n, c, coords );
+}
 
 template <> class std::hash< SFMeshVertexAttributes >
 {
@@ -1201,7 +1242,76 @@ void spRemoveDuplicateVertices::cast_Starfield( NifModel * nif, const QModelInde
 	spGenerateMeshlets::clearMeshlets( nif, iMeshData );
 }
 
+void spRemoveDuplicateVertices::cast_BSTriShape( NifModel * nif, const QModelIndex & index )
+{
+	if ( !index.isValid() )
+		return;
+
+	QModelIndex	iVertexData = nif->getIndex( index, "Vertex Data" );
+	QModelIndex	iTriangles = nif->getIndex( index, "Triangles" );
+	if ( !( iVertexData.isValid() && iTriangles.isValid() ) )
+		return;
+
+	size_t	numVerts = nif->get<quint32>( index, "Num Vertices" );
+
+	std::unordered_set< SFMeshVertexAttributes >	uniqueVertexSet;
+	std::vector< std::uint32_t >	vertexMap( numVerts );
+	for ( size_t i = 0; i < numVerts; i++ )
+		vertexMap[i] = uniqueVertexSet.emplace( nif, iVertexData, qsizetype( i ) ).first->index;
+	if ( uniqueVertexSet.size() == numVerts )
+		return;
+
+	// remap indices
+	int	numTriangles = int( nif->get<quint32>( index, "Num Triangles" ) );
+	NifItem *	trianglesItem = nif->getItem( iTriangles );
+	if ( numTriangles < 1 || !trianglesItem )
+		return;
+
+	for ( int i = 0; i < numTriangles; i++ ) {
+		Triangle	t = nif->get<Triangle>( trianglesItem->child( i ) );
+		bool	indicesChanged = false;
+		for ( int j = 0; j < 3; j++ ) {
+			std::uint32_t	v = t[j];
+			if ( v < numVerts && vertexMap[v] != v && vertexMap[v] < numVerts ) {
+				t[j] = quint16( vertexMap[v] );
+				indicesChanged = true;
+			}
+		}
+		if ( indicesChanged )
+			nif->set<Triangle>( trianglesItem->child( i ), t );
+	}
+}
+
 REGISTER_SPELL( spRemoveDuplicateVertices )
+
+class spRemoveAllDuplicateVertices final : public Spell
+{
+public:
+	QString name() const override final { return Spell::tr( "Remove All Duplicate Vertices" ); }
+	QString page() const override final { return Spell::tr( "Batch" ); }
+
+	bool isApplicable( const NifModel * nif, const QModelIndex & idx ) override final
+	{
+		return ( nif && !idx.isValid() );
+	}
+
+	QModelIndex cast( NifModel * nif, const QModelIndex & ) override final
+	{
+		spRemoveDuplicateVertices sp;
+
+		for ( int n = 0; n < nif->getBlockCount(); n++ ) {
+			QModelIndex idx = nif->getBlockIndex( n );
+
+			if ( sp.isApplicable( nif, idx ) )
+				sp.cast( nif, idx );
+		}
+
+		return QModelIndex();
+	}
+};
+
+REGISTER_SPELL( spRemoveAllDuplicateVertices )
+
 
 //! Removes unused vertices
 
