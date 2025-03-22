@@ -185,6 +185,7 @@ HEADERS += \
 	src/spells/mesh.h \
 	src/spells/misc.h \
 	src/spells/sanitize.h \
+	src/spells/simplify.h \
 	src/spells/skeleton.h \
 	src/spells/stringpalette.h \
 	src/spells/tangentspace.h \
@@ -383,7 +384,6 @@ libfo76utils {
     # SOURCES += $$PWD/lib/libfo76utils/src/downsamp.cpp
     # SOURCES += $$PWD/lib/libfo76utils/src/esmfile.cpp
     SOURCES += $$PWD/lib/libfo76utils/src/filebuf.cpp
-    # SOURCES += $$PWD/lib/libfo76utils/src/frtable.cpp
     SOURCES += $$PWD/lib/libfo76utils/src/jsonread.cpp
     SOURCES += $$PWD/lib/libfo76utils/src/matcomps.cpp
     SOURCES += $$PWD/lib/libfo76utils/src/material.cpp
@@ -391,10 +391,7 @@ libfo76utils {
     SOURCES += $$PWD/lib/libfo76utils/src/mat_json.cpp
     SOURCES += $$PWD/lib/libfo76utils/src/mat_list.cpp
     SOURCES += $$PWD/lib/libfo76utils/src/pbr_lut.cpp
-    # SOURCES += $$PWD/lib/libfo76utils/src/sdlvideo.cpp
     SOURCES += $$PWD/lib/libfo76utils/src/sfcube2.cpp
-    # SOURCES += $$PWD/lib/libfo76utils/src/stringdb.cpp
-    # SOURCES += $$PWD/lib/libfo76utils/src/viewrtbl.cpp
     SOURCES += $$PWD/lib/libfo76utils/src/zlib.cpp
 }
 

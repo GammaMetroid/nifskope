@@ -2,6 +2,7 @@
 
 * Added new batch spell to remove unused vertices from all shapes, and improved the performance of Remove Unused Vertices on BSTriShape geometry.
 * Implemented 'Remove Duplicate Vertices' for BSTriShape geometry (skin partitions are not supported), and added a batch version of the spell.
+* New spell for simplifying BSTriShape meshes, using [meshoptimizer](https://github.com/zeux/meshoptimizer#simplification). It is recommended to remove duplicate vertices first before simplification.
 * Fixed emissive color on Fallout 3/New Vegas meshes using BSShaderNoLightingProperty.
 * Fixed a rendering issue on Windows with AMD GPUs.
 

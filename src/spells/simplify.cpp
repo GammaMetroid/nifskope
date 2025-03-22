@@ -1,12 +1,12 @@
 #include "mesh.h"
 #include "gl/gltools.h"
 
-#include <QSettings>
 #include <cfloat>
 #include <unordered_set>
 
 #include "fp32vec4.hpp"
 #include "meshoptimizer/src/meshoptimizer.h"
+#include "simplify.h"
 
 // Brief description is deliberately not autolinked to class Spell
 /*! \file simplify.cpp
@@ -387,4 +387,300 @@ QModelIndex spSimplifySFMesh::cast_Static( NifModel * nif, const QModelIndex & i
 }
 
 REGISTER_SPELL( spSimplifySFMesh )
+
+
+//! Simplifies a Skyrim SE, Fallout 4 or 76 mesh
+class spSimplifyBSTriShape final : public spRemoveWasteVertices
+{
+public:
+	QString name() const override final { return Spell::tr( "Simplify" ); }
+
+	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final;
+};
+
+bool SimplifyMeshDialog::loadGeometryData()
+{
+	for ( size_t i = 0; i < numVerts; i++ ) {
+		if ( QModelIndex iVertex = nif->getIndex( iVertexData, int( i ) ); iVertex.isValid() ) {
+			if ( QModelIndex v = nif->getIndex( iVertex, "Vertex" ); v.isValid() ) {
+				FloatVector4	xyz = FloatVector4( nif->get<Vector3>( v ) );
+				xyz.convertToVector3( vertexAttrData.data() + ( i * 12 ) );
+			}
+			if ( QModelIndex v = nif->getIndex( iVertex, "Normal" ); v.isValid() ) {
+				FloatVector4	n = FloatVector4( nif->get<Vector3>( v ) );
+				n.convertToVector3( vertexAttrData.data() + ( i * 12 + 3 ) );
+			}
+			if ( QModelIndex v = nif->getIndex( iVertex, "UV" ); v.isValid() ) {
+				Vector2	coords = nif->get<Vector2>( v );
+				vertexAttrData[i * 12 + 6] = coords[0];
+				vertexAttrData[i * 12 + 7] = coords[1];
+			}
+			if ( QModelIndex v = nif->getIndex( iVertex, "Vertex Colors" ); v.isValid() ) {
+				FloatVector4	c = FloatVector4( nif->get<Color4>( v ) );
+				c.convertToFloats( vertexAttrData.data() + ( i * 12 + 8 ) );
+			}
+		}
+	}
+
+	for ( size_t i = 0; i < numTriangles; i++ ) {
+		Triangle	t;
+		if ( QModelIndex iTriangle = nif->getIndex( iTriangles, int( i ) ); iTriangle.isValid() )
+			t = nif->get<Triangle>( iTriangle );
+		if ( t.v1() >= numVerts || t.v2() >= numVerts || t.v3() >= numVerts ) {
+			Message::append( nullptr, Spell::tr( "Simplify failed" ),
+								Spell::tr( "Invalid index in triangle %1" ).arg( i ), QMessageBox::Warning );
+			return false;
+		}
+		indicesData[i * 3] = t.v1();
+		indicesData[i * 3 + 1] = t.v2();
+		indicesData[i * 3 + 2] = t.v3();
+	}
+
+	return true;
+}
+
+void SimplifyMeshDialog::storeGeometryData( size_t newTriangleCnt )
+{
+	const unsigned int *	p = newIndicesData.data();
+	if ( newTriangleCnt >= numTriangles ) {
+		newTriangleCnt = numTriangles;
+		p = indicesData.data();
+	}
+
+	QVector<Triangle>	newTriangles;
+	newTriangles.resize( qsizetype(newTriangleCnt) );
+	Triangle *	q = newTriangles.data();
+	for ( size_t i = 0; i < newTriangleCnt; i++ )
+		q[i] = Triangle( quint16( p[i * 3] ), quint16( p[i * 3 + 1] ), quint16( p[i * 3 + 2] ) );
+
+	if ( nif->getBSVersion() < 130 )
+		nif->set<quint16>( iBlock, "Num Triangles", quint16(newTriangleCnt) );
+	else
+		nif->set<quint32>( iBlock, "Num Triangles", quint32(newTriangleCnt) );
+	nif->updateArraySize( iTriangles );
+	nif->setArray<Triangle>( iTriangles, newTriangles );
+}
+
+SimplifyMeshDialog::SimplifyMeshDialog( NifModel * nifModel, const QModelIndex & index )
+	: nif( nifModel ), numVerts( 0 ), numTriangles( 0 )
+{
+	iBlock = nif->getBlockIndex( index );
+	if ( !iBlock.isValid() )
+		return;
+	if ( nif->getBSVersion() < 130 && nif->getBlockIndex( nif->getLink( iBlock, "Skin" ) ).isValid() ) {
+		Message::append( nullptr, Spell::tr( "Simplify failed" ),
+							Spell::tr( "Skinned meshes are not supported yet" ), QMessageBox::Warning );
+		return;
+	}
+	iVertexData = nif->getIndex( iBlock, "Vertex Data" );
+	iTriangles = nif->getIndex( iBlock, "Triangles" );
+	if ( !( iVertexData.isValid() && iTriangles.isValid() ) )
+		return;
+	numVerts = nif->get<quint32>( iBlock, "Num Vertices" );
+	numTriangles = nif->get<quint32>( iBlock, "Num Triangles" );
+	if ( !( numVerts > 0 && numTriangles > 0 ) )
+		return;
+	if ( nif->rowCount( iVertexData ) != int( numVerts ) || nif->rowCount( iTriangles ) != int( numTriangles ) ) {
+		Message::append( nullptr, Spell::tr( "Simplify failed" ),
+							Spell::tr( "Vertex or triangle count does not match array size" ), QMessageBox::Warning );
+		numVerts = 0;
+		return;
+	}
+
+	vertexAttrData.resize( numVerts * 12, 0.0f );
+	indicesData.resize( numTriangles * 3, 0U );
+	newIndicesData.resize( numTriangles * 3, 0U );
+
+	if ( !loadGeometryData() )
+		numVerts = 0;
+}
+
+SimplifyMeshDialog::~SimplifyMeshDialog()
+{
+}
+
+void SimplifyMeshDialog::updateIndices()
+{
+	{
+		QSettings	settings;
+		settings.beginGroup( "Spells/Mesh/Simplify" );
+		settings.setValue( "Target Count", QVariant( float(targetCount->value()) ) );
+		settings.setValue( "Max Error", QVariant( float(maxError->value()) ) );
+		settings.setValue( "Min Triangles", QVariant( roundFloat( float(minTriangles->value()) ) ) );
+		settings.setValue( "Lock Borders", QVariant( lockBorders->isChecked() ) );
+		settings.setValue( "Prune", QVariant( enablePrune->isChecked() ) );
+		settings.setValue( "Normal Weight", QVariant( float(normalWeight->value()) ) );
+		settings.setValue( "UV Weight", QVariant( float(uvWeight->value()) ) );
+		settings.setValue( "Color Weight", QVariant( float(colorWeight->value()) ) );
+		settings.endGroup();
+	}
+
+	float	attrWeights[9] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+	size_t	attrCnt = 0;
+	if ( float w = float( normalWeight->value() ); w > 0.0005f ) {
+		FloatVector4( w ).convertToVector3( attrWeights );
+		attrCnt = 3;
+	}
+	if ( float w = float( uvWeight->value() ); w > 0.0005f ) {
+		attrWeights[3] = w;
+		attrWeights[4] = w;
+		attrCnt = 5;
+	}
+	if ( float w = float( colorWeight->value() ); w > 0.0005f ) {
+		FloatVector4( w ).convertToFloats( &(attrWeights[5]) );
+		attrCnt = 9;
+	}
+
+	int	targetCnt =
+		int( std::max< double >( targetCount->value() * double( int(numTriangles) ), minTriangles->value() ) + 0.5 );
+	targetCnt = std::clamp< int >( targetCnt, 1, int( numTriangles ) );
+	float	targetError = float( maxError->value() );
+	unsigned int	simplifyOpts = ( lockBorders->isChecked() ? (unsigned int) meshopt_SimplifyLockBorder : 0U );
+	if ( enablePrune->isChecked() )
+		simplifyOpts = simplifyOpts | (unsigned int) meshopt_SimplifyPrune;
+	float	err = 0.0f;
+	size_t	newIndicesCnt;
+	if ( attrCnt < 1 ) {
+		newIndicesCnt =
+			meshopt_simplify( newIndicesData.data(), indicesData.data(), indicesData.size(),
+								vertexAttrData.data(), numVerts, sizeof( float ) * 12,
+								size_t( targetCnt ) * 3, targetError, simplifyOpts, &err );
+	} else {
+		newIndicesCnt =
+			meshopt_simplifyWithAttributes( newIndicesData.data(), indicesData.data(), indicesData.size(),
+											vertexAttrData.data(), numVerts, sizeof( float ) * 12,
+											vertexAttrData.data() + 3, sizeof( float ) * 12, attrWeights, attrCnt,
+											nullptr, size_t( targetCnt ) * 3, targetError, simplifyOpts, &err );
+	}
+
+	size_t	newTriangleCnt = newIndicesCnt / 3;
+	resultTriangles->setText( QString( "Triangles: %1" ).arg( newTriangleCnt ) );
+	resultError->setText( QString( "Error: %1" ).arg( QString::number( err, 'f', 6 ) ) );
+
+	storeGeometryData( newTriangleCnt );
+}
+
+int SimplifyMeshDialog::exec()
+{
+	setWindowTitle( Spell::tr( "Simplify Mesh" ) );
+
+	QGridLayout * grid = new QGridLayout;
+	setLayout( grid );
+
+	targetCount = new QDoubleSpinBox;
+	targetCount->setRange( 0.001, 1.0 );
+	targetCount->setDecimals( 3 );
+	targetCount->setSingleStep( 0.001 );
+
+	grid->addWidget( new QLabel( Spell::tr( "Target Count" ) ), 0, 0, 1, 3 );
+	grid->addWidget( targetCount, 0, 3 );
+
+	maxError = new QDoubleSpinBox;
+	maxError->setRange( 0.0001, 0.5 );
+	maxError->setDecimals( 4 );
+	maxError->setSingleStep( 0.0001 );
+
+	grid->addWidget( new QLabel( Spell::tr( "Max. Error" ) ), 1, 0, 1, 3 );
+	grid->addWidget( maxError, 1, 3 );
+
+	minTriangles = new QDoubleSpinBox;
+	minTriangles->setRange( 1.0, 100000.0 );
+	minTriangles->setDecimals( 0 );
+	minTriangles->setSingleStep( 1.0 );
+
+	grid->addWidget( new QLabel( Spell::tr( "Min. Triangles" ) ), 2, 0, 1, 3 );
+	grid->addWidget( minTriangles, 2, 3 );
+
+	lockBorders = new QCheckBox;
+
+	grid->addWidget( new QLabel( Spell::tr( "Lock Borders" ) ), 3, 0 );
+	grid->addWidget( lockBorders, 3, 1 );
+
+	enablePrune = new QCheckBox;
+
+	{
+		auto	tmpLabel = new QLabel( Spell::tr( "Prune" ) );
+		tmpLabel->setAlignment( Qt::AlignRight );
+		grid->addWidget( tmpLabel, 3, 2 );
+	}
+	grid->addWidget( enablePrune, 3, 3 );
+
+	normalWeight = new QDoubleSpinBox;
+	normalWeight->setRange( 0.0, 100.0 );
+	normalWeight->setDecimals( 3 );
+	normalWeight->setSingleStep( 0.001 );
+
+	grid->addWidget( new QLabel( Spell::tr( "Normal Weight" ) ), 4, 0, 1, 3 );
+	grid->addWidget( normalWeight, 4, 3 );
+
+	uvWeight = new QDoubleSpinBox;
+	uvWeight->setRange( 0.0, 100.0 );
+	uvWeight->setDecimals( 3 );
+	uvWeight->setSingleStep( 0.001 );
+
+	grid->addWidget( new QLabel( Spell::tr( "UV Weight" ) ), 5, 0, 1, 3 );
+	grid->addWidget( uvWeight, 5, 3 );
+
+	colorWeight = new QDoubleSpinBox;
+	colorWeight->setRange( 0.0, 100.0 );
+	colorWeight->setDecimals( 3 );
+	colorWeight->setSingleStep( 0.001 );
+
+	grid->addWidget( new QLabel( Spell::tr( "Vertex Color Weight" ) ), 6, 0, 1, 3 );
+	grid->addWidget( colorWeight, 6, 3 );
+
+	{
+		QSettings	settings;
+		settings.beginGroup( "Spells/Mesh/Simplify" );
+		targetCount->setValue( settings.value( "Target Count", 0.5f ).toFloat() );
+		maxError->setValue( settings.value( "Max Error", 0.005f ).toFloat() );
+		minTriangles->setValue( double( settings.value( "Min Triangles", 100 ).toInt() ) );
+		lockBorders->setChecked( settings.value( "Lock Borders", true ).toBool() );
+		enablePrune->setChecked( settings.value( "Prune", false ).toBool() );
+		normalWeight->setValue( settings.value( "Normal Weight", 0.0f ).toFloat() );
+		uvWeight->setValue( settings.value( "UV Weight", 0.0f ).toFloat() );
+		colorWeight->setValue( settings.value( "Color Weight", 0.0f ).toFloat() );
+		settings.endGroup();
+	}
+
+	resultTriangles = new QLabel( QString( "Triangles: %1" ).arg( numTriangles ) );
+	grid->addWidget( resultTriangles, 7, 0, 1, 2 );
+
+	resultError = new QLabel( QString( "Error: 0.000000" ) );
+	grid->addWidget( resultError, 7, 2, 1, 2 );
+
+	QPushButton * btUpdate = new QPushButton( Spell::tr( "Simplify" ) );
+	QObject::connect( btUpdate, &QPushButton::clicked, this, &SimplifyMeshDialog::updateIndices );
+
+	QPushButton * btOk = new QPushButton( Spell::tr( "Finish" ) );
+	QObject::connect( btOk, &QPushButton::clicked, this, &QDialog::accept );
+
+	QPushButton * btCancel = new QPushButton( Spell::tr( "Cancel" ) );
+	QObject::connect( btCancel, &QPushButton::clicked, this, &QDialog::reject );
+
+	grid->addWidget( btUpdate, 8, 0 );
+	grid->addWidget( btOk, 8, 2 );
+	grid->addWidget( btCancel, 8, 3 );
+
+	return QDialog::exec();
+}
+
+QModelIndex spSimplifyBSTriShape::cast( NifModel * nif, const QModelIndex & index )
+{
+	SimplifyMeshDialog	dlg( nif, index );
+	if ( !dlg.isValid() )
+		return index;
+
+	if ( dlg.exec() == QDialog::Accepted ) {
+		dlg.updateIndices();
+		spRemoveWasteVertices::cast( nif, dlg.iBlock );
+	} else {
+		// revert original geometry
+		dlg.storeGeometryData( dlg.numTriangles );
+	}
+
+	return index;
+}
+
+REGISTER_SPELL( spSimplifyBSTriShape )
 
