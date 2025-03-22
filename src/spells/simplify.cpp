@@ -458,6 +458,7 @@ void SimplifyMeshDialog::storeGeometryData( size_t newTriangleCnt )
 	else
 		nif->set<quint32>( iBlock, "Num Triangles", quint32(newTriangleCnt) );
 	nif->updateArraySize( iTriangles );
+	spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iBlock );
 	nif->setArray<Triangle>( iTriangles, newTriangles );
 }
 

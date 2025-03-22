@@ -314,6 +314,7 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 
 		nif->set<quint32>( iShape, "Num Vertices", n );
 		nif->updateArraySize( iVertexData );
+		spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iShape );
 
 		// adjust the faces
 
@@ -798,6 +799,8 @@ public:
 			if ( auto iNumPoints = nif->getIndex( iData, "Num Triangle Points" ); iNumPoints.isValid() )
 				nif->set<int>( iNumPoints, tris.count() * 3 );
 			nif->updateArraySize( iData, "Triangles" );
+			if ( nif->blockInherits( iData, "BSTriShape" ) )
+				spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iData );
 			nif->setArray<Triangle>( iData, "Triangles", tris.toVector() );
 		}
 
@@ -1543,6 +1546,15 @@ QModelIndex spRemoveWasteVertices::cast( NifModel * nif, const QModelIndex & ind
 	}
 
 	return index;
+}
+
+void spRemoveWasteVertices::updateBSTriShapeDataSize( NifModel * nif, const QModelIndex & index )
+{
+	quint32	numVerts = nif->get<quint32>( index, "Num Vertices" );
+	quint32	numTriangles = nif->get<quint32>( index, "Num Triangles" );
+	quint32	vertexDataSize = numVerts * nif->get<BSVertexDesc>( index, "Vertex Desc" ).GetVertexSize();
+	quint32	triangleDataSize = numTriangles * 6U;
+	nif->set<quint32>( index, "Data Size", vertexDataSize + triangleDataSize );
 }
 
 REGISTER_SPELL( spRemoveWasteVertices )
