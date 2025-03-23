@@ -1862,6 +1862,8 @@ QModelIndex spUpdateBounds::cast( NifModel * nif, const QModelIndex & index )
 		return cast_Starfield( nif, index );
 
 	auto	iBlock = nif->getBlockIndex( index );
+	spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iBlock );
+
 	BoundSphere	bounds( Vector3(), 0.0f );
 	FloatVector4	bndCenter( float(FLT_MAX) );
 	FloatVector4	bndDims( float(FLT_MAX) );
