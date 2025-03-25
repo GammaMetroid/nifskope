@@ -82,7 +82,7 @@ public:
 	static QModelIndex getShape( const NifModel * nif, const QModelIndex & index );
 	static void cast_Starfield( NifModel * nif, const QModelIndex & index, bool noMessages = false );
 
-	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
+	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override
 	{
 		if ( !nif )
 			return false;

@@ -1,8 +1,9 @@
  == CHANGELOG ==
 
-* Added new batch spell to remove unused vertices from all shapes, and improved the performance of Remove Unused Vertices on BSTriShape geometry.
-* Implemented 'Remove Duplicate Vertices' for BSTriShape geometry (skin partitions are not supported), and added a batch version of the spell.
-* New spell for simplifying BSTriShape meshes, using [meshoptimizer](https://github.com/zeux/meshoptimizer#simplification). It is recommended to remove duplicate vertices first before simplification.
+* New spell for simplifying BSTriShape meshes, using [meshoptimizer](https://github.com/zeux/meshoptimizer#simplification). It is recommended to remove duplicate vertices first before simplification. Casting the spell without a selection simplifies the whole model (experimental), and there is also a batch spell that processes each shape separately with the last used settings.
+* Added batch versions of Remove Unused Vertices, Remove Duplicate Vertices and Optimize Indices.
+* Improved the performance of Remove Unused Vertices on BSTriShape geometry.
+* Implemented 'Remove Duplicate Vertices' for BSTriShape geometry (skin partitions are not supported).
 * Mesh spells that change the number of vertices or triangles in a BSTriShape now correctly update the data size, and it is also calculated on updating bounds.
 * Fixed emissive color on Fallout 3/New Vegas meshes using BSShaderNoLightingProperty.
 * Fixed the sort order of Havok action blocks in the Reorder Blocks spell.

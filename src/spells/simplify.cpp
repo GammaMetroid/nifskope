@@ -395,105 +395,229 @@ class spSimplifyBSTriShape final : public spRemoveWasteVertices
 public:
 	QString name() const override final { return Spell::tr( "Simplify" ); }
 
+	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
+	{
+		if ( !( nif && nif->getBSVersion() >= 100 && nif->getBSVersion() < 170 ) )
+			return false;
+		if ( !index.isValid() )
+			return true;
+		return ( nif->blockInherits( index, "BSTriShape" )
+				&& nif->getIndex( nif->getBlockIndex( index ), "Vertex Data" ).isValid() );
+	}
+
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final;
+	void cast_batchMode( NifModel * nif, const QModelIndex & index );
 };
+
+void SimplifyMeshDialog::findBlock( int blockNum )
+{
+	QModelIndex	iBlock = nif->getBlockIndex( blockNum );
+	if ( !iBlock.isValid() && nif->blockInherits( iBlock, "BSTriShape" ) )
+		return;
+	if ( nif->getBSVersion() < 130 && nif->getBlockIndex( nif->getLink( iBlock, "Skin" ) ).isValid() ) {
+		Message::append( nullptr, Spell::tr( "Simplify failed" ),
+							Spell::tr( "Block %1: skinned meshes are not supported yet" ).arg( blockNum ),
+							QMessageBox::Warning );
+		return;
+	}
+	QModelIndex	iVertexData = nif->getIndex( iBlock, "Vertex Data" );
+	QModelIndex	iTriangles = nif->getIndex( iBlock, "Triangles" );
+	if ( !( iVertexData.isValid() && iTriangles.isValid() ) )
+		return;
+	quint32	vertCnt = nif->get<quint32>( iBlock, "Num Vertices" );
+	quint32	triCnt = nif->get<quint32>( iBlock, "Num Triangles" );
+	if ( !( vertCnt > 0 && triCnt > 0 ) )
+		return;
+	if ( nif->rowCount( iVertexData ) != int( vertCnt ) || nif->rowCount( iTriangles ) != int( triCnt ) ) {
+		Message::append( nullptr, Spell::tr( "Simplify failed" ),
+							Spell::tr( "Block %1: vertex or triangle count does not match array size" ).arg( blockNum ),
+							QMessageBox::Warning );
+		errorFlag = true;
+		return;
+	}
+
+	blockNumbers.push_back( blockNum );
+	if ( blockVertexRanges.empty() )
+		blockVertexRanges.resize( 1, 0U );
+	numVerts = numVerts + vertCnt;
+	numTriangles = numTriangles + triCnt;
+	blockVertexRanges.push_back( (unsigned int) numVerts );
+	blockTriangleCounts.push_back( triCnt );
+}
 
 bool SimplifyMeshDialog::loadGeometryData()
 {
-	for ( size_t i = 0; i < numVerts; i++ ) {
-		if ( QModelIndex iVertex = nif->getIndex( iVertexData, int( i ) ); iVertex.isValid() ) {
-			if ( QModelIndex v = nif->getIndex( iVertex, "Vertex" ); v.isValid() ) {
-				FloatVector4	xyz = FloatVector4( nif->get<Vector3>( v ) );
-				xyz.convertToVector3( vertexAttrData.data() + ( i * 12 ) );
-			}
-			if ( QModelIndex v = nif->getIndex( iVertex, "Normal" ); v.isValid() ) {
-				FloatVector4	n = FloatVector4( nif->get<Vector3>( v ) );
-				n.convertToVector3( vertexAttrData.data() + ( i * 12 + 3 ) );
-			}
-			if ( QModelIndex v = nif->getIndex( iVertex, "UV" ); v.isValid() ) {
-				Vector2	coords = nif->get<Vector2>( v );
-				vertexAttrData[i * 12 + 6] = coords[0];
-				vertexAttrData[i * 12 + 7] = coords[1];
-			}
-			if ( QModelIndex v = nif->getIndex( iVertex, "Vertex Colors" ); v.isValid() ) {
-				FloatVector4	c = FloatVector4( nif->get<Color4>( v ) );
-				c.convertToFloats( vertexAttrData.data() + ( i * 12 + 8 ) );
-			}
-		}
-	}
+	vertexAttrData.resize( numVerts * 12, 0.0f );
+	indicesData.resize( numTriangles * 3, 0U );
+	newIndicesData.resize( numTriangles * 3, 0U );
 
-	for ( size_t i = 0; i < numTriangles; i++ ) {
-		Triangle	t;
-		if ( QModelIndex iTriangle = nif->getIndex( iTriangles, int( i ) ); iTriangle.isValid() )
-			t = nif->get<Triangle>( iTriangle );
-		if ( t.v1() >= numVerts || t.v2() >= numVerts || t.v3() >= numVerts ) {
-			Message::append( nullptr, Spell::tr( "Simplify failed" ),
-								Spell::tr( "Invalid index in triangle %1" ).arg( i ), QMessageBox::Warning );
-			return false;
+	size_t	numBlocks = blockNumbers.size();
+	size_t	indexOffs = 0;
+	for ( size_t n = 0; n < numBlocks; n++ ) {
+		int	blockNum = blockNumbers[n];
+		QModelIndex	iBlock = nif->getBlockIndex( blockNum );
+		if ( !iBlock.isValid() && nif->blockInherits( iBlock, "BSTriShape" ) )
+			continue;
+		QModelIndex	iVertexData = nif->getIndex( iBlock, "Vertex Data" );
+		QModelIndex	iTriangles = nif->getIndex( iBlock, "Triangles" );
+		if ( !( iVertexData.isValid() && iTriangles.isValid() ) )
+			continue;
+		unsigned int	vertCnt = blockVertexRanges[n + 1] - blockVertexRanges[n];
+		unsigned int	triCnt = blockTriangleCounts[n];
+		if ( !( vertCnt && triCnt ) )
+			continue;
+		size_t	vertexOffs = blockVertexRanges[n];
+
+		for ( size_t i = 0; i < triCnt; i++, indexOffs = indexOffs + 3 ) {
+			Triangle	t;
+			if ( QModelIndex iTriangle = nif->getIndex( iTriangles, int( i ) ); iTriangle.isValid() )
+				t = nif->get<Triangle>( iTriangle );
+			if ( t.v1() >= vertCnt || t.v2() >= vertCnt || t.v3() >= vertCnt ) {
+				Message::append( nullptr, Spell::tr( "Simplify failed" ),
+									Spell::tr( "Block %1: invalid index in triangle %2" ).arg( blockNum ).arg( i ),
+									QMessageBox::Warning );
+				errorFlag = true;
+				return false;
+			}
+			indicesData[indexOffs] = vertexOffs + t.v1();
+			indicesData[indexOffs + 1] = vertexOffs + t.v2();
+			indicesData[indexOffs + 2] = vertexOffs + t.v3();
 		}
-		indicesData[i * 3] = t.v1();
-		indicesData[i * 3 + 1] = t.v2();
-		indicesData[i * 3 + 2] = t.v3();
+
+		Transform	t;
+		if ( numBlocks > 1 )
+			spSimplifySFMesh::Meshes::getTransform( t, nif, iBlock );
+
+		vertexOffs = vertexOffs * 12;
+		for ( size_t i = 0; i < vertCnt; i++, vertexOffs = vertexOffs + 12 ) {
+			if ( QModelIndex iVertex = nif->getIndex( iVertexData, int( i ) ); iVertex.isValid() ) {
+				if ( QModelIndex v = nif->getIndex( iVertex, "Vertex" ); v.isValid() ) {
+					Vector3	xyz = nif->get<Vector3>( v );
+					if ( numBlocks > 1 )
+						xyz = t * xyz;
+					FloatVector4( xyz ).convertToVector3( vertexAttrData.data() + vertexOffs );
+				}
+				if ( QModelIndex v = nif->getIndex( iVertex, "Normal" ); v.isValid() ) {
+					Vector3	n = nif->get<Vector3>( v );
+					if ( numBlocks > 1 )
+						n = t.rotation * n;
+					FloatVector4( n ).convertToVector3( vertexAttrData.data() + ( vertexOffs + 3 ) );
+				}
+				if ( QModelIndex v = nif->getIndex( iVertex, "UV" ); v.isValid() ) {
+					Vector2	coords = nif->get<Vector2>( v );
+					vertexAttrData[vertexOffs + 6] = coords[0];
+					vertexAttrData[vertexOffs + 7] = coords[1];
+				}
+				if ( QModelIndex v = nif->getIndex( iVertex, "Vertex Colors" ); v.isValid() ) {
+					FloatVector4	c = FloatVector4( nif->get<Color4>( v ) );
+					c.convertToFloats( vertexAttrData.data() + ( vertexOffs + 8 ) );
+				}
+			}
+		}
 	}
 
 	return true;
 }
 
+int SimplifyMeshDialog::getVertexBlock( unsigned int v ) const
+{
+	size_t	i0 = 0;
+	size_t	i2 = blockVertexRanges.size();
+	while ( i2 > i0 ) {
+		size_t	i1 = ( i0 + i2 ) >> 1;
+		if ( v < blockVertexRanges[i1] )
+			i2 = i1;
+		else
+			i0 = i1 + 1;
+	}
+	if ( i0 >= blockVertexRanges.size() ) [[unlikely]]
+		return -1;
+	return int( i0 - 1 );
+}
+
 void SimplifyMeshDialog::storeGeometryData( size_t newTriangleCnt )
 {
+	QVector< QVector< Triangle > >	newTriangles;
+	qsizetype	numBlocks = qsizetype( blockNumbers.size() );
+	newTriangles.resize( numBlocks );
+
 	const unsigned int *	p = newIndicesData.data();
 	if ( newTriangleCnt >= numTriangles ) {
 		newTriangleCnt = numTriangles;
 		p = indicesData.data();
 	}
 
-	QVector<Triangle>	newTriangles;
-	newTriangles.resize( qsizetype(newTriangleCnt) );
-	Triangle *	q = newTriangles.data();
-	for ( size_t i = 0; i < newTriangleCnt; i++ )
-		q[i] = Triangle( quint16( p[i * 3] ), quint16( p[i * 3 + 1] ), quint16( p[i * 3 + 2] ) );
+	std::vector< size_t >	triCnts( blockNumbers.size() );
+	for ( size_t i = 0; i < newTriangleCnt; i++ ) {
+		unsigned int	v0 = p[i * 3];
+		unsigned int	v1 = p[i * 3 + 1];
+		unsigned int	v2 = p[i * 3 + 2];
+		int	b0 = getVertexBlock( v0 );
+		int	b1 = getVertexBlock( v1 );
+		int	b2 = getVertexBlock( v2 );
+		if ( b0 < 0 || b0 != b1 || b0 != b2 ) {
+			Message::append( nullptr, Spell::tr( "Simplify failed" ), QString( "Invalid indices in output data" ),
+								QMessageBox::Critical );
+			errorFlag = true;
+			break;
+		}
+		triCnts[b0] = triCnts[b0] + 1;
+	}
+	if ( errorFlag )
+		return;
+	for ( qsizetype i = 0; i < numBlocks; i++ ) {
+		newTriangles[i].resize( triCnts[i] );
+		triCnts[i] = 0;
+	}
+	for ( size_t i = 0; i < newTriangleCnt; i++ ) {
+		unsigned int	v0 = p[i * 3];
+		unsigned int	v1 = p[i * 3 + 1];
+		unsigned int	v2 = p[i * 3 + 2];
+		int	n = getVertexBlock( v0 );
+		v0 = v0 - blockVertexRanges[n];
+		v1 = v1 - blockVertexRanges[n];
+		v2 = v2 - blockVertexRanges[n];
+		qsizetype	j = qsizetype( triCnts[n] );
+		triCnts[n] = triCnts[n] + 1;
+		newTriangles[n][j] = Triangle( quint16( v0 ), quint16( v1 ), quint16( v2 ) );
+	}
 
-	if ( nif->getBSVersion() < 130 )
-		nif->set<quint16>( iBlock, "Num Triangles", quint16(newTriangleCnt) );
-	else
-		nif->set<quint32>( iBlock, "Num Triangles", quint32(newTriangleCnt) );
-	nif->updateArraySize( iTriangles );
-	spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iBlock );
-	nif->setArray<Triangle>( iTriangles, newTriangles );
+	for ( qsizetype i = 0; i < numBlocks; i++ ) {
+		int	blockNum = blockNumbers[i];
+		QModelIndex	iBlock = nif->getBlockIndex( blockNum );
+		if ( !iBlock.isValid() && nif->blockInherits( iBlock, "BSTriShape" ) )
+			continue;
+		if ( nif->getBSVersion() < 130 )
+			nif->set<quint16>( iBlock, "Num Triangles", quint16(triCnts[i]) );
+		else
+			nif->set<quint32>( iBlock, "Num Triangles", quint32(triCnts[i]) );
+		QModelIndex	iTriangles = nif->getIndex( iBlock, "Triangles" );
+		if ( !iTriangles.isValid() )
+			continue;
+		nif->updateArraySize( iTriangles );
+		spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iBlock );
+		nif->setArray<Triangle>( iTriangles, newTriangles[i] );
+	}
 }
 
 SimplifyMeshDialog::SimplifyMeshDialog( NifModel * nifModel, const QModelIndex & index )
-	: nif( nifModel ), numVerts( 0 ), numTriangles( 0 )
+	: nif( nifModel ), numVerts( 0 ), numTriangles( 0 ), batchMode( false ), errorFlag( false )
 {
-	iBlock = nif->getBlockIndex( index );
-	if ( !iBlock.isValid() )
-		return;
-	if ( nif->getBSVersion() < 130 && nif->getBlockIndex( nif->getLink( iBlock, "Skin" ) ).isValid() ) {
-		Message::append( nullptr, Spell::tr( "Simplify failed" ),
-							Spell::tr( "Skinned meshes are not supported yet" ), QMessageBox::Warning );
-		return;
-	}
-	iVertexData = nif->getIndex( iBlock, "Vertex Data" );
-	iTriangles = nif->getIndex( iBlock, "Triangles" );
-	if ( !( iVertexData.isValid() && iTriangles.isValid() ) )
-		return;
-	numVerts = nif->get<quint32>( iBlock, "Num Vertices" );
-	numTriangles = nif->get<quint32>( iBlock, "Num Triangles" );
-	if ( !( numVerts > 0 && numTriangles > 0 ) )
-		return;
-	if ( nif->rowCount( iVertexData ) != int( numVerts ) || nif->rowCount( iTriangles ) != int( numTriangles ) ) {
-		Message::append( nullptr, Spell::tr( "Simplify failed" ),
-							Spell::tr( "Vertex or triangle count does not match array size" ), QMessageBox::Warning );
-		numVerts = 0;
-		return;
+	if ( !index.isValid() ) {
+		for ( int n = 0; n < nif->getBlockCount(); n++ ) {
+			QModelIndex idx = nif->getBlockIndex( n );
+
+			if ( idx.isValid() && nif->blockInherits( idx, "BSTriShape" )
+				&& nif->getIndex( idx, "Vertex Data" ).isValid() ) {
+				findBlock( n );
+			}
+		}
+	} else {
+		findBlock( nif->getBlockNumber( index ) );
 	}
 
-	vertexAttrData.resize( numVerts * 12, 0.0f );
-	indicesData.resize( numTriangles * 3, 0U );
-	newIndicesData.resize( numTriangles * 3, 0U );
-
-	if ( !loadGeometryData() )
-		numVerts = 0;
+	if ( !errorFlag )
+		loadGeometryData();
 }
 
 SimplifyMeshDialog::~SimplifyMeshDialog()
@@ -502,7 +626,7 @@ SimplifyMeshDialog::~SimplifyMeshDialog()
 
 void SimplifyMeshDialog::updateIndices()
 {
-	{
+	if ( !batchMode ) {
 		QSettings	settings;
 		settings.beginGroup( "Spells/Mesh/Simplify" );
 		settings.setValue( "Target Count", QVariant( float(targetCount->value()) ) );
@@ -555,8 +679,10 @@ void SimplifyMeshDialog::updateIndices()
 	}
 
 	size_t	newTriangleCnt = newIndicesCnt / 3;
-	resultTriangles->setText( QString( "Triangles: %1" ).arg( newTriangleCnt ) );
-	resultError->setText( QString( "Error: %1" ).arg( QString::number( err, 'f', 6 ) ) );
+	if ( !batchMode ) {
+		resultTriangles->setText( QString( "Triangles: %1" ).arg( newTriangleCnt ) );
+		resultError->setText( QString( "Error: %1" ).arg( QString::number( err, 'f', 6 ) ) );
+	}
 
 	storeGeometryData( newTriangleCnt );
 }
@@ -663,6 +789,9 @@ int SimplifyMeshDialog::exec()
 	grid->addWidget( btOk, 8, 2 );
 	grid->addWidget( btCancel, 8, 3 );
 
+	if ( batchMode )
+		return int( QDialog::Accepted );
+
 	return QDialog::exec();
 }
 
@@ -674,7 +803,15 @@ QModelIndex spSimplifyBSTriShape::cast( NifModel * nif, const QModelIndex & inde
 
 	if ( dlg.exec() == QDialog::Accepted ) {
 		dlg.updateIndices();
-		spRemoveWasteVertices::cast( nif, dlg.iBlock );
+		if ( !index.isValid() ) {
+			for ( int blockNum : dlg.blockNumbers ) {
+				QModelIndex	iBlock = nif->getBlockIndex( blockNum );
+				if ( iBlock.isValid() )
+					spRemoveWasteVertices::cast( nif, iBlock );
+			}
+		} else {
+			spRemoveWasteVertices::cast( nif, index );
+		}
 	} else {
 		// revert original geometry
 		dlg.storeGeometryData( dlg.numTriangles );
@@ -683,5 +820,44 @@ QModelIndex spSimplifyBSTriShape::cast( NifModel * nif, const QModelIndex & inde
 	return index;
 }
 
+void spSimplifyBSTriShape::cast_batchMode( NifModel * nif, const QModelIndex & index )
+{
+	SimplifyMeshDialog	dlg( nif, index );
+	if ( !dlg.isValid() )
+		return;
+	dlg.batchMode = true;
+	dlg.exec();
+	dlg.updateIndices();
+	spRemoveWasteVertices::cast( nif, index );
+}
+
 REGISTER_SPELL( spSimplifyBSTriShape )
+
+class spSimplifyAllBSTriShapes final : public Spell
+{
+public:
+	QString name() const override final { return Spell::tr( "Simplify All Shapes" ); }
+	QString page() const override final { return Spell::tr( "Batch" ); }
+
+	bool isApplicable( const NifModel * nif, const QModelIndex & idx ) override final
+	{
+		return ( nif && nif->getBSVersion() >= 100 && nif->getBSVersion() < 170 && !idx.isValid() );
+	}
+
+	QModelIndex cast( NifModel * nif, const QModelIndex & ) override final
+	{
+		spSimplifyBSTriShape sp;
+
+		for ( int n = 0; n < nif->getBlockCount(); n++ ) {
+			QModelIndex idx = nif->getBlockIndex( n );
+
+			if ( sp.isApplicable( nif, idx ) )
+				sp.cast_batchMode( nif, idx );
+		}
+
+		return QModelIndex();
+	}
+};
+
+REGISTER_SPELL( spSimplifyAllBSTriShapes )
 

@@ -7,7 +7,6 @@
 #include <QLabel>
 #include <QLayout>
 #include <QModelIndex>
-#include <QPersistentModelIndex>
 #include <QPushButton>
 #include <QSettings>
 
@@ -20,12 +19,17 @@ class SimplifyMeshDialog : public QDialog
 public:
 	NifModel *	nif;
 	size_t	numVerts, numTriangles;
-	QPersistentModelIndex	iBlock, iVertexData, iTriangles;
+	bool	batchMode, errorFlag;
 protected:
 	// 12 floats per vertex: position (3), normal (3), UV (2), color (4)
 	std::vector< float >	vertexAttrData;
 	std::vector< unsigned int >	indicesData;
 	std::vector< unsigned int >	newIndicesData;
+public:
+	std::vector< int >	blockNumbers;
+protected:
+	std::vector< unsigned int >	blockVertexRanges;
+	std::vector< unsigned int >	blockTriangleCounts;
 	QDoubleSpinBox *	targetCount;
 	QDoubleSpinBox *	maxError;
 	QDoubleSpinBox *	minTriangles;
@@ -36,14 +40,16 @@ protected:
 	QDoubleSpinBox *	colorWeight;
 	QLabel *	resultTriangles;
 	QLabel *	resultError;
+	void findBlock( int blockNum );
 	bool loadGeometryData();
+	int getVertexBlock( unsigned int v ) const;
 public:
 	void storeGeometryData( size_t newTriangleCnt );
 	SimplifyMeshDialog( NifModel * nifModel, const QModelIndex & index );
 	virtual ~SimplifyMeshDialog();
 	inline bool isValid() const
 	{
-		return ( numVerts > 0 && numTriangles > 0 );
+		return ( numVerts > 0 && numTriangles > 0 && !blockNumbers.empty() && !errorFlag );
 	}
 public slots:
 	virtual void updateIndices();
