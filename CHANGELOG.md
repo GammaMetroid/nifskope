@@ -5,6 +5,7 @@
 * New spell for simplifying BSTriShape meshes, using [meshoptimizer](https://github.com/zeux/meshoptimizer#simplification). It is recommended to remove duplicate vertices first before simplification.
 * Mesh spells that change the number of vertices or triangles in a BSTriShape now correctly update the data size, and it is also calculated on updating bounds.
 * Fixed emissive color on Fallout 3/New Vegas meshes using BSShaderNoLightingProperty.
+* Fixed the sort order of Havok action blocks in the Reorder Blocks spell.
 * Fixed a rendering issue on Windows with AMD GPUs.
 
 #### NifSkope-2.0.dev11-20250316

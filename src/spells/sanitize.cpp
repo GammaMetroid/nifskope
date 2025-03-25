@@ -199,7 +199,7 @@ bool spSanitizeBlockOrder::childBeforeParent( NifModel * nif, qint32 block )
 	// check its type
 	return (
 		nif->blockInherits( iBlock, "bhkRefObject" )
-		&& !nif->blockInherits( iBlock, "bhkConstraint" )
+		&& !nif->blockInherits( iBlock, { "bhkConstraint", "bhkAction" } )
 	);
 }
 
