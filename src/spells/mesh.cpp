@@ -269,28 +269,35 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 {
 	try
 	{
+		if ( nif->getBSVersion() < 130 && nif->getBlockIndex( nif->getLink( iShape, "Skin" ) ).isValid() )
+			throw QString( Spell::tr( "Skinned meshes are not supported yet" ) );
 		// read the data
 		quint32	numTriangles = nif->get<quint32>( iShape, "Num Triangles" );
 		quint32	numVertices = nif->get<quint32>( iShape, "Num Vertices" );
 		QModelIndex	iVertexData = nif->getIndex( iShape, "Vertex Data" );
 		QModelIndex	iTriangleData = nif->getIndex( iShape, "Triangles" );
-		if ( !numTriangles || !iTriangleData.isValid() )
-			throw QString( Spell::tr( "No triangles" ) );
-		if ( !numVertices || !iVertexData.isValid() )
-			throw QString( Spell::tr( "No vertices" ) );
-		if ( nif->getBSVersion() < 130 && nif->getBlockIndex( nif->getLink( iShape, "Skin" ) ).isValid() )
-			throw QString( Spell::tr( "Skinned meshes are not supported yet" ) );
-		if ( int(numVertices) != nif->rowCount( iVertexData ) )
+		if ( !iVertexData.isValid() ) {
+			if ( numVertices || numTriangles )
+				throw QString( Spell::tr( "No vertices" ) );
+		} else if ( int(numVertices) != nif->rowCount( iVertexData ) ) {
 			throw QString( Spell::tr( "Vertex array size differs" ) );
+		}
+		if ( numTriangles && !iTriangleData.isValid() )
+			throw QString( Spell::tr( "No triangles" ) );
+		if ( !numVertices )
+			return;
 
 		// detect unused vertices
 
 		QMap<quint16, quint16> used;
 
-		QVector<Triangle> tris = nif->getArray<Triangle>( iShape, "Triangles" );
+		QVector<Triangle> tris;
+		if ( numTriangles )
+			tris = nif->getArray<Triangle>( iShape, "Triangles" );
 		for ( const Triangle& tri : tris ) {
 			for ( int t = 0; t < 3; t++ ) {
-				used.insert( tri[t], 0 );
+				if ( tri[t] < numVertices )
+					used.insert( tri[t], 0 );
 			}
 		}
 
@@ -318,21 +325,19 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 
 		// adjust the faces
 
-		QMutableVectorIterator<Triangle> itri( tris );
-
-		while ( itri.hasNext() ) {
-			Triangle & tri = itri.next();
-
+		for ( Triangle & tri : tris ) {
 			for ( int t = 0; t < 3; t++ ) {
-				if ( used.contains( tri[t] ) )
+				if ( !used.contains( tri[t] ) )
+					tri[t] = tri[t] - quint16( numRemoved );
+				else
 					tri[t] = used[ tri[t] ];
 			}
-
 		}
 
 		// write back the data
 
-		nif->setArray<Triangle>( iShape, "Triangles", tris );
+		if ( !tris.isEmpty() )
+			nif->setArray<Triangle>( iShape, "Triangles", tris );
 
 		// TODO: process NiSkinData
 
@@ -715,6 +720,35 @@ void spOptimizeVertexCache::processTriangles( QVector<Triangle> & tris )
 }
 
 REGISTER_SPELL( spOptimizeVertexCache )
+
+class spOptimizeAllIndices final : public Spell
+{
+public:
+	QString name() const override final { return Spell::tr( "Optimize All Indices" ); }
+	QString page() const override final { return Spell::tr( "Batch" ); }
+
+	bool isApplicable( const NifModel * nif, const QModelIndex & idx ) override final
+	{
+		return ( nif && !idx.isValid() );
+	}
+
+	QModelIndex cast( NifModel * nif, const QModelIndex & ) override final
+	{
+		spOptimizeVertexCache sp;
+
+		for ( int n = 0; n < nif->getBlockCount(); n++ ) {
+			QModelIndex idx = nif->getBlockIndex( n );
+
+			if ( sp.isApplicable( nif, idx ) )
+				sp.cast( nif, idx );
+		}
+
+		return QModelIndex();
+	}
+};
+
+REGISTER_SPELL( spOptimizeAllIndices )
+
 
 //! Removes redundant triangles from a mesh
 class spPruneRedundantTriangles final : public Spell
