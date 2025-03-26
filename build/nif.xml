@@ -8127,9 +8127,8 @@
         <field name="Anim Notes" type="Ref" template="BSAnimNote" length="Num Anim Notes">BSAnimNote objects.</field>
     </niobject>
 
-    <niobject name="bhkLiquidAction" inherit="bhkAction" module="BSHavok" versions="#FO3_AND_LATER#">
+    <niobject name="bhkLiquidAction" inherit="bhkUnaryAction" module="BSHavok" versions="#FO3_AND_LATER#">
         Bethesda custom bhkUnaryAction. Does not hold a link to the body like other bhkUnaryActions however.
-        <field name="Unused 01" type="byte" length="12" binary="true" />
         <field name="Initial Stick Force" type="float" default="25.0" />
         <field name="Stick Strength" type="float" default="100.0" />
         <field name="Neighbor Distance" type="float" default="128.0" />
