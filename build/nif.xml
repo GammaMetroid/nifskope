@@ -2332,16 +2332,16 @@
     </struct>
 
     <struct name="Matrix33" size="36" module="NiMain">
-        A 3x3 rotation matrix; M^T M=identity, det(M)=1.    Stored in OpenGL column-major format.
+        A 3x3 rotation matrix; M^T M=identity, det(M)=1.    Stored in row-major format.
         <field name="m11" type="float" default="1.0">Member 1,1 (top left)</field>
-        <field name="m21" type="float" default="0.0">Member 2,1</field>
-        <field name="m31" type="float" default="0.0">Member 3,1 (bottom left)</field>
-        <field name="m12" type="float" default="0.0">Member 1,2</field>
+        <field name="m21" type="float" default="0.0">Member 1,2</field>
+        <field name="m31" type="float" default="0.0">Member 1,3 (top right)</field>
+        <field name="m12" type="float" default="0.0">Member 2,1</field>
         <field name="m22" type="float" default="1.0">Member 2,2</field>
-        <field name="m32" type="float" default="0.0">Member 3,2</field>
-        <field name="m13" type="float" default="0.0">Member 1,3 (top right)</field>
-        <field name="m23" type="float" default="0.0">Member 2,3</field>
-        <field name="m33" type="float" default="1.0">Member 3,3 (bottom left)</field>
+        <field name="m32" type="float" default="0.0">Member 2,3</field>
+        <field name="m13" type="float" default="0.0">Member 3,1 (bottom left)</field>
+        <field name="m23" type="float" default="0.0">Member 3,2</field>
+        <field name="m33" type="float" default="1.0">Member 3,3 (bottom right)</field>
     </struct>
 
     <struct name="Matrix34" size="48" module="NiMain">
@@ -2361,7 +2361,7 @@
     </struct>
 
     <struct name="Matrix44" size="64" module="NiMain">
-        A 4x4 transformation matrix.
+        A 4x4 transformation matrix. Stored in OpenGL column-major format.
         <field name="m11" type="float" default="1.0">The (1,1) element.</field>
         <field name="m21" type="float" default="0.0">The (2,1) element.</field>
         <field name="m31" type="float" default="0.0">The (3,1) element.</field>
@@ -7962,7 +7962,7 @@
         <field name="Partitions" type="BodyPartList" length="Num Partitions" />
     </niobject>
 
-    <niobject name="BSDecalPlacementVectorExtraData" inherit="NiFloatExtraData" module="BSMain" versions="#FO3_AND_LATER#">
+    <niobject name="BSDecalPlacementVectorExtraData" inherit="NiIntegerExtraData" module="BSMain" versions="#FO3_AND_LATER#">
         Bethesda-specific extra data. Lists locations and normals on a mesh that are appropriate for decal placement.
         <field name="Num Vector Blocks" type="ushort" />
         <field name="Vector Blocks" type="DecalVectorArray" length="Num Vector Blocks" />
