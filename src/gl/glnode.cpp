@@ -762,14 +762,8 @@ void Node::drawHvkShape( const NifModel * nif, const QModelIndex & iShape, HvkSh
 			scene->setGLLineWidth( GLView::Settings::lineWidthWireframe );	// taken from "DrawTriangleSelection"
 		}
 		Matrix4	tm( parentTransform );
-		if ( name.endsWith( QLatin1StringView("TransformShape") ) ) {
-			Matrix4	tmp = nif->get<Matrix4>( iShape, "Transform" );
-			tmp( 0, 3 ) = 0.0f;
-			tmp( 1, 3 ) = 0.0f;
-			tmp( 2, 3 ) = 0.0f;
-			tmp( 3, 3 ) = 1.0f;
-			tm = tm * tmp;
-		}
+		if ( name.endsWith( QLatin1StringView("TransformShape") ) )
+			tm.multiply4x3( nif->get<Matrix4>( iShape, "Transform" ) );
 		HvkShapeStackItem	shapeStack( iShape, stack );
 		drawHvkShape( nif, iChild, &shapeStack, scene, origin_color4fv, tm );
 		return;

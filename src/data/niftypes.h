@@ -1093,6 +1093,8 @@ public:
 	Matrix4 operator*( const Matrix4 & m2 ) const;
 	//! Times operator for a transform
 	Matrix4 operator*( const Transform & t ) const;
+	//! Times operator for a matrix, the last row of m2 is assumed to be 0 0 0 1
+	Matrix4 & multiply4x3( const Matrix4 & m2 );
 	//! Times operator for a vector
 	inline FloatVector4 operator*( FloatVector4 v ) const
 	{

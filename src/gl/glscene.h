@@ -289,6 +289,7 @@ public:
 	inline void loadModelViewMatrix( const Transform & t );
 	inline void pushModelViewMatrix();
 	inline void popModelViewMatrix();
+	// the last row of 'm' is assumed to be 0 0 0 1
 	inline void multModelViewMatrix( const Matrix4 & m );
 	inline void multModelViewMatrix( const Transform & t );
 	inline void pushAndMultModelViewMatrix( const Matrix4 & m );
@@ -388,7 +389,7 @@ inline void Scene::popModelViewMatrix()
 
 inline void Scene::multModelViewMatrix( const Matrix4 & m )
 {
-	*currentModelViewMatrix = *currentModelViewMatrix * m;
+	currentModelViewMatrix->multiply4x3( m );
 }
 
 inline void Scene::multModelViewMatrix( const Transform & t )
@@ -399,7 +400,7 @@ inline void Scene::multModelViewMatrix( const Transform & t )
 inline void Scene::pushAndMultModelViewMatrix( const Matrix4 & m )
 {
 	pushModelViewMatrix();
-	*currentModelViewMatrix = *currentModelViewMatrix * m;
+	currentModelViewMatrix->multiply4x3( m );
 }
 
 inline void Scene::pushAndMultModelViewMatrix( const Transform & t )

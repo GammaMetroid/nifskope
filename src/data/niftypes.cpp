@@ -802,3 +802,18 @@ Matrix4 Matrix4::operator*( const Transform & t ) const
 
 	return Matrix4( &(m3[0][0]) );
 }
+
+Matrix4 & Matrix4::multiply4x3( const Matrix4 & m2 )
+{
+	FloatVector4 m_0( &(m[0][0]) );
+	FloatVector4 m_1( &(m[1][0]) );
+	FloatVector4 m_2( &(m[2][0]) );
+	FloatVector4 m_3( &(m[3][0]) );
+
+	( ( m_0 * m2.m[0][0] ) + ( m_1 * m2.m[0][1] ) + ( m_2 * m2.m[0][2] ) ).convertToFloats( &(m[0][0]) );
+	( ( m_0 * m2.m[1][0] ) + ( m_1 * m2.m[1][1] ) + ( m_2 * m2.m[1][2] ) ).convertToFloats( &(m[1][0]) );
+	( ( m_0 * m2.m[2][0] ) + ( m_1 * m2.m[2][1] ) + ( m_2 * m2.m[2][2] ) ).convertToFloats( &(m[2][0]) );
+	( ( m_0 * m2.m[3][0] ) + ( m_1 * m2.m[3][1] ) + ( m_2 * m2.m[3][2] ) + m_3 ).convertToFloats( &(m[3][0]) );
+
+	return *this;
+}
