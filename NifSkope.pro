@@ -192,6 +192,7 @@ HEADERS += \
 	src/spells/texture.h \
 	src/spells/transform.h \
 	src/ui/widgets/colorwheel.h \
+	src/ui/widgets/ddspreview.h \
 	src/ui/widgets/filebrowser.h \
 	src/ui/widgets/fileselect.h \
 	src/ui/widgets/floatedit.h \
@@ -295,6 +296,7 @@ SOURCES += \
 	src/spells/texture.cpp \
 	src/spells/transform.cpp \
 	src/ui/widgets/colorwheel.cpp \
+	src/ui/widgets/ddspreview.cpp \
 	src/ui/widgets/filebrowser.cpp \
 	src/ui/widgets/fileselect.cpp \
 	src/ui/widgets/floatedit.cpp \
