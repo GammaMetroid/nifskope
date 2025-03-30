@@ -311,7 +311,7 @@ QModelIndex spExtractAllResources::cast( NifModel * nif, const QModelIndex & ind
 			}
 		}
 	} catch ( std::exception & e ) {
-		QMessageBox::critical( nullptr, "NifSkope error", QString("Error extracting file: %1" ).arg( e.what() ) );
+		QMessageBox::critical( nullptr, "NifSkope error", QString( "Error extracting file: %1" ).arg( e.what() ) );
 	}
 	return index;
 }
@@ -396,7 +396,7 @@ QModelIndex spExtractAllMaterials::cast( NifModel * nif, const QModelIndex & ind
 			pb->setValue( n );
 		}
 	} catch ( std::exception & e ) {
-		QMessageBox::critical( nullptr, "NifSkope error", QString("Error extracting file: %1" ).arg( e.what() ) );
+		QMessageBox::critical( nullptr, "NifSkope error", QString( "Error extracting file: %1" ).arg( e.what() ) );
 	}
 	return index;
 }
@@ -475,7 +475,8 @@ bool spMeshFileExport::processItem(
 			try {
 				spResourceFileExtract::writeFileWithPath( fullPath, meshBuf.data(), meshBuf.size() );
 			} catch ( std::exception & e ) {
-				QMessageBox::critical( nullptr, "NifSkope error", QString("Error extracting file: %1" ).arg( e.what() ) );
+				QMessageBox::critical( nullptr, "NifSkope error",
+										QString( "Error extracting file: %1" ).arg( e.what() ) );
 			}
 		}
 	}
