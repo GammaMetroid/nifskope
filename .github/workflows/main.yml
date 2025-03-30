@@ -87,7 +87,7 @@ jobs:
     - name: 'Install required packages'
       uses: jurplel/install-qt-action@v4
       with:
-        version: '6.8.2'
+        version: '6.8.3'
 
     - name: 'Install clang'
       run: brew install llvm
