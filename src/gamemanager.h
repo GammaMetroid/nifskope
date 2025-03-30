@@ -114,6 +114,7 @@ public:
 	static GameResources * addNIFResourcePath( const NifModel * nif, const QString & dataPath );
 	static void removeNIFResourcePath( const NifModel * nif );
 	static inline GameResources & getNIFResources( const NifModel * nif );
+	static inline GameResources & getGameResources( const GameMode game );
 
 	//! Convert 'name' to lower case, replace backslashes with forward slashes, and make sure that the path
 	// begins with 'archive_folder' and ends with 'extension' (e.g. "textures" and ".dds").
@@ -198,6 +199,13 @@ inline GameManager::GameResources & GameManager::getNIFResources( const NifModel
 	if ( i != nifResourceMap.end() ) [[likely]]
 		return *(i->second);
 	return archives[get_game(nif)];
+}
+
+inline GameManager::GameResources & GameManager::getGameResources( const GameMode game )
+{
+	if ( !( game > OTHER && game < NUM_GAMES ) ) [[unlikely]]
+		return archives[OTHER];
+	return archives[game];
 }
 
 QString GameManager::path( const QString & game )
