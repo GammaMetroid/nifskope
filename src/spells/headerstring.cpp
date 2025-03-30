@@ -186,7 +186,8 @@ QString spEditStringIndex::browseMaterial( const NifModel * nif, const QString &
 	if ( !matPath.isEmpty() )
 		prvPath = Game::GameManager::get_full_path( matPath, "materials", ( bsVersion >= 170 ? ".mat" : nullptr ) );
 
-	FileBrowserWidget	fileBrowser( 800, 600, "Select Material", materials, prvPath );
+	FileBrowserWidget	fileBrowser( 800, 600, "Select Material", materials, prvPath,
+										( bsVersion < 170 ? &( nif->getGameResources() ) : nullptr ) );
 	if ( fileBrowser.exec() == QDialog::Accepted ) {
 		const std::string_view *	s = fileBrowser.getItemSelected();
 		if ( s )

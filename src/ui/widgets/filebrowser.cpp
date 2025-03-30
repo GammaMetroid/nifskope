@@ -35,6 +35,18 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "filebrowser.h"
 #include "ddspreview.h"
 
+#include <QMessageBox>
+#include <QPushButton>
+
+class NifModel;
+
+class spResourceFileExtract
+{
+public:
+	static std::string getOutputDirectory( const NifModel * nif = nullptr );
+	static void writeFileWithPath( const std::string & fileName, const char * buf, qsizetype bufSize );
+};
+
 QTreeWidgetItem *	FileBrowserWidget::findDirectory( std::map< std::string_view, QTreeWidgetItem * > & dirMap, const std::string_view & d )
 {
 	std::map< std::string_view, QTreeWidgetItem * >::iterator	i = dirMap.find( d );
@@ -112,9 +124,11 @@ void FileBrowserWidget::updateTreeWidget()
 		treeWidget->setCurrentItem( selectedItem );
 }
 
-void FileBrowserWidget::checkItemActivated()
+void FileBrowserWidget::checkItemActivated( QTreeWidgetItem * i, [[maybe_unused]] int column )
 {
-	if ( getItemSelected() )
+	if ( !i )
+		return;
+	if ( int n = i->type(); n >= 0 && size_t(n) < filesShown.size() )
 		accept();
 }
 
@@ -135,20 +149,29 @@ FileBrowserWidget::FileBrowserWidget(
 	layout->addWidget( treeWidget, 1, 0 );
 	layout2 = new QGridLayout();
 	layout->addLayout( layout2, 2, 0 );
-	layout2->setColumnMinimumWidth( 0, w - ( w >> 2 ) );
-	layout2->setColumnMinimumWidth( 1, w >> 2 );
+	layout2->setColumnMinimumWidth( 0, w - 200 );
+	layout2->setColumnMinimumWidth( 1, ( !gameResources ? 200 : 100 ) );
 	filter = new QLineEdit( this );
 	layout2->addWidget( filter, 0, 0 );
 	filterTitle = new QLabel( this );
 	filterTitle->setText( "Path Filter" );
 	layout2->addWidget( filterTitle, 0, 1 );
 
+	if ( gameResources ) {
+		treeWidget->setSelectionMode( QAbstractItemView::ExtendedSelection );
+		layout2->setColumnMinimumWidth( 2, 100 );
+		QPushButton *	b = new QPushButton( "&E;xtract Selected", this );
+		layout2->addWidget( b, 0, 2 );
+		b->setAutoDefault( false );
+		QObject::connect( b, &QPushButton::clicked, this, &FileBrowserWidget::extractItemSelected );
+		QObject::connect( treeWidget, &QTreeWidget::itemSelectionChanged, this, &FileBrowserWidget::showTextureInfo );
+	}
+
 	if ( !fileSelected.empty() )
 		currentFile = &fileSelected;
-	QObject::connect( filter, &QLineEdit::returnPressed, filter, [this]() { updateTreeWidget(); } );
-	QObject::connect( treeWidget, &QTreeWidget::itemDoubleClicked, treeWidget, [this]() { checkItemActivated(); } );
-	if ( gameResources )
-		QObject::connect( treeWidget, &QTreeWidget::itemSelectionChanged, this, &FileBrowserWidget::showTextureInfo );
+	QObject::connect( filter, &QLineEdit::editingFinished, filter, [this]() { updateTreeWidget(); } );
+	QObject::connect( treeWidget, &QTreeWidget::itemActivated, this, &FileBrowserWidget::checkItemActivated );
+
 	updateTreeWidget();
 }
 
@@ -189,4 +212,52 @@ void FileBrowserWidget::showTextureInfo()
 		return;
 	}
 	layout->addWidget( textureInfo, 1, 1 );
+}
+
+void FileBrowserWidget::findItemsSelected( std::set< std::string_view > & filesSelected, const QTreeWidgetItem * i )
+{
+	if ( !i )
+		return;
+	int	n = i->type();
+	if ( n >= 0 && size_t(n) < filesShown.size() ) {
+		filesSelected.insert( *(filesShown[n]) );
+		return;
+	}
+	if ( n == -2 ) {
+		for ( int j = 0; j < i->childCount(); j++ )
+			findItemsSelected( filesSelected, i->child( j ) );
+	}
+}
+
+void FileBrowserWidget::extractItemSelected()
+{
+	if ( !gameResources )
+		return;
+	std::set< std::string_view >	filesSelected;
+	for ( QTreeWidgetItem * i : treeWidget->selectedItems() )
+		findItemsSelected( filesSelected, i );
+	if ( filesSelected.empty() )
+		return;
+	if ( filesSelected.size() > 1000
+		&& QMessageBox::question( this, "NifSkope warning", tr( "Extract %1 files?" ).arg( filesSelected.size() ) )
+			!= QMessageBox::Yes ) {
+		return;
+	}
+
+	std::string	outDir = spResourceFileExtract::getOutputDirectory();
+	if ( outDir.empty() )
+		return;
+
+	try {
+		std::string	fullPath;
+		QByteArray	fileData;
+		for ( const auto & i : filesSelected ) {
+			fullPath = outDir;
+			fullPath += i;
+			if ( gameResources->get_file( fileData, i ) )
+				spResourceFileExtract::writeFileWithPath( fullPath, fileData.data(), fileData.size() );
+		}
+	} catch ( std::exception & e ) {
+		QMessageBox::critical( this, "NifSkope error", QString( "Error extracting file: %1" ).arg( e.what() ) );
+	}
 }

@@ -66,7 +66,7 @@ protected:
 	Game::GameManager::GameResources *	gameResources;
 	QTreeWidgetItem *	findDirectory( std::map< std::string_view, QTreeWidgetItem * > & dirMap, const std::string_view & d );
 	void updateTreeWidget();
-	void checkItemActivated();
+	void findItemsSelected( std::set< std::string_view > & filesSelected, const QTreeWidgetItem * i );
 
 public:
 	// texture preview is enabled if 'archives' is not nullptr
@@ -77,7 +77,9 @@ public:
 	const std::string_view *	getItemSelected() const;
 
 public slots:
+	virtual void checkItemActivated( QTreeWidgetItem *, int );
 	virtual void showTextureInfo();
+	virtual void extractItemSelected();
 };
 
 #endif
