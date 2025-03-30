@@ -44,10 +44,15 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QLineEdit>
 #include <QTreeWidget>
 
-class FileBrowserWidget
+#include "gamemanager.h"
+
+class DDSTextureInfo;
+
+class FileBrowserWidget : public QDialog
 {
+	Q_OBJECT
+
 protected:
-	QDialog	dlg;
 	QGridLayout *	layout;
 	QLabel *	title;
 	QTreeWidget *	treeWidget;
@@ -57,17 +62,22 @@ protected:
 	const std::set< std::string_view > &	fileSet;
 	const std::string_view *	currentFile;
 	std::vector< const std::string_view * >	filesShown;
+	DDSTextureInfo *	textureInfo = nullptr;
+	Game::GameManager::GameResources *	gameResources;
 	QTreeWidgetItem *	findDirectory( std::map< std::string_view, QTreeWidgetItem * > & dirMap, const std::string_view & d );
 	void updateTreeWidget();
 	void checkItemActivated();
+
 public:
-	FileBrowserWidget( int w, int h, const char * titleString, const std::set< std::string_view > & files, const std::string_view & fileSelected );
-	~FileBrowserWidget();
-	int exec()
-	{
-		return dlg.exec();
-	}
+	// texture preview is enabled if 'archives' is not nullptr
+	FileBrowserWidget( int w, int h, const char * titleString,
+						const std::set< std::string_view > & files, const std::string_view & fileSelected,
+						Game::GameManager::GameResources * archives = nullptr );
+	virtual ~FileBrowserWidget();
 	const std::string_view *	getItemSelected() const;
+
+public slots:
+	virtual void showTextureInfo();
 };
 
 #endif

@@ -33,6 +33,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cstdlib>
 
 #include "filebrowser.h"
+#include "ddspreview.h"
 
 QTreeWidgetItem *	FileBrowserWidget::findDirectory( std::map< std::string_view, QTreeWidgetItem * > & dirMap, const std::string_view & d )
 {
@@ -114,28 +115,31 @@ void FileBrowserWidget::updateTreeWidget()
 void FileBrowserWidget::checkItemActivated()
 {
 	if ( getItemSelected() )
-		dlg.accept();
+		accept();
 }
 
-FileBrowserWidget::FileBrowserWidget( int w, int h, const char * titleString, const std::set< std::string_view > & files, const std::string_view & fileSelected )
-	: fileSet( files ), currentFile( nullptr )
+FileBrowserWidget::FileBrowserWidget(
+	int w, int h, const char * titleString,
+	const std::set< std::string_view > & files, const std::string_view & fileSelected,
+	Game::GameManager::GameResources * archives )
+	: fileSet( files ), currentFile( nullptr ), gameResources( archives )
 {
-	layout = new QGridLayout( &dlg );
+	layout = new QGridLayout( this );
 	layout->setColumnMinimumWidth( 0, w );
 	layout->setRowMinimumHeight( 1, h );
-	title = new QLabel( &dlg );
+	title = new QLabel( this );
 	title->setText( titleString );
 	layout->addWidget( title, 0, 0 );
-	treeWidget = new QTreeWidget( &dlg );
+	treeWidget = new QTreeWidget( this );
 	treeWidget->setHeaderLabel( "Path" );
 	layout->addWidget( treeWidget, 1, 0 );
 	layout2 = new QGridLayout();
 	layout->addLayout( layout2, 2, 0 );
 	layout2->setColumnMinimumWidth( 0, w - ( w >> 2 ) );
 	layout2->setColumnMinimumWidth( 1, w >> 2 );
-	filter = new QLineEdit( &dlg );
+	filter = new QLineEdit( this );
 	layout2->addWidget( filter, 0, 0 );
-	filterTitle = new QLabel( &dlg );
+	filterTitle = new QLabel( this );
 	filterTitle->setText( "Path Filter" );
 	layout2->addWidget( filterTitle, 0, 1 );
 
@@ -143,11 +147,14 @@ FileBrowserWidget::FileBrowserWidget( int w, int h, const char * titleString, co
 		currentFile = &fileSelected;
 	QObject::connect( filter, &QLineEdit::returnPressed, filter, [this]() { updateTreeWidget(); } );
 	QObject::connect( treeWidget, &QTreeWidget::itemDoubleClicked, treeWidget, [this]() { checkItemActivated(); } );
+	if ( gameResources )
+		QObject::connect( treeWidget, &QTreeWidget::itemSelectionChanged, this, &FileBrowserWidget::showTextureInfo );
 	updateTreeWidget();
 }
 
 FileBrowserWidget::~FileBrowserWidget()
 {
+	delete textureInfo;
 }
 
 const std::string_view * FileBrowserWidget::getItemSelected() const
@@ -159,4 +166,27 @@ const std::string_view * FileBrowserWidget::getItemSelected() const
 			return filesShown[n];
 	}
 	return nullptr;
+}
+
+void FileBrowserWidget::showTextureInfo()
+{
+	if ( textureInfo ) {
+		delete textureInfo;
+		textureInfo = nullptr;
+	}
+	if ( !gameResources )
+		return;
+
+	const std::string_view *	filePath = getItemSelected();
+	if ( !( filePath && ( filePath->ends_with( ".dds" ) || filePath->ends_with( ".hdr" ) ) ) )
+		return;
+
+	try {
+		textureInfo =
+			new DDSTextureInfo( *gameResources, QString::fromUtf8( filePath->data(), qsizetype( filePath->length() ) ),
+								this );
+	} catch ( NifSkopeError & ) {
+		return;
+	}
+	layout->addWidget( textureInfo, 1, 1 );
 }

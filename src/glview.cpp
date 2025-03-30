@@ -270,16 +270,18 @@ bool GLView::selectPBRCubeMapForGame( quint32 bsVersion )
 	if ( bsVersion < 151 )
 		return false;
 	bool	isStarfield = ( bsVersion >= 170 );
+	Game::GameMode	game = ( !isStarfield ? Game::FALLOUT_76 : Game::STARFIELD );
 	QString	cfgPath( !isStarfield ? "Settings/Render/General/Cube Map Path FO 76" : "Settings/Render/General/Cube Map Path STF" );
 
 	std::set< std::string_view >	fileSet;
-	Game::GameManager::list_files( fileSet, (!isStarfield ? Game::FALLOUT_76 : Game::STARFIELD), &envMapFileListFilterFunction );
+	Game::GameManager::list_files( fileSet, game, &envMapFileListFilterFunction );
 	QSettings	settings;
 	std::string	prvPath( settings.value( cfgPath ).toString().toStdString() );
 	if ( !prvPath.empty() && fileSet.find( prvPath ) == fileSet.end() )
 		prvPath.clear();
 
-	FileBrowserWidget	fileBrowser( 640, 480, "Select Default Environment Map", fileSet, prvPath );
+	FileBrowserWidget	fileBrowser( 640, 480, "Select Default Environment Map", fileSet, prvPath,
+										&( Game::GameManager::getGameResources( game ) ) );
 	const std::string_view *	newPath = nullptr;
 	if ( fileBrowser.exec() == QDialog::Accepted )
 		newPath = fileBrowser.getItemSelected();

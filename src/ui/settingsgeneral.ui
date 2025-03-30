@@ -147,7 +147,7 @@
           <bool>true</bool>
          </property>
          <layout class="QGridLayout" name="gridLayout_2">
-          <item row="0" column="0">
+          <item row="0" column="0" colspan="2">
            <widget class="QCheckBox" name="suppressSaveConfirmation">
             <property name="text">
              <string>Suppress Save Confirmation</string>
@@ -155,6 +155,38 @@
            </widget>
           </item>
           <item row="1" column="0">
+           <widget class="QSpinBox" name="texturePreviewDefaultSize">
+            <property name="maximumSize">
+             <size>
+              <width>50</width>
+              <height>26</height>
+             </size>
+            </property>
+            <property name="minimum">
+             <number>256</number>
+            </property>
+            <property name="maximum">
+             <number>1024</number>
+            </property>
+            <property name="singleStep">
+             <number>64</number>
+            </property>
+            <property name="value">
+             <number>512</number>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="1">
+           <widget class="QLabel" name="lblTexPreviewDefaultSize">
+            <property name="text">
+             <string>Texture Preview Default Size</string>
+            </property>
+            <property name="buddy">
+             <cstring>texturePreviewDefaultSize</cstring>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0" colspan="2">
            <spacer name="verticalSpacer">
             <property name="orientation">
              <enum>Qt::Vertical</enum>
