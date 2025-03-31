@@ -194,7 +194,7 @@ FileBrowserWidget::FileBrowserWidget(
 	if ( gameResources ) {
 		treeWidget->setSelectionMode( QAbstractItemView::ExtendedSelection );
 		layout2->setColumnMinimumWidth( 2, 100 );
-		QPushButton *	b = new QPushButton( "&E;xtract Selected", this );
+		QPushButton *	b = new QPushButton( "&Extract Selected", this );
 		layout2->addWidget( b, 0, 2 );
 		b->setAutoDefault( false );
 		QObject::connect( b, &QPushButton::clicked, this, &FileBrowserWidget::extractItemSelected );
