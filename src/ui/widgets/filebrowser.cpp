@@ -36,6 +36,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ddspreview.h"
 #include "ba2file.hpp"
 
+#include <QCoreApplication>
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QPushButton>
