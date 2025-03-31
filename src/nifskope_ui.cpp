@@ -41,6 +41,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "model/kfmmodel.h"
 #include "model/nifmodel.h"
 #include "model/nifproxymodel.h"
+#include "ui/widgets/filebrowser.h"
 #include "ui/widgets/fileselect.h"
 #include "ui/widgets/floatslider.h"
 #include "ui/widgets/floatedit.h"
@@ -1424,6 +1425,17 @@ void NifSkope::on_aReload_triggered()
 	if ( NifModel::loadXML() ) {
 		reload();
 	}
+}
+
+void NifSkope::on_aArchiveExtractor_triggered()
+{
+	if ( !nif )
+		return;
+	std::set< std::string_view >	filePaths;
+	nif->listResourceFiles( filePaths );
+	FileBrowserWidget	fileBrowser( 640, 600, "Browse Resources", filePaths, std::string_view(),
+										&( nif->getGameResources() ), true );
+	(void) fileBrowser.exec();
 }
 
 void NifSkope::on_aSelectFont_triggered()

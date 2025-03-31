@@ -54,13 +54,11 @@ class FileBrowserWidget : public QDialog
 
 protected:
 	QGridLayout *	layout;
-	QLabel *	title;
 	QTreeWidget *	treeWidget;
-	QGridLayout *	layout2;
 	QLineEdit *	filter;
-	QLabel *	filterTitle;
 	const std::set< std::string_view > &	fileSet;
 	const std::string_view *	currentFile;
+	qsizetype	selectedFileIndex = -1;
 	std::vector< const std::string_view * >	filesShown;
 	DDSTextureInfo *	textureInfo = nullptr;
 	Game::GameManager::GameResources *	gameResources;
@@ -72,7 +70,7 @@ public:
 	// texture preview is enabled if 'archives' is not nullptr
 	FileBrowserWidget( int w, int h, const char * titleString,
 						const std::set< std::string_view > & files, const std::string_view & fileSelected,
-						Game::GameManager::GameResources * archives = nullptr );
+						Game::GameManager::GameResources * archives = nullptr, bool archiveExtractorMode = false );
 	virtual ~FileBrowserWidget();
 	const std::string_view *	getItemSelected() const;
 

@@ -201,6 +201,9 @@ public slots:
 	//! Reparse the nif.xml and kfm.xml files and reload the current file.
 	void on_aReload_triggered();
 
+	//! Open file browser for all resources
+	void on_aArchiveExtractor_triggered();
+
 	//! A slot that creates a new NifSkope application window.
 	void on_aWindow_triggered();
 

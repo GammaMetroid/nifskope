@@ -234,6 +234,7 @@
     <addaction name="aShredder"/>
     <addaction name="aCloseArchives"/>
     <addaction name="aLoadXML"/>
+    <addaction name="aArchiveExtractor"/>
     <addaction name="separator"/>
     <addaction name="aQuit"/>
    </widget>
@@ -1048,6 +1049,11 @@ background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0
   <action name="aShredder">
    <property name="text">
     <string>File Checker</string>
+   </property>
+  </action>
+  <action name="aArchiveExtractor">
+   <property name="text">
+    <string>Browse Resources</string>
    </property>
   </action>
   <action name="aQuit">

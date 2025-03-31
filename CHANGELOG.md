@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20250331
+
 * New spell for simplifying BSTriShape meshes, using [meshoptimizer](https://github.com/zeux/meshoptimizer#simplification). It is recommended to remove duplicate vertices first before simplification. Casting the spell without a selection simplifies the whole model (experimental), and there is also a batch spell that processes each shape separately with the last used settings.
 * Texture chooser dialogs show a preview and information about the selected file. The resolution of the preview can be configured in the general settings.
 * Material and texture browsers have a new button to extract the selected item(s). Note that this feature does not support extracting Starfield materials.
