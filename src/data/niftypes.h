@@ -1835,18 +1835,17 @@ enum VertexFlags : ushort
 	VF_FULLPREC = 0x400
 };
 
-const uint64_t DESC_MASK_VERT = 0xFFFFFFFFFFFFFFF0;
-const uint64_t DESC_MASK_UVS = 0xFFFFFFFFFFFFFF0F;
-const uint64_t DESC_MASK_NBT = 0xFFFFFFFFFFFFF0FF;
-const uint64_t DESC_MASK_SKCOL = 0xFFFFFFFFFFFF0FFF;
-const uint64_t DESC_MASK_DATA = 0xFFFFFFFFFFF0FFFF;
-const uint64_t DESC_MASK_OFFSET = 0xFFFFFF0000000000;
-const uint64_t DESC_MASK_FLAGS = ~(DESC_MASK_OFFSET);
-
 class BSVertexDesc
 {
-
 public:
+	static constexpr uint64_t DESC_MASK_VERT = 0xFFFFFFFFFFFFFFF0ull;
+	static constexpr uint64_t DESC_MASK_UVS = 0xFFFFFFFFFFFFFF0Full;
+	static constexpr uint64_t DESC_MASK_NBT = 0xFFFFFFFFFFFFF0FFull;
+	static constexpr uint64_t DESC_MASK_SKCOL = 0xFFFFFFFFFFFF0FFFull;
+	static constexpr uint64_t DESC_MASK_DATA = 0xFFFFFFFFFFF0FFFFull;
+	static constexpr uint64_t DESC_MASK_OFFSET = 0xFFFFFF0000000000ull;
+	static constexpr uint64_t DESC_MASK_FLAGS = ~(DESC_MASK_OFFSET);
+
 	BSVertexDesc()
 	{
 	}
@@ -1927,7 +1926,7 @@ public:
 	void SetAttributeOffset( VertexAttribute attr, uint offset )
 	{
 		if ( attr != VA_POSITION ) {
-			desc = ((uint64_t)offset << (4 * (uchar)attr + 2)) | (desc & ~(15 << (4 * (uchar)attr + 4)));
+			desc = ((uint64_t)offset << (4 * (uchar)attr + 2)) | (desc & ~(15ull << (4 * (uchar)attr + 4)));
 		}
 	}
 
@@ -1977,10 +1976,6 @@ public:
 		}
 
 		SetSize( vertexSize );
-
-		// SetFlags must be called again because SetAttributeOffset
-		// appears to clear part of the byte ahead of it
-		SetFlags( vf );
 	}
 
 	void ClearAttributeOffsets()
