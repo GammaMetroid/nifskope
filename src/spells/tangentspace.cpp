@@ -15,20 +15,18 @@ bool spTangentSpace::isApplicable( const NifModel * nif, const QModelIndex & ind
 		return i->hasStrType( "BSMeshData" );
 	}
 
-	QModelIndex iData = nif->getBlockIndex( nif->getLink( index, "Data" ) );
-
-	if ( nif->isNiBlock( index, "BSTriShape" ) || nif->isNiBlock( index, "BSSubIndexTriShape" )
-		|| nif->isNiBlock( index, "BSMeshLODTriShape" ) ) {
+	if ( nif->isNiBlock( index, { "BSTriShape", "BSSubIndexTriShape", "BSMeshLODTriShape" } ) ) {
 		// TODO: Check vertex flags to verify mesh has normals and space for tangents/bitangents
 		return true;
 	}
 
-	if ( !( nif->isNiBlock( index, "NiTriShape" ) && nif->isNiBlock( iData, "NiTriShapeData" ) )
-	     && !( nif->isNiBlock( index, "BSLODTriShape" ) && nif->isNiBlock( iData, "NiTriShapeData" ) )
-	     && !( nif->isNiBlock( index, "NiTriStrips" ) && nif->isNiBlock( iData, "NiTriStripsData" ) ) )
-	{
+	if ( !nif->isNiBlock( index, { "NiTriShape", "BSLODTriShape", "NiTriStrips" } ) )
 		return false;
-	}
+
+	QModelIndex iData = nif->getBlockIndex( nif->getLink( index, "Data" ) );
+
+	if ( !nif->isNiBlock( iData, ( nif->isNiBlock( index, "NiTriStrips" ) ? "NiTriStripsData" : "NiTriShapeData" ) ) )
+		return false;
 
 	// early exit of normals are missing
 	if ( !nif->get<bool>( iData, "Has Normals" ) )
@@ -497,37 +495,33 @@ public:
 	QModelIndex cast( NifModel * nif, const QModelIndex & ) override final
 	{
 		QVector<QModelIndex> blks;
+		spTangentSpace update;
+
 		for ( int l = 0; l < nif->getBlockCount(); l++ ) {
-			if ( nif->getBSVersion() >= 170 ) {
-				QModelIndex	idx = nif->getBlockIndex( l, "BSGeometry" );
-				if ( idx.isValid() )
-					spTangentSpace::tangentSpaceSFMesh( nif, idx );
+			QModelIndex idx = nif->getBlockIndex( l, "NiTriShape" );
+			if ( idx.isValid() ) {
+				// NiTriShapeData
+				auto iData = nif->getBlockIndex( nif->getLink( idx, "Data" ) );
+
+				// Do not do anything without proper UV/Vert/Tri data
+				auto numVerts = nif->get<int>( iData, "Num Vertices" );
+				auto numTris = nif->get<int>( iData, "Num Triangles" );
+				auto	i = nif->getItem( iData, ( !nif->getBSVersion() ? "Data Flags" : "BS Data Flags" ) );
+				bool hasUVs = ( i && ( nif->get<int>( i ) & 1 ) );
+				if ( !hasUVs || !numVerts || !numTris )
+					continue;
+
+				nif->set<int>( i, 4097 );
+				nif->updateArraySize( iData, "Tangents" );
+				nif->updateArraySize( iData, "Bitangents" );
+			} else if ( !update.isApplicable( nif, idx ) ) {
 				continue;
 			}
-			QModelIndex idx = nif->getBlockIndex( l, "NiTriShape" );
-			if ( !idx.isValid() )
-				continue;
-
-			// NiTriShapeData
-			auto iData = nif->getBlockIndex( nif->getLink( idx, "Data" ) );
-
-			// Do not do anything without proper UV/Vert/Tri data
-			auto numVerts = nif->get<int>( iData, "Num Vertices" );
-			auto numTris = nif->get<int>( iData, "Num Triangles" );
-			auto	i = nif->getItem( iData, ( !nif->getBSVersion() ? "Data Flags" : "BS Data Flags" ) );
-			bool hasUVs = ( i && ( nif->get<int>( i ) & 1 ) );
-			if ( !hasUVs || !numVerts || !numTris )
-				continue;
-
-			nif->set<int>( i, 4097 );
-			nif->updateArraySize( iData, "Tangents" );
-			nif->updateArraySize( iData, "Bitangents" );
 
 			// Add NiTriShape for spTangentSpace
 			blks << idx;
 		}
 
-		spTangentSpace update;
 		for ( auto& b : blks )
 			update.cast( nif, b );
 
