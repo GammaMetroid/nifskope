@@ -36,6 +36,8 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <QGridLayout>
 #include <QImage>
+#include <QLabel>
+#include <QPainter>
 #include <QPixmap>
 #include <QSettings>
 
@@ -131,7 +133,7 @@ void DDSTexturePreview::threadFunction( DDSTexturePreview * p, std::uint32_t * i
 }
 
 DDSTexturePreview::DDSTexturePreview( QWidget * parent )
-	: QLabel( parent )
+	: QWidget( parent )
 {
 	setSizePolicy( QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding );
 
@@ -167,21 +169,16 @@ void DDSTexturePreview::setTexture( const DDSTexture16 * txt, bool isNormalMap, 
 		textureFlags = textureFlags | 4;
 }
 
-void DDSTexturePreview::resizeEvent( QResizeEvent * e )
-{
-	QLabel::resizeEvent( e );
-	drawTexture( e->size().width(), e->size().height() );
-}
-
-void DDSTexturePreview::drawTexture( int w, int h )
+void DDSTexturePreview::paintEvent( [[maybe_unused]] QPaintEvent * e )
 {
 	double	r = devicePixelRatioF();
+	double	w1 = double( width() ) * r;
+	double	h1 = double( height() ) * r;
+	int	w, h;
 	{
 		double	a = 1.0;
 		if ( t )
 			a = ( t->getIsCubeMap() ? 2.0 : double( t->getWidth() ) / double( t->getHeight() ) );
-		double	w1 = double( w ) * r;
-		double	h1 = double( h ) * r;
 		double	w2 = h1 * a;
 		double	h2 = w1 / a;
 		w = std::max< int >( int( std::min( w1, w2 ) + 0.5 ), 32 );
@@ -197,7 +194,9 @@ void DDSTexturePreview::drawTexture( int w, int h )
 	}
 	mipLevel = m;
 
-	std::vector< std::uint32_t >	imgBuf( size_t( w ) * size_t( h ) );
+	QImage	img( w, h, QImage::Format_ARGB32 );
+	img.setDevicePixelRatio( r );
+	std::uint32_t *	imgBuf = reinterpret_cast< std::uint32_t * >( img.bits() );
 	{
 		std::thread *	threads[8] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
 		int	numThreads = int( std::thread::hardware_concurrency() );
@@ -205,7 +204,7 @@ void DDSTexturePreview::drawTexture( int w, int h )
 		int	y0 = 0;
 		for ( int i = 0; i < numThreads; i++ ) {
 			int	y1 = h * ( i + 1 ) / numThreads;
-			threads[i] = new std::thread( DDSTexturePreview::threadFunction, this, imgBuf.data(), w, h, y0, y1 );
+			threads[i] = new std::thread( DDSTexturePreview::threadFunction, this, imgBuf, w, h, y0, y1 );
 			y0 = y1;
 		}
 		for ( int i = 0; i < numThreads; i++ ) {
@@ -214,10 +213,10 @@ void DDSTexturePreview::drawTexture( int w, int h )
 		}
 	}
 
-	QImage	img( reinterpret_cast< const unsigned char * >( imgBuf.data() ), w, h, QImage::Format_ARGB32 );
-	QPixmap	p( QPixmap::fromImage( img ) );
-	p.setDevicePixelRatio( r );
-	setPixmap( p );
+	int	xOffs = int( ( w1 - double( w ) ) / ( r * 2.0 ) + 0.5 );
+	int	yOffs = int( ( h1 - double( h ) ) / ( r * 2.0 ) + 0.5 );
+	QPainter	p( this );
+	p.drawImage( QPoint( xOffs, yOffs ), img, img.rect() );
 }
 
 QSize DDSTexturePreview::sizeHint() const
@@ -231,8 +230,7 @@ QSize DDSTexturePreview::sizeHint() const
 			w = w << 2;
 			h = h << 1;
 		}
-		double	r = devicePixelRatioF();
-		double	scale = ( double( defaultSize ) * r ) / double( std::max( w, h ) );
+		double	scale = double( defaultSize ) / double( std::max( w, h ) );
 		w = int( double( w ) * scale + 0.5 );
 		h = int( double( h ) * scale + 0.5 );
 	}

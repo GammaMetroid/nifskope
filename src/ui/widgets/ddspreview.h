@@ -1,15 +1,14 @@
 #ifndef DDSPREVIEW_H_INCLUDED
 #define DDSPREVIEW_H_INCLUDED
 
-#include <QLabel>
-#include <QResizeEvent>
+#include <QPaintEvent>
 #include <QSize>
 #include <QWidget>
 
 #include "ddstxt16.hpp"
 #include "gamemanager.h"
 
-class DDSTexturePreview : public QLabel
+class DDSTexturePreview : public QWidget
 {
 	Q_OBJECT
 
@@ -27,12 +26,11 @@ public:
 	virtual ~DDSTexturePreview();
 
 	void setTexture( const DDSTexture16 * txt, bool isNormalMap, bool invertCubeMapZAxis );
-	void drawTexture( int w, int h );
 
 	QSize sizeHint() const override;
 
 protected:
-	void resizeEvent( QResizeEvent * ) override;
+	void paintEvent( QPaintEvent * ) override;
 };
 
 class DDSTextureInfo : public QWidget

@@ -172,6 +172,7 @@ FileBrowserWidget::FileBrowserWidget(
 {
 	layout = new QGridLayout( this );
 	layout->setColumnMinimumWidth( 0, w );
+	layout->setColumnStretch( 0, 1 );
 	layout->setRowMinimumHeight( 1, h );
 	layout->addWidget( new QLabel( QString( titleString ), this ), 0, 0 );
 	treeWidget = new QTreeWidget( this );
