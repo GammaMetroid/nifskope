@@ -990,7 +990,7 @@ public:
 			tex->bind( iBlock );
 		v->popGLContext( prvContext );
 
-		QMessageBox::information( nullptr, tr( "Texture information" ), tex->info( iBlock ) );
+		QMessageBox::information( nullptr, Spell::tr( "Texture information" ), tex->info( iBlock ) );
 		return index;
 	}
 };
@@ -998,14 +998,25 @@ public:
 void spTexInfo::showTexture( NifModel * nif, const QString & filename )
 {
 	try {
+		QString	fullPath = nif->findResourceFile( filename, "textures/", ".dds" );
+		if ( fullPath.isEmpty() )
+			return;
+
 		QDialog	dlg;
 
 		QGridLayout *	grid = new QGridLayout( &dlg );
-		QLabel *	lb = new QLabel( tr( "Texture information" ), &dlg );
+		grid->setColumnStretch( 0, 0 );
+		grid->setColumnStretch( 1, 1 );
+		grid->setColumnMinimumWidth( 0, 100 );
+		QLabel *	lb = new QLabel( Spell::tr( "Texture information" ), &dlg );
 		lb->setAlignment( Qt::AlignCenter );
-		grid->addWidget( lb, 0, 0 );
-		grid->addWidget( new QLabel( QString(), &dlg ), 1, 0 );
-		grid->addWidget( new DDSTextureInfo( nif->getGameResources(), filename, &dlg ), 2, 0 );
+		grid->addWidget( lb, 0, 0, 1, 2 );
+		grid->addWidget( new QLabel( QString(), &dlg ), 1, 0, 1, 2 );
+		grid->addWidget( new QLabel( Spell::tr( "File name" ), &dlg ), 2, 0 );
+		grid->addWidget( new QLabel( filename, &dlg ), 2, 1 );
+		grid->addWidget( new QLabel( Spell::tr( "Resource path" ), &dlg ), 3, 0 );
+		grid->addWidget( new QLabel( fullPath, &dlg ), 3, 1 );
+		grid->addWidget( new DDSTextureInfo( nif->getGameResources(), fullPath, &dlg ), 4, 0, 1, 2 );
 
 		dlg.exec();
 
