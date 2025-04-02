@@ -762,15 +762,15 @@ void DDSTexture16::loadTexture(FileBuffer& buf, int mipOffset,
           dxgiFormat = 0x53;
           break;
         case 0x31545844:                // "DXT1"
-          dxgiFormat = 0x48;
+          dxgiFormat = 0x47;
           break;
         case 0x32545844:                // "DXT2"
         case 0x33545844:                // "DXT3"
-          dxgiFormat = 0x4B;
+          dxgiFormat = 0x4A;
           break;
         case 0x34545844:                // "DXT4"
         case 0x35545844:                // "DXT5"
-          dxgiFormat = 0x4E;
+          dxgiFormat = 0x4D;
           break;
         default:
           throw NifSkopeError("unsupported DDS fourCC: 0x%08X",
@@ -794,13 +794,13 @@ void DDSTexture16::loadTexture(FileBuffer& buf, int mipOffset,
     if (bitsPerPixel < 32U || !(formatFlags & 0x03))
       baMask = baMask & ~0xFF00000000000000ULL;
     if (rgMask == 0x0000FF00000000FFULL && baMask == 0x0000000000FF0000ULL)
-      dxgiFormat = (bitsPerPixel < 32U ? 0x7F : 0x7B);
+      dxgiFormat = (bitsPerPixel < 32U ? 0x7E : 0x7A);
     else if (rgMask == 0x0000FF0000FF0000ULL && baMask == 0x00000000000000FFULL)
-      dxgiFormat = (bitsPerPixel < 32U ? 0x7D : 0x5D);
+      dxgiFormat = (bitsPerPixel < 32U ? 0x7C : 0x58);
     else if (rgMask == 0x0000FF00000000FFULL && baMask == 0xFF00000000FF0000ULL)
-      dxgiFormat = (!(formatFlags & 0x00080000) ? 0x1D : 0x1F);
+      dxgiFormat = (!(formatFlags & 0x00080000) ? 0x1C : 0x1F);
     else if (rgMask == 0x0000FF0000FF0000ULL && baMask == 0xFF000000000000FFULL)
-      dxgiFormat = 0x5B;
+      dxgiFormat = 0x57;
     else if (rgMask == 0x0000FF00000000FFULL && !baMask)
       dxgiFormat = 0x31;
     else if (rgMask == 0x00000000000000FFULL && !baMask)
