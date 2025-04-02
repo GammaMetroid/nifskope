@@ -1,4 +1,5 @@
 #include "tangentspace.h"
+#include "mesh.h"
 
 #include "lib/nvtristripwrapper.h"
 
@@ -16,8 +17,11 @@ bool spTangentSpace::isApplicable( const NifModel * nif, const QModelIndex & ind
 	}
 
 	if ( nif->isNiBlock( index, { "BSTriShape", "BSSubIndexTriShape", "BSMeshLODTriShape" } ) ) {
-		// TODO: Check vertex flags to verify mesh has normals and space for tangents/bitangents
-		return true;
+		const NifItem *	i = nif->getItem( index, "Vertex Desc" );
+		if ( !i )
+			return false;
+		auto	f = nif->get<BSVertexDesc>( i ).GetFlags();
+		return ( ( f & ( VF_VERTEX | VF_UV | VF_NORMAL ) ) == ( VF_VERTEX | VF_UV | VF_NORMAL ) );
 	}
 
 	if ( !nif->isNiBlock( index, { "NiTriShape", "BSLODTriShape", "NiTriStrips" } ) )
@@ -62,13 +66,26 @@ QModelIndex spTangentSpace::cast( NifModel * nif, const QModelIndex & iBlock )
 		iData = nif->getBlockIndex( nif->getLink( iShape, "Data" ) );
 	} else {
 		auto vf = nif->get<BSVertexDesc>( iShape, "Vertex Desc" );
+		bool addingTangents = false;
+		if ( !( vf & VertexFlags::VF_TANGENT ) ) {
+			vf.SetFlag( VertexFlags::VF_TANGENT );
+			vf.ResetAttributeOffsets( nif->getBSVersion() );
+			nif->set<BSVertexDesc>( iShape, "Vertex Desc", vf );
+			spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iShape );
+			addingTangents = true;
+		}
 		if ( (vf & VertexFlags::VF_SKINNED) && nif->getBSVersion() == 100 ) {
 			// Skinned SSE
 			auto skinID = nif->getLink( nif->getIndex( iShape, "Skin" ) );
 			auto partID = nif->getLink( nif->getBlockIndex( skinID, "NiSkinInstance" ), "Skin Partition" );
 			iPartBlock = nif->getBlockIndex( partID, "NiSkinPartition" );
-			if ( iPartBlock.isValid() )
+			if ( iPartBlock.isValid() ) {
+				if ( addingTangents ) {
+					nif->set<BSVertexDesc>( iPartBlock, "Vertex Desc", vf );
+					spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iPartBlock );
+				}
 				iData = nif->getIndex( iPartBlock, "Vertex Data" );
+			}
 		} else {
 			iData = nif->getIndex( iShape, "Vertex Data" );
 		}
