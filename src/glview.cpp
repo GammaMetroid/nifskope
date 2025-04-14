@@ -1236,6 +1236,11 @@ void GLView::dataChanged( const QModelIndex & idx, const QModelIndex & xdi )
 	if ( doCompile )
 		return;
 
+	if ( model && idx == model->getRootIndex() && xdi == idx ) {
+		modelChanged();
+		return;
+	}
+
 	QModelIndex ix = idx;
 
 	if ( idx == xdi ) {
@@ -2009,7 +2014,7 @@ void GLView::mouseReleaseEvent( QMouseEvent * event )
 		}
 
 		if ( !isColorPicker ) {
-			QModelIndex idx = indexAt( event->localPos(), bool( event->modifiers() & Qt::ShiftModifier ) );
+			QModelIndex idx = indexAt( event->position(), bool( event->modifiers() & Qt::ShiftModifier ) );
 			scene->currentBlock = model->getBlockIndex( idx );
 			scene->currentIndex = idx.sibling( idx.row(), 0 );
 
@@ -2038,7 +2043,7 @@ void GLView::mouseReleaseEvent( QMouseEvent * event )
 
 			QImage * img = new QImage( fbo.toImage() );
 
-			QColor what = QColor( img->pixel( ( event->localPos() * devicePixelRatioF() ).toPoint() ) );
+			QColor what = QColor( img->pixel( ( event->position() * devicePixelRatioF() ).toPoint() ) );
 
 			glClearColor( what.redF(), what.greenF(), what.blueF(), what.alphaF() );
 			// qDebug() << what;
@@ -2050,7 +2055,8 @@ void GLView::mouseReleaseEvent( QMouseEvent * event )
 	}
 
 	if ( event->button() == Qt::RightButton && !isColorPicker ) {
-		QContextMenuEvent	e( QContextMenuEvent::Mouse, event->pos(), event->globalPos(), event->modifiers() );
+		QContextMenuEvent	e( QContextMenuEvent::Mouse, event->position().toPoint(), event->globalPosition().toPoint(),
+								event->modifiers() );
 		contextMenuEvent( &e );
 	}
 }
