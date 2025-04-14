@@ -288,6 +288,8 @@ public:
 public:
 	QModelIndex itemToIndex( const NifItem * item, int column = 0 ) const;
 
+	inline QModelIndex getRootIndex() const { return createIndex( 0, 0, root ); }
+
 	//! Checks if the item is a direct child of the root.
 	bool isTopItem( const NifItem * item ) const;
 	//! Checks if the model index is a direct child of the root.

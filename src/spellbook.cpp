@@ -144,7 +144,10 @@ void SpellBook::cast( NifModel * nif, const QModelIndex & index, SpellPtr spell 
 		nif->updateHeader();
 
 		if ( nif->getProcessingResult() ) {
-			emit nif->dataChanged( idx, idx );
+			QModelIndex i = idx;
+			if ( !i.isValid() )
+				i = nif->getRootIndex();
+			emit nif->dataChanged( i, i );
 		}
 
 		emit sigIndex( idx );
