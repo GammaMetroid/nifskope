@@ -240,8 +240,12 @@ public:
 
 void spExtractAllResources::addPath( std::set< std::string > & fileSet, NifModel * nif, const std::string & filePath )
 {
-	if ( filePath.empty() || nif->findResourceFile( QString::fromStdString( filePath ), nullptr, nullptr ).isEmpty() )
+	if ( filePath.empty() )
 		return;
+	if ( nif->getBSVersion() < 170 || !( filePath.ends_with( ".mat" ) && filePath.starts_with( "materials/" ) ) ) {
+		if ( nif->findResourceFile( QString::fromStdString( filePath ), nullptr, nullptr ).isEmpty() )
+			return;
+	}
 	fileSet.insert( filePath );
 }
 

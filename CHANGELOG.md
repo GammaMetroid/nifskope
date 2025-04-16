@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+* Fixed the "Extract Resource Files" spell not extracting compiled Starfield materials.
+
 #### NifSkope-2.0.dev11-20250414
 
 * Tangent space spells now automatically add tangents to BSTriShape if missing.
