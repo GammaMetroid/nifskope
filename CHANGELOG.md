@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Screenshot supersampling is now saved as a setting.
 * Fixed the "Extract Resource Files" spell not extracting compiled Starfield materials.
 
 #### NifSkope-2.0.dev11-20250414

@@ -1444,7 +1444,7 @@ void GLView::saveImage()
 	dlg->setMinimumWidth( 400 );
 
 	// Save file format, quality and default screenshot path
-	int imgFormat, jpegQuality;
+	int imgFormat, jpegQuality, ss;
 	QString imgPath;
 	{
 		QSettings settings;
@@ -1452,6 +1452,8 @@ void GLView::saveImage()
 		imgFormat = settings.value( "Screenshot/Format", 0 ).toInt();
 		imgFormat = std::clamp< int >( imgFormat, 0, 4 );
 		imgPath = settings.value( "Screenshot/Folder", "screenshots" ).toString();
+		ss = settings.value( "Screenshot/Size", 0 ).toInt();
+		ss = std::clamp< int >( ss, 0, 3 );
 	}
 
 	QString date = QDateTime::currentDateTime().toString( "yyyyMMdd_HH-mm-ss" );
@@ -1501,40 +1503,42 @@ void GLView::saveImage()
 	GLint	dims[2];
 	glGetIntegerv( GL_MAX_VIEWPORT_DIMS, dims );
 
-	// Default size
-	auto btnOneX = new QRadioButton( "1x", dlg );
-	btnOneX->setCheckable( true );
-	btnOneX->setChecked( true );
 	// Disable any of these that would exceed the max viewport size of the platform
 	int	w = width();
 	int	h = height();
 	double	p = devicePixelRatioF();
-	QRadioButton	*btnTwoX, *btnFourX, *btnEightX;
-	for ( int i = 1; i <= 3; i++ ) {
-		QRadioButton* &	b = ( i == 1 ? btnTwoX : ( i == 2 ? btnFourX : btnEightX ) );
-		b = new QRadioButton( ( i == 1 ? "2x" : ( i == 2 ? "4x" : "8x" ) ), dlg );
+	QRadioButton *	btnSS[4];
+	for ( int i = 0; i < 4; i++ ) {
+		QRadioButton* &	b = btnSS[i];
+		b = new QRadioButton( ( i < 2 ? ( i == 0 ? "1x" : "2x" ) : ( i == 2 ? "4x" : "8x" ) ), dlg );
 		b->setCheckable( true );
-		int	wp = int( p * ( w << i ) + 0.5 );
-		int	hp = int( p * ( h << i ) + 0.5 );
-		b->setDisabled( wp > dims[0] || hp > dims[1] );
+		if ( i > 0 ) {
+			int	wp = int( p * ( w << i ) + 0.5 );
+			int	hp = int( p * ( h << i ) + 0.5 );
+			bool isDisabled = ( wp > dims[0] || hp > dims[1] );
+			b->setDisabled( isDisabled );
+			if ( isDisabled )
+				ss = std::min< int >( ss, i - 1 );
+		}
 	}
+	btnSS[ss]->setChecked( true );
 
 
 	auto grpBox = new QGroupBox( tr( "Image Size" ), dlg );
 	auto grpBoxLayout = new QHBoxLayout;
-	grpBoxLayout->addWidget( btnOneX );
-	grpBoxLayout->addWidget( btnTwoX );
-	grpBoxLayout->addWidget( btnFourX );
-	grpBoxLayout->addWidget( btnEightX );
+	grpBoxLayout->addWidget( btnSS[0] );
+	grpBoxLayout->addWidget( btnSS[1] );
+	grpBoxLayout->addWidget( btnSS[2] );
+	grpBoxLayout->addWidget( btnSS[3] );
 	grpBoxLayout->addWidget( new QLabel( "<b>Caution:</b><br/> 4x and 8x may be memory intensive.", dlg ) );
 	grpBoxLayout->addStretch( 1 );
 	grpBox->setLayout( grpBoxLayout );
 
 	auto grpSize = new QButtonGroup( dlg );
-	grpSize->addButton( btnOneX, 1 );
-	grpSize->addButton( btnTwoX, 2 );
-	grpSize->addButton( btnFourX, 4 );
-	grpSize->addButton( btnEightX, 8 );
+	grpSize->addButton( btnSS[0], 0 );
+	grpSize->addButton( btnSS[1], 1 );
+	grpSize->addButton( btnSS[2], 2 );
+	grpSize->addButton( btnSS[3], 3 );
 
 	grpSize->setExclusive( true );
 
@@ -1576,21 +1580,22 @@ void GLView::saveImage()
 #endif
 			imgPath.truncate( imgPath.lastIndexOf( QChar('/') ) );
 
+			// Supersampling
+			ss = grpSize->checkedId();
+
 			// Save JPEG Quality and other settings
 			QSettings settings;
 			settings.setValue( "JPEG/Quality", pixQuality->value() );
 			settings.setValue( "Screenshot/Format", imgFormat );
 			if ( !imgPath.isEmpty() )
 				settings.setValue( "Screenshot/Folder", imgPath );
-
-			// Supersampling
-			int	ss = grpSize->checkedId();
+			settings.setValue( "Screenshot/Size", ss );
 
 			auto	prvContext = pushGLContext();
 
 			// Resize viewport for supersampling
-			if ( ss > 1 )
-				resizeGL( int( p * ( w * ss ) + 0.5 ), int( p * ( h * ss ) + 0.5 ) );
+			if ( ss > 0 )
+				resizeGL( int( p * ( w << ss ) + 0.5 ), int( p * ( h << ss ) + 0.5 ) );
 
 			QSize	fboSize( getSizeInPixels() );
 			auto	savedSceneOptions = scene->options;
@@ -1609,7 +1614,7 @@ void GLView::saveImage()
 					fboFmt.setInternalTextureFormat( i == 0 ? GL_SRGB8_ALPHA8 : GL_RGBA8 );
 					fboFmt.setMipmap( false );
 					fboFmt.setAttachment( QOpenGLFramebufferObject::Attachment::Depth );
-					fboFmt.setSamples( 16 / ss );
+					fboFmt.setSamples( 16 >> ss );
 
 					QOpenGLFramebufferObject fbo( fboSize.width(), fboSize.height(), fboFmt );
 					fbo.bind();
@@ -1635,7 +1640,7 @@ void GLView::saveImage()
 			scene->options = savedSceneOptions;
 			scene->visMode = savedSceneVisMode;
 			glClearColor( c.red(), c.green(), c.blue(), c.alpha() );
-			if ( ss > 1 )
+			if ( ss > 0 )
 				resizeGL( int( p * w + 0.5 ), int( p * h + 0.5 ) );
 
 			popGLContext( prvContext );
