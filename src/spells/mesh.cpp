@@ -321,7 +321,6 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 
 		nif->set<quint32>( iShape, "Num Vertices", n );
 		nif->updateArraySize( iVertexData );
-		spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iShape );
 
 		// adjust the faces
 
@@ -338,6 +337,8 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 
 		if ( !tris.isEmpty() )
 			nif->setArray<Triangle>( iShape, "Triangles", tris );
+
+		spRemoveWasteVertices::updateBSTriShape( nif, iShape );
 
 		// TODO: process NiSkinData
 
@@ -552,6 +553,7 @@ public:
 			t.flip();
 			nif->set<Triangle>( index, t );
 		}
+		spRemoveWasteVertices::updateBSTriShape( nif, nif->getBlockIndex( index ) );
 
 		return index;
 	}
@@ -583,6 +585,7 @@ public:
 			t.set( 0, 0, 0 );
 			nif->set<Triangle>( index, t );
 		}
+		spRemoveWasteVertices::updateBSTriShape( nif, nif->getBlockIndex( index ) );
 		return index;
 	}
 };
@@ -616,10 +619,10 @@ public:
 		QModelIndex iData = getTriShapeData( nif, index );
 
 		QVector<Triangle> tris = nif->getArray<Triangle>( iData, "Triangles" );
-
 		processTriangles( tris );
-
 		nif->setArray<Triangle>( iData, "Triangles", tris );
+
+		spRemoveWasteVertices::updateBSTriShape( nif, iData );
 
 		return index;
 	}
@@ -834,7 +837,7 @@ public:
 				nif->set<int>( iNumPoints, tris.count() * 3 );
 			nif->updateArraySize( iData, "Triangles" );
 			if ( nif->blockInherits( iData, "BSTriShape" ) )
-				spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iData );
+				spRemoveWasteVertices::updateBSTriShape( nif, iData );
 			nif->setArray<Triangle>( iData, "Triangles", tris.toVector() );
 		}
 
@@ -1582,13 +1585,61 @@ QModelIndex spRemoveWasteVertices::cast( NifModel * nif, const QModelIndex & ind
 	return index;
 }
 
-void spRemoveWasteVertices::updateBSTriShapeDataSize( NifModel * nif, const QModelIndex & index )
+void spRemoveWasteVertices::updateBSTriShape( NifModel * nif, const QModelIndex & index, bool dataSizeOnly )
 {
+	if ( const NifItem * i = nif->getItem( index, false ); i ) {
+		if ( !( i->hasName( "BSTriShape" ) || i->hasName( "BSMeshLODTriShape" )
+				|| i->hasName( "BSSubIndexTriShape" ) || i->hasName( "BSDynamicTriShape" ) ) ) {
+			return;
+		}
+	} else {
+		return;
+	}
+
 	quint32	numVerts = nif->get<quint32>( index, "Num Vertices" );
 	quint32	numTriangles = nif->get<quint32>( index, "Num Triangles" );
-	quint32	vertexDataSize = numVerts * nif->get<BSVertexDesc>( index, "Vertex Desc" ).GetVertexSize();
-	quint32	triangleDataSize = numTriangles * 6U;
-	nif->set<quint32>( index, "Data Size", vertexDataSize + triangleDataSize );
+	BSVertexDesc	vertexDesc = nif->get<BSVertexDesc>( index, "Vertex Desc" );
+	quint32	totalDataSize = ( numVerts * vertexDesc.GetVertexSize() ) + ( numTriangles * 6U );
+	if ( auto i = nif->getIndex( index, "Data Size" ); i.isValid() && nif->get<quint32>( i ) != totalDataSize )
+		nif->set<quint32>( i, totalDataSize );
+
+	if ( nif->getBSVersion() == 100 && !dataSizeOnly && !( vertexDesc & VertexFlags::VF_SKINNED ) ) {
+		QModelIndex	iParticleDataSize = nif->getIndex( index, "Particle Data Size" );
+		if ( !iParticleDataSize.isValid() )
+			return;
+		quint32	particleDataSize = nif->get<quint32>( iParticleDataSize );
+		if ( !particleDataSize ) [[likely]]
+			return;
+		quint32	newDataSize = ( numVerts * 6U ) + ( numTriangles * 3U );
+		nif->set<quint32>( iParticleDataSize, newDataSize );
+		QVector<HalfVector3>	vertexData, normalData;
+		vertexData.resize( qsizetype(numVerts) );
+		normalData.resize( qsizetype(numVerts) );
+		if ( const NifItem * iVertexData = nif->getItem( index, "Vertex Data" ); iVertexData ) {
+			for ( int i = 0; i < int( numVerts ); i++ ) {
+				if ( const NifItem * iVertex = iVertexData->child( i ); iVertex ) {
+					if ( const NifItem * v = nif->getItem( iVertex, "Vertex" ); v )
+						vertexData[i] = HalfVector3( nif->get<Vector3>( v ) );
+					if ( const NifItem * v = nif->getItem( iVertex, "Normal" ); v )
+						normalData[i] = HalfVector3( nif->get<Vector3>( v ) );
+				}
+			}
+		}
+		if ( QModelIndex iPartVertices = nif->getIndex( index, "Particle Vertices" ); iPartVertices.isValid() ) {
+			nif->updateArraySize( iPartVertices );
+			nif->setArray<HalfVector3>( iPartVertices, vertexData );
+		}
+		if ( QModelIndex iPartNormals = nif->getIndex( index, "Particle Normals" ); iPartNormals.isValid() ) {
+			nif->updateArraySize( iPartNormals );
+			nif->setArray<HalfVector3>( iPartNormals, normalData );
+		}
+		if ( QModelIndex iPartTriangles = nif->getIndex( index, "Particle Triangles" ); iPartTriangles.isValid() ) {
+			QVector<Triangle>	triangleData = nif->getArray<Triangle>( index, "Triangles" );
+			triangleData.resize( qsizetype(numTriangles) );
+			nif->updateArraySize( iPartTriangles );
+			nif->setArray<Triangle>( iPartTriangles, triangleData );
+		}
+	}
 }
 
 REGISTER_SPELL( spRemoveWasteVertices )
@@ -1896,7 +1947,7 @@ QModelIndex spUpdateBounds::cast( NifModel * nif, const QModelIndex & index )
 		return cast_Starfield( nif, index );
 
 	auto	iBlock = nif->getBlockIndex( index );
-	spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iBlock );
+	spRemoveWasteVertices::updateBSTriShape( nif, iBlock );
 
 	BoundSphere	bounds( Vector3(), 0.0f );
 	FloatVector4	bndCenter( float(FLT_MAX) );

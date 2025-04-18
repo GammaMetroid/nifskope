@@ -1,6 +1,7 @@
 #include "spellbook.h"
 
 #include "lib/nvtristripwrapper.h"
+#include "spells/mesh.h"
 
 #include <QDialog>
 #include <QDoubleSpinBox>
@@ -166,6 +167,8 @@ public:
 				nif->set<ByteVector3>( nif->getIndex( iData, i ), "Normal", norms[i] );
 			}
 			nif->resetState();
+
+			spRemoveWasteVertices::updateBSTriShape( nif, index );
 		}
 
 		return index;
@@ -541,6 +544,8 @@ void spSmoothNormals::smoothNormals( NifModel * nif, const QModelIndex & index, 
 		for ( int i = 0; i < numVerts; i++ )
 			nif->set<ByteVector3>( nif->getIndex( iData, i ), "Normal", snorms[i] );
 		nif->resetState();
+
+		spRemoveWasteVertices::updateBSTriShape( nif, index );
 	}
 }
 

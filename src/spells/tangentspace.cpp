@@ -71,7 +71,7 @@ QModelIndex spTangentSpace::cast( NifModel * nif, const QModelIndex & iBlock )
 			vf.SetFlag( VertexFlags::VF_TANGENT );
 			vf.ResetAttributeOffsets( nif->getBSVersion() );
 			nif->set<BSVertexDesc>( iShape, "Vertex Desc", vf );
-			spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iShape );
+			spRemoveWasteVertices::updateBSTriShape( nif, iShape, true );
 			addingTangents = true;
 		}
 		if ( (vf & VertexFlags::VF_SKINNED) && nif->getBSVersion() == 100 ) {
@@ -82,7 +82,7 @@ QModelIndex spTangentSpace::cast( NifModel * nif, const QModelIndex & iBlock )
 			if ( iPartBlock.isValid() ) {
 				if ( addingTangents ) {
 					nif->set<BSVertexDesc>( iPartBlock, "Vertex Desc", vf );
-					spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iPartBlock );
+					spRemoveWasteVertices::updateBSTriShape( nif, iPartBlock, true );
 				}
 				iData = nif->getIndex( iPartBlock, "Vertex Data" );
 			}

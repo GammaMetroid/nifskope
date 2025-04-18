@@ -595,8 +595,8 @@ void SimplifyMeshDialog::storeGeometryData( size_t newTriangleCnt )
 		if ( !iTriangles.isValid() )
 			continue;
 		nif->updateArraySize( iTriangles );
-		spRemoveWasteVertices::updateBSTriShapeDataSize( nif, iBlock );
 		nif->setArray<Triangle>( iTriangles, newTriangles[i] );
+		spRemoveWasteVertices::updateBSTriShape( nif, iBlock );
 	}
 }
 

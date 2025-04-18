@@ -94,7 +94,7 @@ public:
 	}
 
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override;
-	static void updateBSTriShapeDataSize( NifModel * nif, const QModelIndex & index );
+	static void updateBSTriShape( NifModel * nif, const QModelIndex & index, bool dataSizeOnly = false );
 };
 
 #endif
