@@ -80,11 +80,15 @@ QModelIndex spTangentSpace::cast( NifModel * nif, const QModelIndex & iBlock )
 			auto partID = nif->getLink( nif->getBlockIndex( skinID, "NiSkinInstance" ), "Skin Partition" );
 			iPartBlock = nif->getBlockIndex( partID, "NiSkinPartition" );
 			if ( iPartBlock.isValid() ) {
+				iData = nif->getIndex( iPartBlock, "Vertex Data" );
 				if ( addingTangents ) {
 					nif->set<BSVertexDesc>( iPartBlock, "Vertex Desc", vf );
-					spRemoveWasteVertices::updateBSTriShape( nif, iPartBlock, true );
+					quint32 numVerts = 0;
+					if ( iData.isValid() )
+						numVerts = quint32( nif->rowCount( iData ) );
+					nif->set<quint32>( iPartBlock, "Vertex Size", quint32( vf.GetVertexSize() ) );
+					nif->set<quint32>( iPartBlock, "Data Size", quint32( vf.GetVertexSize() ) * numVerts );
 				}
-				iData = nif->getIndex( iPartBlock, "Vertex Data" );
 			}
 		} else {
 			iData = nif->getIndex( iShape, "Vertex Data" );
