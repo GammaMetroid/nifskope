@@ -3,6 +3,7 @@
 * Screenshot supersampling is now saved as a setting.
 * Skyrim Special Edition particle data is updated by spells that modify BSTriShape geometry.
 * Fixed the "Extract Resource Files" spell not extracting compiled Starfield materials.
+* Fixed rendering BSSubIndexTriShape segment selection.
 
 #### NifSkope-2.0.dev11-20250414
 

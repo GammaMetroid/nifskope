@@ -522,9 +522,8 @@ void BSShape::drawSelection() const
 		};
 
 		glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+		setUniforms( scene->setupProgram( "selection.prog", GL_TRIANGLES ) );
 		scene->loadModelViewMatrix( viewTrans() );
-		scene->drawTriangles( verts.constData(), size_t( verts.size() ), nullptr, true,
-								0, size_t( triangles.size() ) * 3, GL_UNSIGNED_SHORT, triangles.constData() );
 
 		auto type = idx.sibling( idx.row(), 1 ).data( NifSkopeDisplayRole ).toString();
 
@@ -538,7 +537,7 @@ void BSShape::drawSelection() const
 
 		int o = 0;
 		if ( isSegmentItem || isSegmentArray ) {
-			o = 3; // Offset 3 rows for < 130 BSGeometrySegmentData
+			o = 1; // Offset 1 row for < 130 BSGeometrySegmentData
 		} else if ( isSubSegArray ) {
 			o = -3; // Look 3 rows above for Sub Seg Array info
 		}
