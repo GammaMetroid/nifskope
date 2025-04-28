@@ -4,6 +4,7 @@
 * Skyrim Special Edition particle data is updated by spells that modify BSTriShape geometry.
 * Fixed the "Extract Resource Files" spell not extracting compiled Starfield materials.
 * Fixed rendering BSSubIndexTriShape segment selection.
+* Fixed Face Normals and Smooth Normals being applicable to meshes using model space normals.
 
 #### NifSkope-2.0.dev11-20250414
 

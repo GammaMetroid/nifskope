@@ -46,17 +46,20 @@ public:
 			return iData;
 
 		if ( nif->isNiBlock( index, { "BSTriShape", "BSMeshLODTriShape", "BSSubIndexTriShape", "BSDynamicTriShape" } ) ) {
+			iData = index;
 			auto vf = nif->get<BSVertexDesc>( index, "Vertex Desc" );
 			if ( (vf & VertexFlags::VF_SKINNED) && nif->getBSVersion() == 100 ) {
 				// Skinned SSE
 				auto skinID = nif->getLink( nif->getIndex( index, "Skin" ) );
 				auto partID = nif->getLink( nif->getBlockIndex( skinID, "NiSkinInstance" ), "Skin Partition" );
-				auto iPartBlock = nif->getBlockIndex( partID, "NiSkinPartition" );
-				if ( iPartBlock.isValid() )
-					return nif->getIndex( iPartBlock, "Vertex Data" );
+				if ( auto iPartBlock = nif->getBlockIndex( partID, "NiSkinPartition" ); iPartBlock.isValid() )
+					iData = iPartBlock;
 			}
-
-			return nif->getIndex( index, "Vertex Data" );
+			iData = nif->getIndex( iData, "Vertex Data" );
+			if ( iData.isValid() && nif->rowCount( iData ) > 0
+				&& nif->getIndex( nif->getIndex( iData, 0 ), "Normal" ).isValid() ) {
+				return iData;
+			}
 		}
 
 		return QModelIndex();
