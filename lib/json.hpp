@@ -173,9 +173,6 @@
 #include <forward_list> // forward_list
 #include <iterator> // inserter, front_inserter, end
 #include <map> // map
-#ifdef JSON_HAS_CPP_17
-    #include <optional> // optional
-#endif
 #include <string> // string
 #include <tuple> // tuple, make_tuple
 #include <type_traits> // is_arithmetic, is_same, is_enum, underlying_type, is_convertible
@@ -3129,7 +3126,7 @@ inline StringType escape(StringType s)
  * Note the order of escaping "~1" to "/" and "~0" to "~" is important.
  */
 template<typename StringType>
-static void unescape(StringType& s)
+inline void unescape(StringType& s)
 {
     replace_substring(s, StringType{"~1"}, StringType{"/"});
     replace_substring(s, StringType{"~0"}, StringType{"~"});
@@ -3370,7 +3367,9 @@ NLOHMANN_JSON_NAMESPACE_END
 #include <tuple> // tuple
 #include <type_traits> // false_type, is_constructible, is_integral, is_same, true_type
 #include <utility> // declval
-
+#if defined(__cpp_lib_byte) && __cpp_lib_byte >= 201603L
+    #include <cstddef> // byte
+#endif
 // #include <nlohmann/detail/iterators/iterator_traits.hpp>
 //     __ _____ _____ _____
 //  __|  |   __|     |   | |  JSON for Modern C++
@@ -3778,6 +3777,30 @@ struct char_traits<signed char> : std::char_traits<char>
         return static_cast<int_type>(std::char_traits<char>::eof());
     }
 };
+
+#if defined(__cpp_lib_byte) && __cpp_lib_byte >= 201603L
+template<>
+struct char_traits<std::byte> : std::char_traits<char>
+{
+    using char_type = std::byte;
+    using int_type = uint64_t;
+
+    static int_type to_int_type(char_type c) noexcept
+    {
+        return static_cast<int_type>(std::to_integer<unsigned char>(c));
+    }
+
+    static char_type to_char_type(int_type i) noexcept
+    {
+        return std::byte(static_cast<unsigned char>(i));
+    }
+
+    static constexpr int_type eof() noexcept
+    {
+        return static_cast<int_type>(std::char_traits<char>::eof());
+    }
+};
+#endif
 
 ///////////////////
 // is_ functions //
@@ -4817,6 +4840,15 @@ NLOHMANN_JSON_NAMESPACE_END
 // #include <nlohmann/detail/value_t.hpp>
 
 
+// include after macro_scope.hpp
+#ifdef JSON_HAS_CPP_17
+    #include <optional> // optional
+#endif
+
+#if JSON_HAS_FILESYSTEM || JSON_HAS_EXPERIMENTAL_FILESYSTEM
+    #include <string_view> // u8string_view
+#endif
+
 NLOHMANN_JSON_NAMESPACE_BEGIN
 namespace detail
 {
@@ -4832,7 +4864,6 @@ inline void from_json(const BasicJsonType& j, typename std::nullptr_t& n)
 }
 
 #ifdef JSON_HAS_CPP_17
-#ifndef JSON_USE_IMPLICIT_CONVERSIONS
 template<typename BasicJsonType, typename T>
 void from_json(const BasicJsonType& j, std::optional<T>& opt)
 {
@@ -4845,8 +4876,6 @@ void from_json(const BasicJsonType& j, std::optional<T>& opt)
         opt.emplace(j.template get<T>());
     }
 }
-
-#endif // JSON_USE_IMPLICIT_CONVERSIONS
 #endif // JSON_HAS_CPP_17
 
 // overloads for basic_json template parameters
@@ -5325,7 +5354,10 @@ inline void from_json(const BasicJsonType& j, std_fs::path& p)
         JSON_THROW(type_error::create(302, concat("type must be string, but is ", j.type_name()), &j));
     }
     const auto& s = *j.template get_ptr<const typename BasicJsonType::string_t*>();
-#ifdef JSON_HAS_CPP_20
+    // Checking for C++20 standard or later can be insufficient in case the
+    // library support for char8_t is either incomplete or was disabled
+    // altogether. Use the __cpp_lib_char8_t feature test instead.
+#if defined(__cpp_lib_char8_t) && (__cpp_lib_char8_t >= 201907L)
     p = std_fs::path(std::u8string_view(reinterpret_cast<const char8_t*>(s.data()), s.size()));
 #else
     p = std_fs::u8path(s); // accepts UTF-8 encoded std::string in C++17, deprecated in C++20
@@ -5380,7 +5412,8 @@ NLOHMANN_JSON_NAMESPACE_END
 
 #include <algorithm> // copy
 #include <iterator> // begin, end
-#include <string> // string
+#include <memory> // allocator_traits
+#include <string> //  basic_string, char_traits
 #include <tuple> // tuple, get
 #include <type_traits> // is_same, is_constructible, is_floating_point, is_enum, underlying_type
 #include <utility> // move, forward, declval, pair
@@ -5914,7 +5947,7 @@ struct external_constructor<value_t::object>
 #ifdef JSON_HAS_CPP_17
 template<typename BasicJsonType, typename T,
          enable_if_t<std::is_constructible<BasicJsonType, T>::value, int> = 0>
-void to_json(BasicJsonType& j, const std::optional<T>& opt)
+void to_json(BasicJsonType& j, const std::optional<T>& opt) noexcept
 {
     if (opt.has_value())
     {
@@ -6087,15 +6120,21 @@ inline void to_json(BasicJsonType& j, const T& t)
 }
 
 #if JSON_HAS_FILESYSTEM || JSON_HAS_EXPERIMENTAL_FILESYSTEM
+#if defined(__cpp_lib_char8_t)
+template<typename BasicJsonType, typename Tr, typename Allocator>
+inline void to_json(BasicJsonType& j, const std::basic_string<char8_t, Tr, Allocator>& s)
+{
+    using OtherAllocator = typename std::allocator_traits<Allocator>::template rebind_alloc<char>;
+    j = std::basic_string<char, std::char_traits<char>, OtherAllocator>(s.begin(), s.end(), s.get_allocator());
+}
+#endif
+
 template<typename BasicJsonType>
 inline void to_json(BasicJsonType& j, const std_fs::path& p)
 {
-#ifdef JSON_HAS_CPP_20
-    const std::u8string s = p.u8string();
-    j = std::string(s.begin(), s.end());
-#else
-    j = p.u8string(); // returns std::string in C++17
-#endif
+    // Returns either a std::string or a std::u8string depending whether library
+    // support for char8_t is enabled.
+    j = p.u8string();
 }
 #endif
 
@@ -9829,7 +9868,7 @@ enum class cbor_tag_handler_t
 
 @note from https://stackoverflow.com/a/1001328/266378
 */
-static inline bool little_endianness(int num = 1) noexcept
+inline bool little_endianness(int num = 1) noexcept
 {
     return *reinterpret_cast<char*>(&num) == 1;
 }
@@ -11968,8 +12007,16 @@ class binary_reader
                     result = 1;
                     for (auto i : dim)
                     {
+                        // Pre-multiplication overflow check: if i > 0 and result > SIZE_MAX/i, then result*i would overflow.
+                        // This check must happen before multiplication since overflow detection after the fact is unreliable
+                        // as modular arithmetic can produce any value, not just 0 or SIZE_MAX.
+                        if (JSON_HEDLEY_UNLIKELY(i > 0 && result > (std::numeric_limits<std::size_t>::max)() / i))
+                        {
+                            return sax->parse_error(chars_read, get_token_string(), out_of_range::create(408, exception_message(input_format, "excessive ndarray size caused overflow", "size"), nullptr));
+                        }
                         result *= i;
-                        if (result == 0 || result == npos) // because dim elements shall not have zeros, result = 0 means overflow happened; it also can't be npos as it is used to initialize size in get_ubjson_size_type()
+                        // Additional post-multiplication check to catch any edge cases the pre-check might miss
+                        if (result == 0 || result == npos)
                         {
                             return sax->parse_error(chars_read, get_token_string(), out_of_range::create(408, exception_message(input_format, "excessive ndarray size caused overflow", "size"), nullptr));
                         }
@@ -12602,17 +12649,22 @@ class binary_reader
         {
             return;
         }
-        if constexpr(std::is_integral_v<NumberType>)
+        else if constexpr(std::is_integral_v<NumberType>)
         {
             number = std::byteswap(number);
             return;
         }
-#endif
-        auto* ptr = reinterpret_cast<std::uint8_t*>(&number);
-        for (std::size_t i = 0; i < sz / 2; ++i)
+        else
         {
-            std::swap(ptr[i], ptr[sz - i - 1]);
+#endif
+            auto* ptr = reinterpret_cast<std::uint8_t*>(&number);
+            for (std::size_t i = 0; i < sz / 2; ++i)
+            {
+                std::swap(ptr[i], ptr[sz - i - 1]);
+            }
+#ifdef __cpp_lib_byteswap
         }
+#endif
     }
 
     /*
@@ -16713,9 +16765,9 @@ class binary_writer
         if (JSON_HEDLEY_UNLIKELY(it != BasicJsonType::string_t::npos))
         {
             JSON_THROW(out_of_range::create(409, concat("BSON key cannot contain code point U+0000 (at byte ", std::to_string(it), ")"), &j));
-            static_cast<void>(j);
         }
 
+        static_cast<void>(j);
         return /*id*/ 1ul + name.size() + /*zero-terminator*/1u;
     }
 
