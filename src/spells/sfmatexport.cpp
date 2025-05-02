@@ -28,7 +28,6 @@ public:
 		return QIcon();
 	}
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	static bool canExportMaterial( const NifModel * nif, const QModelIndex & index, bool isModified = false )
 	{
@@ -230,7 +229,6 @@ public:
 		return QIcon();
 	}
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -257,7 +255,6 @@ public:
 		return QIcon();
 	}
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -1205,7 +1202,6 @@ public:
 		return QIcon();
 	}
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{

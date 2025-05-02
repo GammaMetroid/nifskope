@@ -39,7 +39,6 @@ public:
 	QString name() const override final { return Spell::tr( "Extract File" ); }
 	QString page() const override final { return Spell::tr( "" ); }
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	static bool is_Applicable( const NifModel * nif, const NifItem * item )
 	{
@@ -226,7 +225,6 @@ public:
 	QString name() const override final { return Spell::tr( "Extract Resource Files" ); }
 	QString page() const override final { return Spell::tr( "" ); }
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -329,7 +327,6 @@ public:
 	QString name() const override final { return Spell::tr( "Extract All..." ); }
 	QString page() const override final { return Spell::tr( "Material" ); }
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -413,7 +410,6 @@ class spMeshFileExport final : public Spell
 public:
 	QString name() const override final { return Spell::tr( "Convert to External Geometry" ); }
 	QString page() const override final { return Spell::tr( "Mesh" ); }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -547,7 +543,6 @@ class spMeshFileImport final : public Spell
 public:
 	QString name() const override final { return Spell::tr( "Convert to Internal Geometry" ); }
 	QString page() const override final { return Spell::tr( "Mesh" ); }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -651,7 +646,6 @@ public:
 	QString name() const override final { return Spell::tr( "Save As" ); }
 	QString page() const override final { return Spell::tr( "Mesh" ); }
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -711,7 +705,6 @@ public:
 	QString name() const override final { return Spell::tr( "Process Multiple NIF Files" ); }
 	QString page() const override final { return Spell::tr( "Batch" ); }
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( [[maybe_unused]] const NifModel * nif, const QModelIndex & index ) override final
 	{

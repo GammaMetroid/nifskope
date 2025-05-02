@@ -216,7 +216,6 @@ public:
 		return QIcon();
 	}
 	bool constant() const override final { return true; }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{

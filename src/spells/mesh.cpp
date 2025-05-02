@@ -2293,7 +2293,6 @@ class spChooseMeshFile final : public Spell
 public:
 	QString name() const override final { return Spell::tr( "Choose" ); }
 	QString page() const override final { return Spell::tr( "Mesh" ); }
-	bool instant() const override final { return true; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & idx ) override final
 	{
