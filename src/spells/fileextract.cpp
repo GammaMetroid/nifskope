@@ -703,6 +703,7 @@ public:
 
 REGISTER_SPELL( spMeshFileSaveAs )
 
+
 //! Batch process multiple NIF files
 class spBatchProcessFiles final : public Spell
 {
@@ -720,45 +721,34 @@ public:
 	enum {
 		spellFlagInternalGeom = 1,
 		spellFlagRemoveUnusedStrings = 2,
-		spellFlagLODGen = 4,
-		spellFlagTangentSpace = 8,
-		spellFlagMeshlets = 16,
-		spellFlagUpdateBounds = 32,
-		spellFlagExternalGeom = 64
+		spellFlagRemoveDuplicateVerts = 4,
+		spellFlagRemoveUnusedVerts = 8,
+		spellFlagLODGen = 16,
+		spellFlagOptimizeIndices = 32,
+		spellFlagTangentSpace = 64,
+		spellFlagMeshlets = 128,
+		spellFlagUpdateBounds = 256,
+		spellFlagExternalGeom = 512
 	};
 	static bool processFile( NifModel * nif, void * p );
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final;
 };
 
-class spRemoveUnusedStrings
-{
-public:
-	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
-};
+#define DECLARE_SPELL_CAST_STATIC( sp )	\
+	class sp	\
+	{	\
+	public:	\
+		static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );	\
+	};
 
-class spSimplifySFMesh
-{
-public:
-	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
-};
-
-class spAddAllTangentSpaces
-{
-public:
-	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
-};
-
-class spGenerateMeshlets
-{
-public:
-	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
-};
-
-class spUpdateAllBounds
-{
-public:
-	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
-};
+DECLARE_SPELL_CAST_STATIC( spRemoveUnusedStrings )
+DECLARE_SPELL_CAST_STATIC( spSimplifySFMesh )
+DECLARE_SPELL_CAST_STATIC( spRemoveAllDuplicateVertices )
+DECLARE_SPELL_CAST_STATIC( spRemoveAllWasteVertices )
+DECLARE_SPELL_CAST_STATIC( spOptimizeAllIndices )
+DECLARE_SPELL_CAST_STATIC( spAddAllTangentSpaces )
+DECLARE_SPELL_CAST_STATIC( spGenerateMeshlets )
+DECLARE_SPELL_CAST_STATIC( spUpdateAllBounds )
 
 bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 {
@@ -775,8 +765,23 @@ bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 		fileChanged = true;
 	}
 
+	if ( spellMask & spellFlagRemoveDuplicateVerts ) {
+		spRemoveAllDuplicateVertices::cast_Static( nif, QModelIndex() );
+		fileChanged = true;
+	}
+
+	if ( spellMask & spellFlagRemoveUnusedVerts ) {
+		spRemoveAllWasteVertices::cast_Static( nif, QModelIndex() );
+		fileChanged = true;
+	}
+
 	if ( ( spellMask & spellFlagLODGen ) && nif->getBSVersion() >= 170 ) {
 		spSimplifySFMesh::cast_Static( nif, QModelIndex() );
+		fileChanged = true;
+	}
+
+	if ( spellMask & spellFlagOptimizeIndices ) {
+		spOptimizeAllIndices::cast_Static( nif, QModelIndex() );
 		fileChanged = true;
 	}
 
@@ -817,7 +822,10 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		QLabel *	lb2 = new QLabel( "Select spells to be cast, in the order listed:", &dlg );
 		QCheckBox *	checkInternalGeom = new QCheckBox( "Convert to Internal Geometry", &dlg );
 		QCheckBox *	checkRemoveUnusedStrings = new QCheckBox( "Remove Unused Strings", &dlg );
+		QCheckBox *	checkRemoveDuplicateVertices = new QCheckBox( "Remove Duplicate Vertices", &dlg );
+		QCheckBox *	checkRemoveUnusedVertices = new QCheckBox( "Remove Unused Vertices", &dlg );
 		QCheckBox *	checkLODGen = new QCheckBox( "Generate LODs", &dlg );
+		QCheckBox *	checkOptimizeIndices = new QCheckBox( "Optimize Indices", &dlg );
 		QCheckBox *	checkTangentSpace = new QCheckBox( "Add Tangent Spaces and Update", &dlg );
 		QCheckBox *	checkMeshlets = new QCheckBox( "Generate Meshlets and Update Bounds", &dlg );
 		QCheckBox *	checkUpdateBounds = new QCheckBox( "Update Bounds", &dlg );
@@ -832,14 +840,17 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		grid->addWidget( lb2, 2, 0, 1, 5 );
 		grid->addWidget( checkInternalGeom, 3, 0, 1, 5 );
 		grid->addWidget( checkRemoveUnusedStrings, 4, 0, 1, 5 );
-		grid->addWidget( checkLODGen, 5, 0, 1, 5 );
-		grid->addWidget( checkTangentSpace, 6, 0, 1, 5 );
-		grid->addWidget( checkMeshlets, 7, 0, 1, 5 );
-		grid->addWidget( checkUpdateBounds, 8, 0, 1, 5 );
-		grid->addWidget( checkExternalGeom, 9, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 10, 0, 1, 5 );
-		grid->addWidget( okButton, 11, 1, 1, 1 );
-		grid->addWidget( cancelButton, 11, 3, 1, 1 );
+		grid->addWidget( checkRemoveDuplicateVertices, 5, 0, 1, 5 );
+		grid->addWidget( checkRemoveUnusedVertices, 6, 0, 1, 5 );
+		grid->addWidget( checkLODGen, 7, 0, 1, 5 );
+		grid->addWidget( checkOptimizeIndices, 8, 0, 1, 5 );
+		grid->addWidget( checkTangentSpace, 9, 0, 1, 5 );
+		grid->addWidget( checkMeshlets, 10, 0, 1, 5 );
+		grid->addWidget( checkUpdateBounds, 11, 0, 1, 5 );
+		grid->addWidget( checkExternalGeom, 12, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 13, 0, 1, 5 );
+		grid->addWidget( okButton, 14, 1, 1, 1 );
+		grid->addWidget( cancelButton, 14, 3, 1, 1 );
 
 		QObject::connect( okButton, &QPushButton::clicked, &dlg, &QDialog::accept );
 		QObject::connect( cancelButton, &QPushButton::clicked, &dlg, &QDialog::reject );
@@ -851,8 +862,14 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 			spellMask = spellFlagInternalGeom;
 		if ( checkRemoveUnusedStrings->isChecked() )
 			spellMask = spellMask | spellFlagRemoveUnusedStrings;
+		if ( checkRemoveDuplicateVertices->isChecked() )
+			spellMask = spellMask | spellFlagRemoveDuplicateVerts;
+		if ( checkRemoveUnusedVertices->isChecked() )
+			spellMask = spellMask | spellFlagRemoveUnusedVerts;
 		if ( checkLODGen->isChecked() )
 			spellMask = spellMask | spellFlagLODGen;
+		if ( checkOptimizeIndices->isChecked() )
+			spellMask = spellMask | spellFlagOptimizeIndices;
 		if ( checkTangentSpace->isChecked() )
 			spellMask = spellMask | spellFlagTangentSpace;
 		if ( checkMeshlets->isChecked() )

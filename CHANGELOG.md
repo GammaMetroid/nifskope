@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Processing multiple NIF files supports three new spells (Remove Duplicate Vertices, Remove Unused Vertices and Optimize Indices).
 * Screenshot supersampling is now saved as a setting.
 * Skyrim Special Edition particle data is updated by spells that modify BSTriShape geometry.
 * Fixed the "Extract Resource Files" spell not extracting compiled Starfield materials.

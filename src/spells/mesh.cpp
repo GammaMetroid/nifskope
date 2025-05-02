@@ -123,7 +123,8 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iData, cons
 
 		// remove them
 
-		Message::info( nullptr, Spell::tr( "Removed %1 vertices" ).arg( verts.count() - used.count() ) );
+		if ( !nif->getBatchProcessingMode() )
+			Message::info( nullptr, Spell::tr( "Removed %1 vertices" ).arg( verts.count() - used.count() ) );
 
 		if ( verts.count() == used.count() )
 			return;
@@ -307,9 +308,11 @@ static void removeWasteVertices( NifModel * nif, const QModelIndex & iShape )
 		if ( numRemoved < 1 )
 			return;
 
-		Message::append( nullptr, Spell::tr( "Removed unused vertices:" ),
-							QString( "Block %1: %2" ).arg( nif->getBlockNumber(iShape) ).arg( numRemoved ),
-							QMessageBox::Information );
+		if ( !nif->getBatchProcessingMode() ) {
+			Message::append( nullptr, Spell::tr( "Removed unused vertices:" ),
+								QString( "Block %1: %2" ).arg( nif->getBlockNumber(iShape) ).arg( numRemoved ),
+								QMessageBox::Information );
+		}
 
 		NifItem *	vertexDataItem = nif->getItem( iVertexData );
 		quint32	n = 0;
@@ -748,7 +751,15 @@ public:
 
 		return QModelIndex();
 	}
+
+	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
 };
+
+QModelIndex spOptimizeAllIndices::cast_Static( NifModel * nif, const QModelIndex & index )
+{
+	spOptimizeAllIndices	sp;
+	return sp.cast( nif, index );
+}
 
 REGISTER_SPELL( spOptimizeAllIndices )
 
@@ -917,7 +928,9 @@ void spPruneRedundantTriangles::cast_Starfield( NifModel * nif, const QModelInde
 
 		bool	removeInvalid = false;
 		if ( !invalidTriangles.empty() ) {
-			removeInvalid = ( QMessageBox::question( nullptr, "NifSkope warning", QString("Remove %1 triangles with invalid indices?").arg(invalidTriangles.size()) ) == QMessageBox::Yes );
+			removeInvalid = ( QMessageBox::question( nullptr, "NifSkope warning",
+														QString("Remove %1 triangles with invalid indices?").arg(
+															invalidTriangles.size() ) ) == QMessageBox::Yes );
 		}
 
 		if ( trianglesRemoved.empty() && !removeInvalid )
@@ -1348,7 +1361,15 @@ public:
 
 		return QModelIndex();
 	}
+
+	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
 };
+
+QModelIndex spRemoveAllDuplicateVertices::cast_Static( NifModel * nif, const QModelIndex & index )
+{
+	spRemoveAllDuplicateVertices	sp;
+	return sp.cast( nif, index );
+}
 
 REGISTER_SPELL( spRemoveAllDuplicateVertices )
 
@@ -1431,7 +1452,7 @@ void spRemoveWasteVertices::cast_Starfield( NifModel * nif, const QModelIndex & 
 			}
 		}
 	}
-	if ( invalidIndices > 0 )
+	if ( invalidIndices > 0 && !nif->getBatchProcessingMode() )
 		QMessageBox::warning( nullptr, "NifSkope warning", QString("Mesh has %1 invalid indices").arg(invalidIndices) );
 	if ( verticesRemoved < 1 )
 		return;
@@ -1562,7 +1583,7 @@ void spRemoveWasteVertices::cast_Starfield( NifModel * nif, const QModelIndex & 
 	if ( ( i = nif->getIndex( index, "Weights" ) ).isValid() )
 		nif->updateArraySize( i );
 
-	if ( !noMessages )
+	if ( !noMessages && !nif->getBatchProcessingMode() )
 		Message::info( nullptr, Spell::tr( "Removed %1 vertices" ).arg( verticesRemoved ) );
 }
 
@@ -1668,7 +1689,15 @@ public:
 
 		return QModelIndex();
 	}
+
+	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
 };
+
+QModelIndex spRemoveAllWasteVertices::cast_Static( NifModel * nif, const QModelIndex & index )
+{
+	spRemoveAllWasteVertices	sp;
+	return sp.cast( nif, index );
+}
 
 REGISTER_SPELL( spRemoveAllWasteVertices )
 
