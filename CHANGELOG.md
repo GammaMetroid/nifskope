@@ -1,11 +1,12 @@
  == CHANGELOG ==
 
-* Processing multiple NIF files supports three new spells (Remove Duplicate Vertices, Remove Unused Vertices and Optimize Indices).
+* Processing multiple NIF files supports three new spells (Remove Duplicate Vertices, Remove Unused Vertices and Optimize Indices), and recursive processing of all models under a selected folder.
 * Screenshot supersampling is now saved as a setting.
 * Skyrim Special Edition particle data is updated by spells that modify BSTriShape geometry.
 * Fixed the "Extract Resource Files" spell not extracting compiled Starfield materials.
 * Fixed rendering BSSubIndexTriShape segment selection.
 * Fixed Face Normals and Smooth Normals being applicable to meshes using model space normals.
+* Fixed the icons of instant spells like Flags and Color/Choose missing from the value column of Block Details.
 
 #### NifSkope-2.0.dev11-20250414
 

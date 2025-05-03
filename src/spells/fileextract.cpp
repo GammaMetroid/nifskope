@@ -724,6 +724,7 @@ public:
 		spellFlagExternalGeom = 512
 	};
 	static bool processFile( NifModel * nif, void * p );
+	static void findNIFFiles( QStringList & fileList, const QStringList & folderList );
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final;
 };
 
@@ -802,12 +803,31 @@ bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 	return fileChanged;
 }
 
+void spBatchProcessFiles::findNIFFiles( QStringList & fileList, const QStringList & folderList )
+{
+	for ( const QString & dirName : folderList ) {
+		QDir	d( dirName );
+		if ( !d.exists() )
+			continue;
+		QStringList	e = d.entryList( QDir::AllDirs | QDir::Readable | QDir::NoDotAndDotDot,
+										QDir::Name | QDir::IgnoreCase );
+		for ( QString & f : e )
+			f = d.filePath( f );
+		findNIFFiles( fileList, e );
+		d.setNameFilters( { "*.nif" } );
+		e = d.entryList( QDir::Files | QDir::Readable, QDir::Name | QDir::IgnoreCase );
+		for ( const QString & f : e )
+			fileList.append( d.filePath( f ) );
+	}
+}
+
 QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QModelIndex & index )
 {
 	if ( index.isValid() )
 		return index;
 
 	int	spellMask = 0;
+	bool	folderMode;
 	{
 		QDialog	dlg;
 		QLabel *	lb = new QLabel( &dlg );
@@ -823,6 +843,7 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		QCheckBox *	checkMeshlets = new QCheckBox( "Generate Meshlets and Update Bounds", &dlg );
 		QCheckBox *	checkUpdateBounds = new QCheckBox( "Update Bounds", &dlg );
 		QCheckBox *	checkExternalGeom = new QCheckBox( "Convert to External Geometry", &dlg );
+		QCheckBox *	checkSelectFolder = new QCheckBox( "Select and Process Folder", &dlg );
 		QPushButton *	okButton = new QPushButton( "OK", &dlg );
 		QPushButton *	cancelButton = new QPushButton( "Cancel", &dlg );
 
@@ -842,8 +863,10 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		grid->addWidget( checkUpdateBounds, 11, 0, 1, 5 );
 		grid->addWidget( checkExternalGeom, 12, 0, 1, 5 );
 		grid->addWidget( new QLabel( "", &dlg ), 13, 0, 1, 5 );
-		grid->addWidget( okButton, 14, 1, 1, 1 );
-		grid->addWidget( cancelButton, 14, 3, 1, 1 );
+		grid->addWidget( checkSelectFolder, 14, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 15, 0, 1, 5 );
+		grid->addWidget( okButton, 16, 1, 1, 1 );
+		grid->addWidget( cancelButton, 16, 3, 1, 1 );
 
 		QObject::connect( okButton, &QPushButton::clicked, &dlg, &QDialog::accept );
 		QObject::connect( cancelButton, &QPushButton::clicked, &dlg, &QDialog::reject );
@@ -873,10 +896,18 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 			spellMask = spellMask | spellFlagExternalGeom;
 		if ( !spellMask )
 			return index;
+
+		folderMode = checkSelectFolder->isChecked();
 	}
 
 	QStringList	fileList;
-	{
+	if ( folderMode ) {
+		QFileDialog	fd( nullptr, "Select Folder to Process" );
+		fd.setFileMode( QFileDialog::Directory );
+		fd.setOptions( QFileDialog::ShowDirsOnly );
+		if ( fd.exec() )
+			findNIFFiles( fileList, fd.selectedFiles() );
+	} else {
 		QFileDialog	fd( nullptr, "Select NIF Files to Process" );
 		fd.setFileMode( QFileDialog::ExistingFiles );
 		fd.setNameFilter( "NIF files (*.nif)" );
