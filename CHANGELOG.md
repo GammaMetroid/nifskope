@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20250504
+
 * Processing multiple NIF files supports three new spells (Remove Duplicate Vertices, Remove Unused Vertices and Optimize Indices), and recursive processing of all models under a selected folder.
 * Screenshot supersampling is now saved as a setting.
 * Skyrim Special Edition particle data is updated by spells that modify BSTriShape geometry.
