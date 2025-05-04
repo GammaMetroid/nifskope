@@ -220,9 +220,17 @@ void NifExpr::partition( const QString & cond, int offset /*= 0*/ )
 			if ( reUInt.match( cond ).hasMatch() ) {
 				bool ok = false;
 				lhs.setValue( cond.toUInt( &ok, 16 ) );
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 				lhs.convert( QMetaType::UInt );
+#else
+				lhs.convert( QMetaType( QMetaType::UInt ) );
+#endif
 			} else if ( reInt.match( cond ).hasMatch() ) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 				lhs.convert( QMetaType::Int );
+#else
+				lhs.convert( QMetaType( QMetaType::Int ) );
+#endif
 			} else if ( reVersion.match( cond ).hasMatch() ) {
 				lhs.setValue( version2number( cond ) );
 			}
@@ -313,12 +321,23 @@ void NifExpr::NormalizeVariants( QVariant & l, QVariant & r ) const
 		QMetaType::Type	t_r = getQVariantMetaType( r );
 
 		if ( t_l != t_r ) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 			if ( t_l == QMetaType::QString && l.canConvert( t_r ) )
 				l.convert( t_r );
 			else if ( t_r == QMetaType::QString && r.canConvert( t_l ) )
 				r.convert( t_l );
+#else
+			if ( t_l == QMetaType::QString && l.canConvert( r.metaType() ) )
+				l.convert( r.metaType() );
+			else if ( t_r == QMetaType::QString && r.canConvert( l.metaType() ) )
+				r.convert( l.metaType() );
+#endif
 			else {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 				auto	t = std::max( t_l, t_r );
+#else
+				auto	t = QMetaType( std::max( t_l, t_r ) );
+#endif
 
 				if ( r.canConvert( t ) && l.canConvert( t ) ) {
 					l.convert( t );

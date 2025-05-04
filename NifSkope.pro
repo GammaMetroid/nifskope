@@ -22,7 +22,7 @@ contains(QT_VERSION, ^5\\.15\\..*) {
 	QT += xml opengl network widgets
 	# C++ Standard Support
 	CONFIG += c++2a
-	DEFINES += QLatin1StringView=QLatin1String
+	DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x050F00 QLatin1StringView=QLatin1String
 } else:contains(QT_VERSION, ^6\\.[0-3]\\..*) {
 	message("Cannot build NifSkope with Qt version $${QT_VERSION}")
 	error("Minimum required version is Qt 6.4")
@@ -30,6 +30,7 @@ contains(QT_VERSION, ^5\\.15\\..*) {
 	QT += xml opengl network widgets openglwidgets
 	# C++ Standard Support
 	CONFIG += c++20
+	DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060400
 }
 
 # Dependencies
