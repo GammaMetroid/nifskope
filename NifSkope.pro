@@ -17,16 +17,20 @@ macx: {
 	ICON = res/nifskope.icns
 }
 
-QT += xml opengl network widgets openglwidgets
-
-# Require Qt 6.4 or higher
-contains(QT_VERSION, ^6\\.[0-1]\\..*) {
+# Require Qt 6.4 or higher, or Qt 5.15
+contains(QT_VERSION, ^5\\.15\\..*) {
+	QT += xml opengl network widgets
+	# C++ Standard Support
+	CONFIG += c++2a
+	DEFINES += QLatin1StringView=QLatin1String
+} else:contains(QT_VERSION, ^6\\.[0-3]\\..*) {
 	message("Cannot build NifSkope with Qt version $${QT_VERSION}")
 	error("Minimum required version is Qt 6.4")
+} else {
+	QT += xml opengl network widgets openglwidgets
+	# C++ Standard Support
+	CONFIG += c++20
 }
-
-# C++ Standard Support
-CONFIG += c++20
 
 # Dependencies
 CONFIG += qhull gli libfo76utils
@@ -218,6 +222,7 @@ HEADERS += \
 	src/glview.h \
 	src/message.h \
 	src/nifskope.h \
+	src/qt5compat.hpp \
 	src/spellbook.h \
 	src/version.h \
 	lib/dds.h \
@@ -553,8 +558,13 @@ build_pass|!debug_and_release {
 			$$[QT_INSTALL_PLUGINS]/imageformats/qjpeg$${DLLEXT} \
 			$$[QT_INSTALL_PLUGINS]/imageformats/qwebp$${DLLEXT}
 
-		styles += \
-			$$[QT_INSTALL_PLUGINS]/styles/qmodernwindowsstyle$${DLLEXT}
+		contains(QT_VERSION, ^5\\..*) {
+			styles += \
+				$$[QT_INSTALL_PLUGINS]/styles/qwindowsvistastyle$${DLLEXT}
+		} else {
+			styles += \
+				$$[QT_INSTALL_PLUGINS]/styles/qmodernwindowsstyle$${DLLEXT}
+		}
 
 		copyFiles( $$platforms, platforms, true )
 		copyFiles( $$imageformats, imageformats, true )

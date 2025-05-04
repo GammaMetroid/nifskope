@@ -32,6 +32,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "basemodel.h"
 #include "nifmodel.h"
+#include "qt5compat.hpp"
 
 #include "xml/xmlconfig.h"
 
@@ -645,7 +646,7 @@ const NifItem * BaseModel::getItem( const NifItem * parent, const QLatin1StringV
 	if ( !parent )
 		return nullptr;
 
-	size_t	nameLen = size_t( name.length() );
+	size_t	nameLen = size_t( name.size() );
 	size_t	slashPos = std::string_view( name.data(), nameLen ).find( '\\' );
 	if ( slashPos != std::string_view::npos && slashPos > 0 ) {
 		QLatin1StringView left  = name.left( slashPos );
@@ -915,7 +916,7 @@ BaseModelEval::BaseModelEval( const BaseModel * model, const NifItem * item )
 
 QVariant BaseModelEval::operator()( const QVariant & v ) const
 {
-	if ( v.typeId() == QMetaType::QString ) {
+	if ( getQVariantMetaType( v ) == QMetaType::QString ) {
 
 		// Resolve "ARG"
 		QString left = v.toString();

@@ -35,6 +35,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "spellbook.h"
 #include "data/niftypes.h"
 #include "ui/widgets/floatslider.h"
+#include "qt5compat.hpp"
 
 #include <QContextMenuEvent>
 #include <QDialog>
@@ -222,8 +223,8 @@ void ColorWheel::mousePressEvent( QMouseEvent * e )
 	if ( e->button() != Qt::LeftButton )
 		return;
 
-	double x = e->position().x();
-	double y = e->position().y();
+	double x = getQMouseEventPosition( e ).x();
+	double y = getQMouseEventPosition( e ).y();
 	double dx = abs( x - width() * 0.5 );
 	double dy = abs( y - height() * 0.5 );
 	double d  = sqrt( dx * dx + dy * dy );
@@ -244,7 +245,7 @@ void ColorWheel::mousePressEvent( QMouseEvent * e )
 void ColorWheel::mouseMoveEvent( QMouseEvent * e )
 {
 	if ( e->buttons() & Qt::LeftButton )
-		setColor( e->position().x(), e->position().y() );
+		setColor( getQMouseEventPosition( e ).x(), getQMouseEventPosition( e ).y() );
 }
 
 void ColorWheel::contextMenuEvent( QContextMenuEvent * e )

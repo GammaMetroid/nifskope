@@ -37,6 +37,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "model/undocommands.h"
 #include "ui/widgets/valueedit.h"
 #include "ui/widgets/nifcheckboxlist.h"
+#include "qt5compat.hpp"
 
 #include <QItemDelegate> // Inherited
 #include <QComboBox>
@@ -253,7 +254,7 @@ public:
 
 			if ( !w && ValueEdit::canEdit( nv.type() ) )
 				w = new ValueEdit( parent );
-		} else if ( v.typeId() == QMetaType::QString ) {
+		} else if ( getQVariantMetaType( v ) == QMetaType::QString ) {
 			QLineEdit * le = new QLineEdit( parent );
 			le->setFrame( false );
 			w = le;

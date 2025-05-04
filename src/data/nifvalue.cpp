@@ -33,6 +33,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "nifvalue.h"
 
 #include "model/nifmodel.h"
+#include "qt5compat.hpp"
 
 #include <QRegularExpression>
 #include <QSettings>
@@ -662,7 +663,7 @@ bool NifValue::setFromVariant( const QVariant & var )
 	if ( var.canConvert<NifValue>() ) {
 		operator=( var.value<NifValue>() );
 		return true;
-	} else if ( var.typeId() == QMetaType::QString ) {
+	} else if ( getQVariantMetaType( var ) == QMetaType::QString ) {
 		return set<QString>( var.toString(), nullptr, nullptr );
 	}
 

@@ -40,7 +40,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <chrono>
 #include <QDir>
 #include <QOpenGLContext>
-#include <QOpenGLVersionFunctionsFactory>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#  include <QOpenGLVersionFunctionsFactory>
+#endif
 
 
 static const QString white = "#FFFFFFFF";
@@ -341,7 +343,7 @@ bool NifSkopeOpenGLContext::Shader::load( const QString & filepath )
 		QByteArray	data = loadShaderFile( filepath );
 
 		if ( name.ends_with( "frag" ) ) {
-			if ( qsizetype n = data.indexOf( QLatin1StringView("NUM_TEXTURE_UNITS") ); n >= 0 )
+			if ( qsizetype n = data.indexOf( "NUM_TEXTURE_UNITS" ); n >= 0 )
 				data.replace( n, 17, QByteArray::number( TexCache::num_texture_units - 2 ) );
 		}
 
@@ -779,7 +781,11 @@ bool NifSkopeOpenGLContext::Program::uniSampler( BSShaderLightingProperty * bspr
 
 
 NifSkopeOpenGLContext::NifSkopeOpenGLContext( QOpenGLContext * context )
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+	:	fn( context->versionFunctions< NifSkopeOpenGLContext::GLFunctions >() ), cx( context )
+#else
 	:	fn( QOpenGLVersionFunctionsFactory::get< NifSkopeOpenGLContext::GLFunctions >( context ) ), cx( context )
+#endif
 {
 	vertexAttrib1f = reinterpret_cast< void (*)( unsigned int, float ) >( cx->getProcAddress( "glVertexAttrib1f" ) );
 	vertexAttrib2fv =

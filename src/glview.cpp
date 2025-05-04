@@ -42,6 +42,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "ui/widgets/fileselect.h"
 #include "fp32vec4.hpp"
 #include "ui/widgets/filebrowser.h"
+#include "qt5compat.hpp"
 
 #include <QApplication>
 #include <QActionGroup>
@@ -1801,7 +1802,11 @@ void GLView::dragMoveEvent( QDragMoveEvent * e )
 		fnDragTexOrg = QString();
 	}
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+	QModelIndex iObj = model->getBlockIndex( indexAt( e->posF() ), "NiAVObject" );
+#else
 	QModelIndex iObj = model->getBlockIndex( indexAt( e->position() ), "NiAVObject" );
+#endif
 
 	if ( iObj.isValid() ) {
 		for ( const auto l : model->getChildLinks( model->getBlockNumber( iObj ) ) ) {
@@ -1961,7 +1966,7 @@ void GLView::mouseDoubleClickEvent( QMouseEvent * )
 
 void GLView::mouseMoveEvent( QMouseEvent * event )
 {
-	auto	newPos = event->position();
+	auto	newPos = getQMouseEventPosition( event );
 	float	dx = newPos.x() - lastPos.x();
 	float	dy = newPos.y() - lastPos.y();
 	Qt::MouseButtons	buttonMask = Qt::MouseButtons( mouseButtonState );
@@ -1997,7 +2002,7 @@ void GLView::mousePressEvent( QMouseEvent * event )
 		return;
 	}
 
-	lastPos = event->position();
+	lastPos = getQMouseEventPosition( event );
 
 	pressPos = lastPos;
 }
@@ -2006,12 +2011,13 @@ void GLView::mouseReleaseEvent( QMouseEvent * event )
 {
 	mouseButtonState &= ~( std::uint32_t( event->button() ) );
 
+	auto	evtPos = getQMouseEventPosition( event );
 #ifdef Q_OS_LINUX
 	bool	isColorPicker = bool( event->modifiers() & ( Qt::AltModifier | Qt::ControlModifier ) );
 #else
 	bool	isColorPicker = bool( event->modifiers() & Qt::AltModifier );
 #endif
-	if ( model && (pressPos - event->position()).manhattanLength() <= 3 ) {
+	if ( model && ( pressPos - evtPos ).manhattanLength() <= 3 ) {
 		if ( event->button() == Qt::ForwardButton || event->button() == Qt::BackButton
 			|| event->button() == Qt::MiddleButton ) {
 			event->ignore();
@@ -2019,7 +2025,7 @@ void GLView::mouseReleaseEvent( QMouseEvent * event )
 		}
 
 		if ( !isColorPicker ) {
-			QModelIndex idx = indexAt( event->position(), bool( event->modifiers() & Qt::ShiftModifier ) );
+			QModelIndex idx = indexAt( evtPos, bool( event->modifiers() & Qt::ShiftModifier ) );
 			scene->currentBlock = model->getBlockIndex( idx );
 			scene->currentIndex = idx.sibling( idx.row(), 0 );
 
@@ -2033,34 +2039,41 @@ void GLView::mouseReleaseEvent( QMouseEvent * event )
 
 		} else {
 			// Color Picker / Eyedrop tool
-			QOpenGLFramebufferObjectFormat fboFmt;
-			fboFmt.setTextureTarget( GL_TEXTURE_2D );
-			fboFmt.setInternalTextureFormat( GL_SRGB8 );
-			fboFmt.setMipmap( false );
-			fboFmt.setAttachment( QOpenGLFramebufferObject::Attachment::Depth );
+			auto	prvContext = pushGLContext();
+			{
+				QOpenGLFramebufferObjectFormat fboFmt;
+				fboFmt.setTextureTarget( GL_TEXTURE_2D );
+				fboFmt.setInternalTextureFormat( GL_SRGB8 );
+				fboFmt.setMipmap( false );
+				fboFmt.setAttachment( QOpenGLFramebufferObject::Attachment::Depth );
 
-			QOpenGLFramebufferObject fbo( pixelWidth, pixelHeight, fboFmt );
-			fbo.bind();
+				QOpenGLFramebufferObject fbo( pixelWidth, pixelHeight, fboFmt );
+				fbo.bind();
 
-			paintGL();
+				paintGL();
 
-			fbo.release();
+				fbo.release();
 
-			QImage * img = new QImage( fbo.toImage() );
+				QImage img( fbo.toImage() );
 
-			QColor what = QColor( img->pixel( ( event->position() * devicePixelRatioF() ).toPoint() ) );
+				QColor what = QColor( img.pixel( ( evtPos * devicePixelRatioF() ).toPoint() ) );
 
-			glClearColor( what.redF(), what.greenF(), what.blueF(), what.alphaF() );
-			// qDebug() << what;
-
-			delete img;
+				glClearColor( what.redF(), what.greenF(), what.blueF(), what.alphaF() );
+				// qDebug() << what;
+			}
+			popGLContext( prvContext );
 		}
 
 		update();
 	}
 
 	if ( event->button() == Qt::RightButton && !isColorPicker ) {
-		QContextMenuEvent	e( QContextMenuEvent::Mouse, event->position().toPoint(), event->globalPosition().toPoint(),
+		QContextMenuEvent	e( QContextMenuEvent::Mouse,
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+								event->pos(), event->globalPos(),
+#else
+								evtPos.toPoint(), event->globalPosition().toPoint(),
+#endif
 								event->modifiers() );
 		contextMenuEvent( &e );
 	}

@@ -46,6 +46,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "lib/nvtristripwrapper.h"
 #include "io/MeshFile.h"
 #include "glview.h"
+#include "qt5compat.hpp"
 
 #include <QUndoStack> // QUndoCommand Inherited
 #include <QActionGroup>
@@ -606,7 +607,7 @@ int UVWidget::heightForWidth( int width ) const
 void UVWidget::mousePressEvent( QMouseEvent * e )
 {
 	double	p = devicePixelRatioF();
-	QPoint	pixelPos( ( e->position() * p ).toPoint() );
+	QPoint	pixelPos( ( getQMouseEventPosition( e ) * p ).toPoint() );
 	QPoint	dPos( pixelPos - mousePos );
 	mousePos = pixelPos;
 
@@ -654,7 +655,7 @@ void UVWidget::mousePressEvent( QMouseEvent * e )
 void UVWidget::mouseMoveEvent( QMouseEvent * e )
 {
 	double	p = devicePixelRatioF();
-	QPoint	pixelPos( ( e->position() * p ).toPoint() );
+	QPoint	pixelPos( ( getQMouseEventPosition( e ) * p ).toPoint() );
 	QPoint	dPos( pixelPos - mousePos );
 
 	switch ( e->buttons() ) {
@@ -715,7 +716,7 @@ void UVWidget::mouseMoveEvent( QMouseEvent * e )
 void UVWidget::mouseReleaseEvent( QMouseEvent * e )
 {
 	double	p = devicePixelRatioF();
-	QPoint	pixelPos( ( e->position() * p ).toPoint() );
+	QPoint	pixelPos( ( getQMouseEventPosition( e ) * p ).toPoint() );
 
 	switch ( e->button() ) {
 	case Qt::LeftButton:

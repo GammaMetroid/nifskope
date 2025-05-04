@@ -1248,7 +1248,7 @@ void spStarfieldEditedMaterialSaveAs::exportFO76Material( const NifModel * nif, 
 																			"materials/", e ), e );
 		if ( !matFilePath.isEmpty() ) {
 			QFile	matFile( matFilePath );
-			if ( !matFile.open( QIODeviceBase::WriteOnly ) )
+			if ( !matFile.open( QIODevice::WriteOnly ) )
 				throw NifSkopeError( "Could not open output file" );
 			matFile.write( data );
 		}
