@@ -213,6 +213,13 @@ void NifExpr::partition( const QString & cond, int offset /*= 0*/ )
 			static QRegularExpression reUInt( "\\A(?:0[xX][0-9a-fA-F]+)\\z" );
 			static QRegularExpression reFloat( "^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?$" );
 			static QRegularExpression reVersion( "\\A(?:[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)\\z" );
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+			const QMetaType::Type	intMetaType = QMetaType::Int;
+			const QMetaType::Type	uintMetaType = QMetaType::UInt;
+#else
+			static const QMetaType	intMetaType( QMetaType::Int );
+			static const QMetaType	uintMetaType( QMetaType::UInt );
+#endif
 
 			// termination
 			lhs.setValue( cond );
@@ -220,17 +227,9 @@ void NifExpr::partition( const QString & cond, int offset /*= 0*/ )
 			if ( reUInt.match( cond ).hasMatch() ) {
 				bool ok = false;
 				lhs.setValue( cond.toUInt( &ok, 16 ) );
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-				lhs.convert( QMetaType::UInt );
-#else
-				lhs.convert( QMetaType( QMetaType::UInt ) );
-#endif
+				lhs.convert( uintMetaType );
 			} else if ( reInt.match( cond ).hasMatch() ) {
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-				lhs.convert( QMetaType::Int );
-#else
-				lhs.convert( QMetaType( QMetaType::Int ) );
-#endif
+				lhs.convert( intMetaType );
 			} else if ( reVersion.match( cond ).hasMatch() ) {
 				lhs.setValue( version2number( cond ) );
 			}
@@ -336,7 +335,7 @@ void NifExpr::NormalizeVariants( QVariant & l, QVariant & r ) const
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 				auto	t = std::max( t_l, t_r );
 #else
-				auto	t = QMetaType( std::max( t_l, t_r ) );
+				auto	t = ( t_l > t_r ? l.metaType() : r.metaType() );
 #endif
 
 				if ( r.canConvert( t ) && l.canConvert( t ) ) {

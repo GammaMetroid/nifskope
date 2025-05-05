@@ -1,6 +1,6 @@
  == CHANGELOG ==
 
-#### NifSkope-2.0.dev11-20250504
+#### NifSkope-2.0.dev11-20250505
 
 * Processing multiple NIF files supports three new spells (Remove Duplicate Vertices, Remove Unused Vertices and Optimize Indices), and recursive processing of all models under a selected folder.
 * Screenshot supersampling is now saved as a setting.
