@@ -60,10 +60,11 @@ int main()
     cdbStrings.insert(std::string(BSReflStream::stringTable[i]));
   }
   BA2File ba2File("");
-  static const char *cdbFileNames[4] =
+  static const char *cdbFileNames[5] =
   {
     "materials/materialsbeta.cdb",
     "materials/creations/sfbgs003/materialsbeta.cdb",
+    "materials/creations/sfbgs007/materialsbeta.cdb",
     "materials/creations/sfbgs008/materialsbeta.cdb",
     nullptr
   };
@@ -74,9 +75,10 @@ int main()
     FileBuffer  buf(tmpBuf.data, tmpBuf.size);
     loadStrings(cdbStrings, buf);
   }
-  static const char *esmFileNames[7] =
+  static const char *esmFileNames[9] =
   {
-    "Starfield.esm", "BlueprintShips-Starfield.esm", "SFBGS003.esm",
+    "Starfield.esm", "BlueprintShips-Starfield.esm",
+    "BlueprintShips-SFTA03.esm", "SFBGS003.esm", "SFBGS004.esm",
     "SFBGS006.esm", "SFBGS007.esm", "SFBGS008.esm", nullptr
   };
   for (size_t j = 0; esmFileNames[j]; j++)
