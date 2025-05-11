@@ -1416,13 +1416,23 @@ void Node::drawHavok()
 	Matrix4	m = *( scene->currentModelViewMatrix );
 	drawHvkShape( nif, nif->getBlockIndex( nif->getLink( iBody, "Shape" ) ), nullptr, scene, colors[ color_index ], m );
 
-	if ( scene->selecting && scene->hasOption(Scene::ShowAxes) ) {
-		scene->setGLColor( getColorKeyFromID( nif->getBlockNumber( iBody ) ) );
-		glDepthFunc( GL_ALWAYS );
-		scene->drawAxes( Vector3( nif->get<Vector4>( iBody, "Center" ) ), 1.0f / bhkScaleMult( nif ), false );
-		glDepthFunc( GL_LEQUAL );
-	} else if ( scene->hasOption(Scene::ShowAxes) ) {
-		scene->drawAxes( Vector3( nif->get<Vector4>( iBody, "Center" ) ), 1.0f / bhkScaleMult( nif ) );
+	if ( scene->hasOption(Scene::ShowAxes) ) {
+		QModelIndex iBodyInfo;
+		if ( iBody.isValid() ) {
+			iBodyInfo = nif->getIndex( iBody, "Rigid Body Info" );
+			if ( !iBodyInfo.isValid() )
+				iBodyInfo = iBody;
+		}
+		Vector4 c = nif->get<Vector4>( iBodyInfo, "Center" );
+		c[3] = 1.0f / bhkScaleMult( nif );
+		if ( scene->selecting ) {
+			scene->setGLColor( getColorKeyFromID( nif->getBlockNumber( iBody ) ) );
+			glDepthFunc( GL_ALWAYS );
+			scene->drawAxes( Vector3(c), c[3], false );
+			glDepthFunc( GL_LEQUAL );
+		} else {
+			scene->drawAxes( Vector3(c), c[3] );
+		}
 	}
 
 	for ( const auto l : nif->getLinkArray( iBody, "Constraints" ) ) {

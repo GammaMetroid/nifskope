@@ -1,5 +1,8 @@
  == CHANGELOG ==
 
+* Fixed issue https://github.com/gavrant/nifskope/issues/8.
+* Updates for Starfield version 1.15.214.
+
 #### NifSkope-2.0.dev11-20250505
 
 * Processing multiple NIF files supports three new spells (Remove Duplicate Vertices, Remove Unused Vertices and Optimize Indices), and recursive processing of all models under a selected folder.
