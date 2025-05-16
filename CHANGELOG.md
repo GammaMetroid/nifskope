@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Fixed glTF import of skinned models where the bone nodes are after the meshes.
 * Fixed issue https://github.com/gavrant/nifskope/issues/8.
 * Updates for Starfield version 1.15.214.
 

@@ -1417,6 +1417,8 @@ protected:
 	NifModel *	nif;
 	bool	lodEnabled;
 	bool	scaleWarningFlag;
+	bool	secondPass;			// bone nodes are created in the first pass
+	bool	haveSkins;
 	std::vector< int >	nodeMap;
 	static inline Vector3 fromMeters( const Vector3 & v );
 	bool nodeHasMeshes( const tinygltf::Node & node, int d = 0 ) const;
@@ -1436,7 +1438,8 @@ protected:
 	void loadNode( const QPersistentModelIndex & index, int nodeNum, bool isRoot );
 public:
 	ImportGltf( NifModel * nifModel, const tinygltf::Model & gltfModel, bool enableLOD )
-		: model( gltfModel ), nif( nifModel ), lodEnabled( enableLOD ), scaleWarningFlag( false )
+		: model( gltfModel ), nif( nifModel ), lodEnabled( enableLOD ), scaleWarningFlag( false ),
+			secondPass( false ), haveSkins( false )
 	{
 	}
 	void importModel( const QPersistentModelIndex & iBlock );
@@ -1451,14 +1454,14 @@ inline Vector3 ImportGltf::fromMeters( const Vector3 & v )
 bool ImportGltf::nodeHasMeshes( const tinygltf::Node & node, int d ) const
 {
 	if ( node.mesh >= 0 && size_t(node.mesh) < model.meshes.size() )
-		return true;
+		return secondPass;
 	if ( d >= 1024 )
 		return false;
 	for ( int i : node.children ) {
 		if ( i >= 0 && size_t(i) < model.nodes.size() && nodeHasMeshes( model.nodes[i], d + 1 ) )
 			return true;
 	}
-	if ( node.extras.Has( "Flat" ) && node.extras.Get( "Flat" ).Get< bool >() )
+	if ( secondPass || ( node.extras.Has( "Flat" ) && node.extras.Get( "Flat" ).Get< bool >() ) )
 		return false;
 	qsizetype	k = qsizetype( &node - model.nodes.data() );
 	for ( const auto & i : model.skins ) {
@@ -1647,7 +1650,7 @@ void ImportGltf::loadSkin( const QPersistentModelIndex & index, const tinygltf::
 		for ( size_t i = 0; i < numBones; i++ ) {
 			const tinygltf::Node *	boneNode = nullptr;
 			int	boneBlockNum = -1;
-			// FIXME: this works only if bone nodes are loaded before the skin
+			// NOTE: this works only if bone nodes are loaded before the skin
 			if ( skin.joints[i] >= 0 && size_t(skin.joints[i]) < nodeMap.size() ) {
 				boneNode = model.nodes.data() + skin.joints[i];
 				boneBlockNum = nodeMap[skin.joints[i]];
@@ -2212,9 +2215,17 @@ bool ImportGltf::loadMeshCE1(
 void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, bool isRoot )
 {
 	quint32	bsVersion = nif->getBSVersion();
-	if ( nodeNum < 0 || size_t(nodeNum) >= model.nodes.size() || nodeMap[nodeNum] >= 0 )
+	if ( nodeNum < 0 || size_t(nodeNum) >= model.nodes.size() )
 		return;
 	const tinygltf::Node &	node = model.nodes[nodeNum];
+	if ( nodeMap[nodeNum] >= 0 ) {
+		if ( secondPass && haveSkins ) {
+			QPersistentModelIndex	iBlock = nif->getBlockIndex( nodeMap[nodeNum] );
+			for ( int i : node.children )
+				loadNode( iBlock, i, false );
+		}
+		return;
+	}
 	if ( !nodeHasMeshes( node ) )
 		return;
 
@@ -2377,14 +2388,20 @@ void ImportGltf::loadNode( const QPersistentModelIndex & index, int nodeNum, boo
 void ImportGltf::importModel( const QPersistentModelIndex & iBlock )
 {
 	nodeMap.assign( model.nodes.size(), -1 );
+	secondPass = model.skins.empty();
+	haveSkins = !secondPass;
 	nif->setState( BaseModel::Loading );
-	if ( model.scenes.empty() ) {
-		loadNode( iBlock, 0, true );
-	} else {
-		for ( const auto & i : model.scenes ) {
-			for ( int j : i.nodes )
-				loadNode( iBlock, j, true );
+	for ( ; true; secondPass = true ) {
+		if ( model.scenes.empty() ) {
+			loadNode( iBlock, 0, true );
+		} else {
+			for ( const auto & i : model.scenes ) {
+				for ( int j : i.nodes )
+					loadNode( iBlock, j, true );
+			}
 		}
+		if ( secondPass )
+			break;
 	}
 	nif->restoreState();
 	nif->updateModel();
