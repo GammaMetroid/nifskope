@@ -158,8 +158,6 @@ void main()
 
 		vec3 normal = normalize( normalMap.rgb * 2.0 - 1.0 );
 
-		vec3 R = reflect( -L, normal );
-		vec3 H = normalize( L + E );
 		float NdotL = max( dot(normal, L), 0.0 );
 
 		if ( ( vertexColorFlags & 0x28 ) == 0x28 ) {
@@ -198,6 +196,7 @@ void main()
 
 		// Specular
 		if ( hasSpecular && NdotL > 0.0 ) {
+			vec3 H = normalize( L + E );
 			float NdotH = dot( normal, H );
 			if ( NdotH > 0.0 ) {
 				vec3 spec = frontMaterialSpecular.rgb * pow( NdotH, frontMaterialShininess );
