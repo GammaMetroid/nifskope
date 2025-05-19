@@ -721,7 +721,8 @@ public:
 		spellFlagTangentSpace = 64,
 		spellFlagMeshlets = 128,
 		spellFlagUpdateBounds = 256,
-		spellFlagExternalGeom = 512
+		spellFlagCombineProperties = 512,
+		spellFlagExternalGeom = 1024
 	};
 	static bool processFile( NifModel * nif, void * p );
 	static void findNIFFiles( QStringList & fileList, const QStringList & folderList );
@@ -743,6 +744,7 @@ DECLARE_SPELL_CAST_STATIC( spOptimizeAllIndices )
 DECLARE_SPELL_CAST_STATIC( spAddAllTangentSpaces )
 DECLARE_SPELL_CAST_STATIC( spGenerateMeshlets )
 DECLARE_SPELL_CAST_STATIC( spUpdateAllBounds )
+DECLARE_SPELL_CAST_STATIC( spCombiProps )
 
 bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 {
@@ -794,6 +796,11 @@ bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 		fileChanged = true;
 	}
 
+	if ( spellMask & spellFlagCombineProperties ) {
+		spCombiProps::cast_Static( nif, QModelIndex() );
+		fileChanged = true;
+	}
+
 	if ( ( spellMask & spellFlagExternalGeom ) && nif->getBSVersion() >= 170 ) {
 		spMeshFileExport	sp;
 		sp.cast( nif, QModelIndex() );
@@ -842,6 +849,7 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		QCheckBox *	checkTangentSpace = new QCheckBox( "Add Tangent Spaces and Update", &dlg );
 		QCheckBox *	checkMeshlets = new QCheckBox( "Generate Meshlets and Update Bounds", &dlg );
 		QCheckBox *	checkUpdateBounds = new QCheckBox( "Update Bounds", &dlg );
+		QCheckBox *	checkCombineProperties = new QCheckBox( "Combine Properties", &dlg );
 		QCheckBox *	checkExternalGeom = new QCheckBox( "Convert to External Geometry", &dlg );
 		QCheckBox *	checkSelectFolder = new QCheckBox( "Select and Process Folder", &dlg );
 		QPushButton *	okButton = new QPushButton( "OK", &dlg );
@@ -861,12 +869,13 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		grid->addWidget( checkTangentSpace, 9, 0, 1, 5 );
 		grid->addWidget( checkMeshlets, 10, 0, 1, 5 );
 		grid->addWidget( checkUpdateBounds, 11, 0, 1, 5 );
-		grid->addWidget( checkExternalGeom, 12, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 13, 0, 1, 5 );
-		grid->addWidget( checkSelectFolder, 14, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 15, 0, 1, 5 );
-		grid->addWidget( okButton, 16, 1, 1, 1 );
-		grid->addWidget( cancelButton, 16, 3, 1, 1 );
+		grid->addWidget( checkCombineProperties, 12, 0, 1, 5 );
+		grid->addWidget( checkExternalGeom, 13, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 14, 0, 1, 5 );
+		grid->addWidget( checkSelectFolder, 15, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 16, 0, 1, 5 );
+		grid->addWidget( okButton, 17, 1, 1, 1 );
+		grid->addWidget( cancelButton, 17, 3, 1, 1 );
 
 		QObject::connect( okButton, &QPushButton::clicked, &dlg, &QDialog::accept );
 		QObject::connect( cancelButton, &QPushButton::clicked, &dlg, &QDialog::reject );
@@ -892,6 +901,8 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 			spellMask = spellMask | spellFlagMeshlets;
 		if ( checkUpdateBounds->isChecked() )
 			spellMask = spellMask | spellFlagUpdateBounds;
+		if ( checkCombineProperties->isChecked() )
+			spellMask = spellMask | spellFlagCombineProperties;
 		if ( checkExternalGeom->isChecked() )
 			spellMask = spellMask | spellFlagExternalGeom;
 		if ( !spellMask )

@@ -1,7 +1,10 @@
  == CHANGELOG ==
 
+* The "Combine Properties" optimization spell can now be used when processing multiple NIF files.
 * Fixed glTF import of skinned models where the bone nodes are after the meshes.
+* Fixed rendering Skyrim decals.
 * Fixed issue https://github.com/gavrant/nifskope/issues/8.
+* Fixed bug in rendering collision where the transform of the last shape was incorrectly applied to the center of mass.
 * Updates for Starfield version 1.15.214.
 
 #### NifSkope-2.0.dev11-20250505

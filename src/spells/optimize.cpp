@@ -106,10 +106,19 @@ public:
 			}
 		} while ( !map.isEmpty() );
 
-		Message::info( nullptr, Spell::tr( "Removed %1 properties" ).arg( numRemoved ) );
+		if ( !nif->getBatchProcessingMode() )
+			Message::info( nullptr, Spell::tr( "Removed %1 properties" ).arg( numRemoved ) );
 		return QModelIndex();
 	}
+
+	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
 };
+
+QModelIndex spCombiProps::cast_Static( NifModel * nif, const QModelIndex & index )
+{
+	spCombiProps	sp;
+	return sp.cast( nif, index );
+}
 
 REGISTER_SPELL( spCombiProps )
 
