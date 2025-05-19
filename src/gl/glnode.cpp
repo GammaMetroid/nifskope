@@ -1402,8 +1402,9 @@ void Node::drawHavok()
 	int color_index = nif->get<int>( iBody, "Layer" ) & 7;
 	scene->setGLColor( colors[ color_index ] );
 
+	QModelIndex	iShape = nif->getBlockIndex( nif->getLink( iBody, "Shape" ) );
 	if ( !scene->selecting ) {
-		if ( scene->currentBlock == nif->getBlockIndex( nif->getLink( iBody, "Shape" ) ) ) {
+		if ( scene->currentBlock == iShape ) {
 			// fix: add selected visual to havok meshes
 			scene->setGLColor( scene->highlightColor );
 			scene->setGLLineWidth( GLView::Settings::lineWidthHighlight );
@@ -1413,8 +1414,10 @@ void Node::drawHavok()
 		scene->setGLLineWidth( GLView::Settings::lineWidthSelect );	// make selection click a little more easy
 	}
 
-	Matrix4	m = *( scene->currentModelViewMatrix );
-	drawHvkShape( nif, nif->getBlockIndex( nif->getLink( iBody, "Shape" ) ), nullptr, scene, colors[ color_index ], m );
+	Matrix4 *	m = scene->currentModelViewMatrix;
+	scene->pushModelViewMatrix();
+	drawHvkShape( nif, iShape, nullptr, scene, colors[ color_index ], *m );
+	scene->currentModelViewMatrix = m;
 
 	if ( scene->hasOption(Scene::ShowAxes) ) {
 		QModelIndex iBodyInfo;
