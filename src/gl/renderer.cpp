@@ -948,6 +948,11 @@ bool Renderer::setupProgramCE1( const NifModel * nif, Program * prog, Shape * me
 		} else {
 			AlphaProperty::glProperty( mesh->alphaProperty, prog );
 		}
+
+		if ( bsprop->hasSF1( ShaderFlags::SF1( ShaderFlags::SLSF1_Decal | ShaderFlags::SLSF1_Dynamic_Decal ) ) ) {
+			glEnable( GL_POLYGON_OFFSET_FILL );
+			glPolygonOffset( -1.0f, -1.0f );
+		}
 	}
 
 	if ( !mesh->depthTest ) {

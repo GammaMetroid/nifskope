@@ -519,8 +519,12 @@ void Shape::updateShader()
 				drawInSecondPass = true;
 		} else {
 			Material * mat = bssp->getMaterial();
-			if ( mat && (mat->hasAlphaBlend() || mat->hasDecal()) )
-				drawInSecondPass = true;
+			if ( !mat ) {
+				drawInSecondPass = bssp->hasSF1( ShaderFlags::SF1( ShaderFlags::SLSF1_Decal
+																	| ShaderFlags::SLSF1_Dynamic_Decal ) );
+			} else {
+				drawInSecondPass = ( mat->hasAlphaBlend() || mat->hasDecal() );
+			}
 		}
 	}
 
