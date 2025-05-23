@@ -309,7 +309,7 @@ QModelIndex spApplyTransformation::cast( NifModel * nif, const QModelIndex & ind
 			}
 		}
 
-		nif->resetState();
+		nif->restoreState();
 
 		t = Transform();
 		t.writeBack( nif, index );

@@ -1,6 +1,7 @@
  == CHANGELOG ==
 
 * The "Combine Properties" optimization spell can now be used when processing multiple NIF files.
+* Implemented "Flip Normals" for BSTriShape geometry.
 * Fixed glTF import of skinned models where the bone nodes are after the meshes.
 * Fixed rendering Skyrim decals.
 * Fixed issue https://github.com/gavrant/nifskope/issues/8.

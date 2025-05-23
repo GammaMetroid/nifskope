@@ -169,7 +169,7 @@ public:
 			for ( int i = 0; i < numVerts; i++ ) {
 				nif->set<ByteVector3>( nif->getIndex( iData, i ), "Normal", norms[i] );
 			}
-			nif->resetState();
+			nif->restoreState();
 
 			spRemoveWasteVertices::updateBSTriShape( nif, index );
 		}
@@ -275,8 +275,7 @@ public:
 	{
 		if ( nif->getBSVersion() >= 170 && nif->isNiBlock( index, "BSGeometry" ) )
 			return true;
-		QModelIndex iData = spFaceNormals::getShapeData( nif, index );
-		return ( iData.isValid() && nif->get<bool>( iData, "Has Normals" ) );
+		return spFaceNormals::getShapeData( nif, index ).isValid();
 	}
 
 	static void flipNormalsSFMesh( NifModel * nif, const QModelIndex & index );
@@ -291,12 +290,38 @@ public:
 
 		QModelIndex iData = spFaceNormals::getShapeData( nif, index );
 
-		QVector<Vector3> norms = nif->getArray<Vector3>( iData, "Normals" );
+		if ( !nif->blockInherits( index, "BSTriShape" ) ) {
+			QVector<Vector3> norms = nif->getArray<Vector3>( iData, "Normals" );
 
-		for ( int n = 0; n < norms.count(); n++ )
-			norms[n] = -norms[n];
+			for ( int n = 0; n < norms.count(); n++ )
+				norms[n] = -norms[n];
 
-		nif->setArray<Vector3>( iData, "Normals", norms );
+			nif->setArray<Vector3>( iData, "Normals", norms );
+
+		} else {
+			int numVerts;
+			auto vf = nif->get<BSVertexDesc>( index, "Vertex Desc" );
+			if ( !((vf & VertexFlags::VF_SKINNED) && nif->getBSVersion() == 100) ) {
+				numVerts = nif->get<int>( index, "Num Vertices" );
+			} else {
+				// Skinned SSE
+				auto iPart = iData.parent();
+				numVerts = nif->get<uint>( iPart, "Data Size" ) / nif->get<uint>( iPart, "Vertex Size" );
+			}
+
+			QVector<Vector3> norms( numVerts );
+
+			for ( int i = 0; i < numVerts; i++ )
+				norms[i] = nif->get<Vector3>( nif->getIndex( iData, i ), "Normal" ) * -1.0f;
+
+			// Pause updates between model/view
+			nif->setState( BaseModel::Processing );
+			for ( int i = 0; i < numVerts; i++ )
+				nif->set<ByteVector3>( nif->getIndex( iData, i ), "Normal", norms[i] );
+			nif->restoreState();
+
+			spRemoveWasteVertices::updateBSTriShape( nif, index );
+		}
 
 		return index;
 	}
@@ -546,7 +571,7 @@ void spSmoothNormals::smoothNormals( NifModel * nif, const QModelIndex & index, 
 		nif->setState( BaseModel::Processing );
 		for ( int i = 0; i < numVerts; i++ )
 			nif->set<ByteVector3>( nif->getIndex( iData, i ), "Normal", snorms[i] );
-		nif->resetState();
+		nif->restoreState();
 
 		spRemoveWasteVertices::updateBSTriShape( nif, index );
 	}
