@@ -6,6 +6,7 @@
 * Fixed rendering Skyrim decals.
 * Fixed issue https://github.com/gavrant/nifskope/issues/8.
 * Fixed bug in rendering collision where the transform of the last shape was incorrectly applied to the center of mass.
+* Fixed "Texture/Choose" not being applicable to the texture paths in BSEffectShaderProperty.
 * Updates for Starfield version 1.15.214.
 
 #### NifSkope-2.0.dev11-20250505

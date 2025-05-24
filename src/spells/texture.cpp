@@ -183,7 +183,7 @@ public:
 	bool isApplicable( const NifModel * nif, const QModelIndex & idx ) override final
 	{
 		const NifItem *	item = nif->getItem( idx );
-		if ( !item )
+		if ( !( item && item->isString() ) )
 			return false;
 		QModelIndex iBlock = nif->getBlockIndex( idx );
 		const QString &	itemName = item->name();
@@ -193,22 +193,21 @@ public:
 			return true;
 		}
 
-		if ( !( itemName == "File Name" || itemName == "Path" || itemName.startsWith( QLatin1StringView( "Texture" ) ) ) )
+		if ( !( itemName == "File Name" || itemName == "Path" || itemName.contains( QLatin1StringView( "Texture" ) ) ) )
 			return false;
 
-		if ( nif->isNiBlock( iBlock, "BSShaderNoLightingProperty" ) && itemName == "File Name" )
+		if ( nif->isNiBlock( iBlock, "BSShaderTextureSet" ) && itemName == "Textures" ) {
 			return true;
-		else if ( nif->isNiBlock( iBlock, "BSShaderTextureSet" ) && itemName == "Textures" )
-			return true;
-		else if ( nif->isNiBlock( iBlock, "SkyShaderProperty" ) && itemName == "File Name" )
-			return true;
-		else if ( nif->isNiBlock( iBlock, "TileShaderProperty" ) && itemName == "File Name" )
-			return true;
-		else if ( nif->getBSVersion() >= 130
-					&& ( itemName == "Path"
-						|| ( itemName.back().isDigit() && itemName.startsWith( QLatin1StringView( "Texture " ) ) ) )
-					&& nif->blockInherits( iBlock, "BSShaderProperty" ) )
-			return true;
+		} else if ( itemName == "File Name" ) {
+			return nif->isNiBlock( iBlock, { "BSShaderNoLightingProperty", "SkyShaderProperty", "TileShaderProperty" } );
+		} else if ( nif->getBSVersion() >= 83 && nif->blockInherits( iBlock, "BSShaderProperty" ) ) {
+			if ( nif->getBSVersion() >= 130
+				&& ( itemName == "Path"
+					|| ( itemName.back().isDigit() && itemName.startsWith( QLatin1StringView( "Texture " ) ) ) ) ) {
+				return true;
+			}
+			return itemName.endsWith( QLatin1StringView( " Texture" ) );
+		}
 
 		return false;
 	}
@@ -227,16 +226,17 @@ public:
 			setExternal = true;
 		} else if ( nif->isNiBlock( iBlock, "BSShaderTextureSet" ) && i->hasName( "Textures" ) ) {
 			iFile = idx;
-		} else if ( nif->isNiBlock( iBlock, "BSShaderNoLightingProperty" ) && i->hasName( "File Name" ) ) {
-			iFile = idx;
-		} else if ( nif->isNiBlock( iBlock, "SkyShaderProperty" ) && i->hasName( "File Name" ) ) {
-			iFile = idx;
-		} else if ( nif->isNiBlock( iBlock, "TileShaderProperty" ) && i->hasName( "File Name" ) ) {
-			iFile = idx;
-		} else if ( nif->getBSVersion() >= 130 && ( i->name() == "Path" || i->name().startsWith( QLatin1StringView( "Texture " ) ) )
-					&& nif->blockInherits( iBlock, "BSShaderProperty" ) ) {
-			iFile = ( nif->getBSVersion() < 170 || i->name() == "Path" ? idx : nif->getIndex( i, "Path" ) );
-			isMaterialFile = true;
+		} else if ( i->hasName( "File Name" ) ) {
+			if ( nif->isNiBlock( iBlock, { "BSShaderNoLightingProperty", "SkyShaderProperty", "TileShaderProperty" } ) )
+				iFile = idx;
+		} else if ( nif->getBSVersion() >= 83 && nif->blockInherits( iBlock, "BSShaderProperty" ) ) {
+			if ( nif->getBSVersion() >= 130
+				&& ( i->name() == "Path" || i->name().startsWith( QLatin1StringView( "Texture " ) ) ) ) {
+				iFile = ( nif->getBSVersion() < 170 || i->hasName( "Path" ) ? idx : nif->getIndex( i, "Path" ) );
+				isMaterialFile = true;
+			} else if ( i->name().endsWith( QLatin1StringView( " Texture" ) ) ) {
+				iFile = idx;
+			}
 		}
 
 		if ( !iFile.isValid() )
