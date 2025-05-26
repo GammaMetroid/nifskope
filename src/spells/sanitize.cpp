@@ -740,3 +740,113 @@ QModelIndex spWarningEnvironmentMapping::cast(NifModel * nif, [[maybe_unused]] c
 
 
 REGISTER_SPELL(spWarningEnvironmentMapping)
+
+
+//! Sorts keys in NiFloatData etc. by time
+class spSortKeyGroup final : public Spell
+{
+public:
+	QString name() const override final { return Spell::tr( "Sort Keys" ); }
+	QString page() const override final { return Spell::tr( "Sanitize" ); }
+
+	struct KeyGroupItem
+	{
+		float	time;
+		float	tension;
+		float	bias;
+		float	continuity;
+		NifValue	value;
+		NifValue	forwardTangent;
+		NifValue	backwardTangent;
+		KeyGroupItem();
+		KeyGroupItem( const NifModel * nif, const QModelIndex & index );
+		~KeyGroupItem();
+		void storeItem( NifModel * nif, const QModelIndex & index ) const;
+		inline bool operator<( const KeyGroupItem & r ) const
+		{
+			return ( time < r.time );
+		}
+	};
+
+	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
+	{
+		if ( nif && index.isValid() && nif->isArray( index ) && nif->rowCount( index ) > 1 ) {
+			if ( const NifItem * i = nif->getItem( index, 0, false ); i )
+				return ( i->hasStrType( "Key" ) || i->hasStrType( "QuatKey" ) );
+		}
+		return false;
+	}
+
+	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
+	{
+		int	n = nif->rowCount( index );
+		if ( n < 2 )
+			return index;
+
+		std::vector< KeyGroupItem >	keys;
+		keys.reserve( size_t( n ) );
+		for ( int i = 0; i < n; i++ )
+			keys.emplace_back( nif, nif->getIndex( index, i ) );
+
+		std::stable_sort( keys.begin(), keys.end() );
+
+		nif->setState( BaseModel::Processing );
+		for ( int i = 0; i < n; i++ )
+			keys[i].storeItem( nif, nif->getIndex( index, i ) );
+		nif->restoreState();
+
+		return index;
+	}
+};
+
+spSortKeyGroup::KeyGroupItem::KeyGroupItem()
+	: time( 0.0f ), tension( 0.0f ), bias( 0.0f ), continuity( 0.0f )
+{
+}
+
+spSortKeyGroup::KeyGroupItem::KeyGroupItem( const NifModel * nif, const QModelIndex & index )
+	: time( 0.0f ), tension( 0.0f ), bias( 0.0f ), continuity( 0.0f )
+{
+	const NifItem *	item;
+	if ( !( nif && index.isValid() && ( item = nif->getItem( index ) ) != nullptr ) )
+		return;
+	if ( const NifItem * i = nif->getItem( item, "Time" ); i )
+		time = nif->get<float>( i );
+	if ( const NifItem * i = nif->getItem( item, "Value" ); i )
+		value = i->value();
+	if ( const NifItem * i = nif->getItem( item, "Forward" ); i )
+		forwardTangent = i->value();
+	if ( const NifItem * i = nif->getItem( item, "Backward" ); i )
+		backwardTangent = i->value();
+	if ( const NifItem * i = nif->getItem( item, "TBC" ); i ) {
+		tension = nif->get<float>( i, "t" );
+		bias = nif->get<float>( i, "b" );
+		continuity = nif->get<float>( i, "c" );
+	}
+}
+
+spSortKeyGroup::KeyGroupItem::~KeyGroupItem()
+{
+}
+
+void spSortKeyGroup::KeyGroupItem::storeItem( NifModel * nif, const QModelIndex & index ) const
+{
+	NifItem *	item;
+	if ( !( nif && index.isValid() && ( item = nif->getItem( index ) ) != nullptr ) )
+		return;
+	if ( NifItem * i = nif->getItem( item, "Time" ); i )
+		nif->set<float>( i, time );
+	if ( NifItem * i = nif->getItem( item, "Value" ); i )
+		nif->setItemValue( i, value );
+	if ( NifItem * i = nif->getItem( item, "Forward" ); i )
+		nif->setItemValue( i, forwardTangent );
+	if ( NifItem * i = nif->getItem( item, "Backward" ); i )
+		nif->setItemValue( i, backwardTangent );
+	if ( NifItem * i = nif->getItem( item, "TBC" ); i ) {
+		nif->set<float>( i, "t", tension );
+		nif->set<float>( i, "b", bias );
+		nif->set<float>( i, "c", continuity );
+	}
+}
+
+REGISTER_SPELL( spSortKeyGroup )
