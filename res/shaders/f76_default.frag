@@ -39,9 +39,8 @@ uniform bool hasCubeMap;
 uniform bool hasSpecularMap;
 uniform bool greyscaleColor;
 
-uniform float subsurfaceRolloff;
-uniform float rimPower;
-uniform float backlightPower;
+// RGB = subsurface tint color, A = transmissive scale (> 0: translucency enabled)
+uniform vec4 translucencyColorAndScale;
 
 uniform float envReflection;
 
@@ -75,9 +74,9 @@ vec3 LightingFuncGGX_REF(float NdotL, float NdotH, float NdotV, float roughness)
 	denom = ( denom * alphaSqr ) + ( 1.0 - denom );
 	float D = alphaSqr / ( denom * denom * 4.0 );
 	// no pi because BRDF -> lighting
-	// G (remapped hotness, see Unreal Shading)
-	float	k = (alpha + 2 * roughness + 1) / 8.0;
-	float	G = NdotL / (mix(NdotL, 1, k) * mix(NdotV, 1, k));
+	// G (roughness is not remapped)
+	float	k = alpha * 0.5;
+	float	G = NdotL / (mix(NdotL, 1.0, k) * mix(NdotV, 1.0, k));
 
 	return vec3(D * G);
 }
@@ -192,7 +191,7 @@ void main()
 		refl *= ambient;
 		ambient *= textureLod(CubeMap2, normalWS, 0.0).rgb;
 	} else {
-		ambient /= 15.0;
+		ambient *= 0.06666667;
 		refl = ambient;
 	}
 	vec3	f = mix(f0, vec3(1.0), envLUT.r);
@@ -206,16 +205,10 @@ void main()
 		ambient *= (vec3(1.0) - f0) * fDiffEnv;
 	}
 	float	ao = lightingMap.g;
-	refl *= f * envLUT.g * ao;
-
-	//vec3 soft = vec3(0.0);
-	//float wrap = NdotL;
-	//if ( hasSoftlight || subsurfaceRolloff > 0.0 ) {
-	//	wrap = (wrap + subsurfaceRolloff) / (1.0 + subsurfaceRolloff);
-	//	soft = albedo * max(0.0, wrap) * smoothstep(1.0, 0.0, sqrt(NdotL0));
-	//
-	//	diffuse += soft;
-	//}
+	float	specOcc = max( ( ao - 1.0 ) * ( ( NdotV * 1.125 - 2.625 ) * NdotV + 2.5 ) + 1.0, 0.0 );
+	// apply AO to all diffuse lighting, and specular occlusion to indirect specular only
+	albedo *= ao;
+	refl *= f * envLUT.g * specOcc;
 
 	//if ( hasTintColor ) {
 	//	albedo *= tintColor;
@@ -224,13 +217,23 @@ void main()
 	// Diffuse
 	color.rgb = diffuse * albedo * lightSourceDiffuse[0].rgb;
 	// Ambient
-	color.rgb += ambient * albedo * ao;
+	color.rgb += ambient * albedo;
 	// Specular
 	color.rgb += spec;
 	color.rgb += refl;
 
 	// Emissive
 	color.rgb += emissive;
+
+	// Transmissive (thin objects only)
+	if ( translucencyColorAndScale.a > 0.0 ) {
+		vec3	transmissive = albedo * translucencyColorAndScale.rgb * ( vec3(1.0) - f );
+		color.rgb += transmissive * lightSourceDiffuse[0].rgb * ( max( -NdotL, 0.0 ) * translucencyColorAndScale.a );
+		if ( hasCubeMap )
+			color.rgb += textureLod( CubeMap2, -normalWS, 0.0 ).rgb * transmissive * lightSourceAmbient.rgb;
+		else
+			color.rgb += transmissive * lightSourceAmbient.rgb * 0.06666667;
+	}
 
 	color.rgb = tonemap(color.rgb * brightnessScale, toneMapScale);
 

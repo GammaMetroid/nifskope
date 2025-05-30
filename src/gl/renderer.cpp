@@ -725,10 +725,23 @@ bool Renderer::setupProgramCE1( const NifModel * nif, Program * prog, Shape * me
 
 		if ( nifVersion >= 130 ) {
 			prog->uni1f( "paletteScale", lsp->paletteScale );
-			prog->uni1f( "subsurfaceRolloff", lsp->lightingEffect1 );
 			prog->uni1f( "fresnelPower", lsp->fresnelPower );
-			prog->uni1f( "rimPower", lsp->rimPower );
-			prog->uni1f( "backlightPower", lsp->backlightPower );
+			if ( nifVersion < 151 ) {
+				prog->uni1f( "subsurfaceRolloff", lsp->lightingEffect1 );
+				prog->uni1f( "rimPower", lsp->rimPower );
+				prog->uni1f( "backlightPower", lsp->backlightPower );
+			} else {
+				FloatVector4	translucencyColorAndScale( 1.0f, 1.0f, 1.0f, -1.0f );
+				if ( mat && mat->isShaderMaterial() ) {
+					const ShaderMaterial *	bgsm = static_cast< ShaderMaterial * >( mat );
+					if ( bgsm->bTranslucency && !bgsm->bTranslucencyThickObject ) {
+						if ( bgsm->bTranslucencyMixAlbedoWithSubsurfaceCol )
+							translucencyColorAndScale = FloatVector4( Color4( bgsm->cTranslucencySubsurfaceColor ) );
+						translucencyColorAndScale[3] = bgsm->fTranslucencyTransmissiveScale;
+					}
+				}
+				prog->uni4f( "translucencyColorAndScale", translucencyColorAndScale );
+			}
 		}
 
 		// Multi-Layer
