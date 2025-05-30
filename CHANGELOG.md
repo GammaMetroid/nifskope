@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20250530
+
 * The "Combine Properties" optimization spell can now be used when processing multiple NIF files.
 * Implemented "Flip Normals" for BSTriShape geometry.
 * New spell (Sanitize/Sort Keys) for sorting animation key groups by time. It is applicable to arrays with a type of Key or QuatKey, and a size of at least 2.
