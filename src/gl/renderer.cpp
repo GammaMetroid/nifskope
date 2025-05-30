@@ -734,7 +734,7 @@ bool Renderer::setupProgramCE1( const NifModel * nif, Program * prog, Shape * me
 				FloatVector4	translucencyColorAndScale( 1.0f, 1.0f, 1.0f, -1.0f );
 				if ( mat && mat->isShaderMaterial() ) {
 					const ShaderMaterial *	bgsm = static_cast< ShaderMaterial * >( mat );
-					if ( bgsm->bTranslucency && !bgsm->bTranslucencyThickObject ) {
+					if ( bgsm->bTranslucency ) {
 						if ( bgsm->bTranslucencyMixAlbedoWithSubsurfaceCol )
 							translucencyColorAndScale = FloatVector4( Color4( bgsm->cTranslucencySubsurfaceColor ) );
 						translucencyColorAndScale[3] = bgsm->fTranslucencyTransmissiveScale;

@@ -225,10 +225,11 @@ void main()
 	// Emissive
 	color.rgb += emissive;
 
-	// Transmissive (thin objects only)
+	// Transmissive
 	if ( translucencyColorAndScale.a > 0.0 ) {
 		vec3	transmissive = albedo * translucencyColorAndScale.rgb * ( vec3(1.0) - f );
-		color.rgb += transmissive * lightSourceDiffuse[0].rgb * ( max( -NdotL, 0.0 ) * translucencyColorAndScale.a );
+		transmissive *= translucencyColorAndScale.a * lightingMap.b * max( -NdotL, 0.0 );
+		color.rgb += transmissive * lightSourceDiffuse[0].rgb;
 		if ( hasCubeMap )
 			color.rgb += textureLod( CubeMap2, -normalWS, 0.0 ).rgb * transmissive * lightSourceAmbient.rgb;
 		else
