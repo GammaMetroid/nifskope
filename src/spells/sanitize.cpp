@@ -133,6 +133,11 @@ public:
 			QModelIndex iNumModifiers = nif->getIndex( iBlock, "Num Modifiers" );
 			QModelIndex iModifiers = nif->getIndex( iBlock, "Modifiers" );
 			arrayCollapser.numCollapser( nif, iNumModifiers, iModifiers );
+
+			// remove empty Havok shape links
+			QModelIndex iNumSubShapes = nif->getIndex( iBlock, "Num Sub Shapes" );
+			QModelIndex iSubShapes = nif->getIndex( iBlock, "Sub Shapes" );
+			arrayCollapser.numCollapser( nif, iNumSubShapes, iSubShapes );
 		}
 
 		return QModelIndex();

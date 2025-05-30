@@ -4,6 +4,7 @@
 * Implemented "Flip Normals" for BSTriShape geometry.
 * New spell (Sanitize/Sort Keys) for sorting animation key groups by time. It is applicable to arrays with a type of Key or QuatKey, and a size of at least 2.
 * Minor Fallout 76 shading improvements, and limited translucency rendering that currently only supports BGSM files and ignores the turbulence and thick object settings.
+* Collapsing link arrays now also works on bhkListShape blocks.
 * Fixed glTF import of skinned models where the bone nodes are after the meshes.
 * Fixed rendering Skyrim decals.
 * Fixed issue https://github.com/gavrant/nifskope/issues/8.
