@@ -228,8 +228,8 @@ void main()
 	// Transmissive
 	if ( translucencyColorAndScale.a > 0.0 ) {
 		vec3	transmissive = albedo * translucencyColorAndScale.rgb * ( vec3(1.0) - f );
-		transmissive *= translucencyColorAndScale.a * lightingMap.b * max( -NdotL, 0.0 );
-		color.rgb += transmissive * lightSourceDiffuse[0].rgb;
+		transmissive *= translucencyColorAndScale.a * lightingMap.b;
+		color.rgb += transmissive * lightSourceDiffuse[0].rgb * max( -NdotL, 0.0 );
 		if ( hasCubeMap )
 			color.rgb += textureLod( CubeMap2, -normalWS, 0.0 ).rgb * transmissive * lightSourceAmbient.rgb;
 		else

@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+* Fixed Fallout 76 translucency with image based lighting.
+
 #### NifSkope-2.0.dev11-20250530
 
 * The "Combine Properties" optimization spell can now be used when processing multiple NIF files.
