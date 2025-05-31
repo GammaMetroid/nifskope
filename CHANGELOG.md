@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Fixed BSTriShape vertex positions and bitangent X being lost on changes to the full precision flag.
 * Fixed Fallout 76 translucency with image based lighting.
 
 #### NifSkope-2.0.dev11-20250530

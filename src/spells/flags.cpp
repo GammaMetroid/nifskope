@@ -1069,6 +1069,9 @@ public:
 		return nif->blockInherits( index.parent(), "BSTriShape" ) && nif->itemName( index ) == "Vertex Desc";
 	}
 
+	static void getVertexPositions( QVector<Vector4> & verts, const NifModel * nif, const QModelIndex & iShape );
+	static void setVertexPositions( const QVector<Vector4> & verts, NifModel * nif, const QModelIndex & iShape );
+
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
 	{
 		auto desc = nif->get<BSVertexDesc>( index );
@@ -1105,9 +1108,12 @@ public:
 
 		dlgButtons( &dlg, vbox );
 
+		bool fullPrecisionChanged = false;
 		if ( dlg.exec() == QDialog::Accepted ) {
 			x = 0;
 			for ( QCheckBox * chk : chkBoxes ) {
+				if ( x == 10 )
+					fullPrecisionChanged = ( chk->isChecked() != desc.HasFlag( VertexAttribute(x) ) );
 				if ( chk->isChecked() )
 					desc.SetFlag( VertexAttribute(x) );
 				else
@@ -1122,6 +1128,10 @@ public:
 
 			QModelIndex iBlock = nif->getBlockIndex( index );
 
+			QVector<Vector4> verts;
+			if ( fullPrecisionChanged )
+				getVertexPositions( verts, nif, iBlock );
+
 			if ( nif->set<BSVertexDesc>( index, desc ) ) {
 				auto iDataSize = nif->getIndex( iBlock, "Data Size" );
 				auto numVerts = nif->get<uint>( iBlock, "Num Vertices" );
@@ -1132,6 +1142,9 @@ public:
 
 				if ( auto iData = nif->getIndex( iBlock, "Vertex Data" ); iData.isValid() )
 					nif->updateArraySize( iData );
+
+				if ( fullPrecisionChanged )
+					setVertexPositions( verts, nif, iBlock );
 			}
 
 			if ( ( desc & VertexFlags::VF_SKINNED ) && nif->getBSVersion() == 100 ) {
@@ -1139,12 +1152,16 @@ public:
 				auto skinID = nif->getLink( nif->getIndex( iBlock, "Skin" ) );
 				auto partID = nif->getLink( nif->getBlockIndex( skinID, "NiSkinInstance" ), "Skin Partition" );
 				if ( auto iPartBlock = nif->getBlockIndex( partID, "NiSkinPartition" ); iPartBlock.isValid() ) {
+					if ( fullPrecisionChanged )
+						getVertexPositions( verts, nif, iPartBlock );
 					nif->set<BSVertexDesc>( iPartBlock, "Vertex Desc", desc );
 					quint32 numVerts = 0;
 					if ( auto iData = nif->getIndex( iPartBlock, "Vertex Data" ); iData.isValid() )
 						numVerts = quint32( nif->rowCount( iData ) );
 					nif->set<quint32>( iPartBlock, "Vertex Size", quint32( desc.GetVertexSize() ) );
 					nif->set<quint32>( iPartBlock, "Data Size", quint32( desc.GetVertexSize() ) * numVerts );
+					if ( fullPrecisionChanged )
+						setVertexPositions( verts, nif, iPartBlock );
 				}
 			}
 		}
@@ -1153,5 +1170,44 @@ public:
 	}
 
 };
+
+void spEditVertexDesc::getVertexPositions( QVector<Vector4> & verts, const NifModel * nif, const QModelIndex & iShape )
+{
+	if ( auto iData = nif->getIndex( iShape, "Vertex Data" ); iData.isValid() ) {
+		int n = nif->rowCount( iData );
+		verts.resize( n );
+		for ( int i = 0; i < n; i++ ) {
+			if ( auto iVertex = nif->getItem( iData, i, false ); iVertex ) {
+				Vector4 v = Vector4( nif->get<Vector3>( iVertex, "Vertex" ) );
+				v[3] = nif->get<float>( iVertex, "Bitangent X" );
+				verts[i] = v;
+			}
+		}
+	}
+}
+
+void spEditVertexDesc::setVertexPositions( const QVector<Vector4> & verts, NifModel * nif, const QModelIndex & iShape )
+{
+	if ( auto iData = nif->getIndex( iShape, "Vertex Data" ); iData.isValid() ) {
+		nif->setState( BaseModel::Processing );
+		int n = nif->rowCount( iData );
+		for ( int i = 0; i < n; i++ ) {
+			if ( auto iVertex = nif->getItem( iData, i, false ); iVertex ) {
+				Vector4 v;
+				if ( i < verts.size() )
+					v = verts.at( i );
+				if ( auto iVertexPosition = nif->getItem( iVertex, "Vertex" ); iVertexPosition ) {
+					if ( iVertexPosition->valueType() == NifValue::tVector3 )
+						nif->set<Vector3>( iVertexPosition, Vector3(v) );
+					else
+						nif->set<HalfVector3>( iVertexPosition, HalfVector3( Vector3(v) ) );
+				}
+				if ( auto iBitangentX = nif->getItem( iVertex, "Bitangent X" ); iBitangentX )
+					nif->set<float>( iBitangentX, v[3] );
+			}
+		}
+		nif->restoreState();
+	}
+}
 
 REGISTER_SPELL( spEditVertexDesc )
