@@ -563,14 +563,20 @@ void Node::drawSelection() const
 			auto rot = nif->get<Quat>( p, "Rotation" );
 			//auto scale = nif->get<float>( p, "Scale" );
 
-			Transform t;
-			Matrix m;
-			m.fromQuat( rot );
-			t.rotation = m;
-			t.translation = trans;
-			t.scale = normalScale;
+			Transform t( trans, normalScale );
+			t.rotation.fromQuat( rot );
 
-			scene->pushAndMultModelViewMatrix( t );
+			scene->pushModelViewMatrix();
+			if ( auto parentName = nif->get<QString>( p, "Parent" ); !parentName.isEmpty() ) {
+				// find parent node by name (FIXME: this may be slow with a large number of nodes), and apply transform
+				for ( const Node * parentNode : scene->getNodes() ) {
+					if ( parentNode->getName() == parentName ) {
+						scene->multModelViewMatrix( parentNode->localTrans( 0 ) );
+						break;
+					}
+				}
+			}
+			scene->multModelViewMatrix( t );
 
 			if ( i == sel ) {
 				scene->setGLColor( scene->highlightColor );
