@@ -91,6 +91,7 @@ public:
 	QString textStats();
 
 	Node * getNode( const NifModel * nif, const QModelIndex & iNode );
+	inline const QVector<Node *> & getNodes() const { return nodes.list(); }
 	Property * getProperty( const NifModel * nif, const QModelIndex & iProperty );
 	Property * getProperty( const NifModel * nif, const QModelIndex & iParentBlock, const QString & itemName, const QString & mustInherit );
 
