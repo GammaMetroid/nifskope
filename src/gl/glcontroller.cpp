@@ -50,11 +50,6 @@ IControllable::~IControllable()
 	qDeleteAll( controllers );
 }
 
-QString IControllable::getName() const
-{
-	return name;
-}
-
 void IControllable::setController( const NifModel * nif, const QModelIndex & iController )
 {
 	Q_UNUSED( nif ); Q_UNUSED( iController );
