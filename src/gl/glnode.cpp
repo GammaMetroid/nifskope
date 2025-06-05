@@ -780,14 +780,14 @@ void Node::drawHvkShape( const NifModel * nif, const QModelIndex & iShape, HvkSh
 		scene->setGLColor( getColorKeyFromID( nif->getBlockNumber( iShape ) ) );
 
 	if ( name == "bhkSphereShape" ) {
-		scene->drawSphere( Vector3(), nif->get<float>( iShape, "Radius" ) );
+		scene->drawSphereSimple( Vector3(), nif->get<float>( iShape, "Radius" ), 24, 6 );
 
 	} else if ( name == "bhkMultiSphereShape" ) {
 		QModelIndex iSpheres = nif->getIndex( iShape, "Spheres" );
 
 		for ( int r = 0; r < nif->rowCount( iSpheres ); r++ ) {
-			scene->drawSphere( nif->get<Vector3>( nif->getIndex( iSpheres, r ), "Center" ),
-								nif->get<float>( nif->getIndex( iSpheres, r ), "Radius" ) );
+			scene->drawSphereSimple( nif->get<Vector3>( nif->getIndex( iSpheres, r ), "Center" ),
+										nif->get<float>( nif->getIndex( iSpheres, r ), "Radius" ), 24, 6 );
 		}
 
 	} else if ( name == "bhkBoxShape" ) {
@@ -1018,7 +1018,7 @@ void Node::drawHvkConstraint( const NifModel * nif, const QModelIndex & iConstra
 		if ( scene->currentBlock == nif->getBlockIndex( iConstraint ) ) {
 			// fix: add selected visual to havok meshes
 			color_a = scene->highlightColor;
-			color_b.blendValues( color_a, 0x07 );
+			color_b.blendValues( color_a, 0x07 ).shuffleValues( 0xD2 );	// RGB -> BRG
 		}
 	}
 	scene->setGLLineWidth( lineWidth );
@@ -1034,18 +1034,14 @@ void Node::drawHvkConstraint( const NifModel * nif, const QModelIndex & iConstra
 	QModelIndex iConstraintInfo;
 
 	if ( name == "bhkMalleableConstraint" || name == "bhkBreakableConstraint" ) {
-		if ( nif->getIndex( iConstraint, "Ragdoll" ).isValid() ) {
+		if ( ( iConstraintInfo = nif->getIndex( iConstraint, "Ragdoll" ) ).isValid() ) {
 			name = "bhkRagdollConstraint";
-			iConstraintInfo = nif->getIndex( iConstraint, "Ragdoll" );
-		} else if ( nif->getIndex( iConstraint, "Limited Hinge" ).isValid() ) {
+		} else if ( ( iConstraintInfo = nif->getIndex( iConstraint, "Limited Hinge" ) ).isValid() ) {
 			name = "bhkLimitedHingeConstraint";
-			iConstraintInfo = nif->getIndex( iConstraint, "Limited Hinge" );
-		} else if ( nif->getIndex( iConstraint, "Hinge" ).isValid() ) {
+		} else if ( ( iConstraintInfo = nif->getIndex( iConstraint, "Hinge" ) ).isValid() ) {
 			name = "bhkHingeConstraint";
-			iConstraintInfo = nif->getIndex( iConstraint, "Hinge" );
-		} else if ( nif->getIndex( iConstraint, "Stiff Spring" ).isValid() ) {
+		} else if ( ( iConstraintInfo = nif->getIndex( iConstraint, "Stiff Spring" ) ).isValid() ) {
 			name = "bhkStiffSpringConstraint";
-			iConstraintInfo = nif->getIndex( iConstraint, "Stiff Spring" );
 		}
 	} else {
 		iConstraintInfo = nif->getIndex( iConstraint, "Constraint" );
