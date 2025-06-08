@@ -1842,15 +1842,33 @@ public:
 			map[ x ]->addAction( id );
 		}
 
-		QMenu menu;
-		for ( QMenu * m : map ) {
-			menu.addMenu( m );
+		QString newType;
+		{
+			QMenu menu;
+			for ( QMenu * m : map ) {
+				menu.addMenu( m );
+			}
+
+			if ( QAction * act = menu.exec( QCursor::pos() ); act )
+				newType = act->text();
 		}
 
-		QAction * act = menu.exec( QCursor::pos() );
+		if ( newType.isEmpty() )
+			return index;
 
-		if ( act ) {
-			nif->convertNiBlock( act->text(), index );
+		nif->convertNiBlock( newType, index );
+
+		if ( newType != "BSDismemberSkinInstance" )
+			return index;
+
+		// set the number of partitions on conversion from NiSkinInstance to BSDismemberSkinInstance
+		if ( auto iSkinPart = nif->getBlockIndex( nif->getLink( index, "Skin Partition" ) ); iSkinPart.isValid() ) {
+			if ( auto iNumParts = nif->getIndex( iSkinPart, "Num Partitions" ); iNumParts.isValid() ) {
+				quint32 numParts = nif->get<quint32>( iNumParts );
+				nif->set<quint32>( index, "Num Partitions", numParts );
+				if ( auto iPartitions = nif->getIndex( index, "Partitions" ); iPartitions.isValid() )
+					nif->updateArraySize( iPartitions );
+			}
 		}
 
 		return index;
