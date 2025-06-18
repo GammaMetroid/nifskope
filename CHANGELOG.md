@@ -4,6 +4,7 @@
 * Fixed BSTriShape vertex positions and bitangent X being lost on changes to the full precision flag.
 * Fixed rendering BSConnectPoint::Parents, the transforms of the parent nodes are now correctly applied.
 * Fixed Fallout 76 translucency with image based lighting.
+* Fixed rendering bounding volume collision used in older games like Morrowind. Collision types other than Box are still not supported.
 * Fixed selection colors on Havok constraints.
 
 #### NifSkope-2.0.dev11-20250530

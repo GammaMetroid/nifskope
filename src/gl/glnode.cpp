@@ -1262,31 +1262,34 @@ void Node::drawHavok()
 
 	scene->loadModelViewMatrix( scene->view );
 
-	//Check if there's any old style collision bounding box set
-	if ( nif->get<bool>( iBlock, "Has Bounding Box" ) == true ) {
-		QModelIndex iBox = nif->getIndex( iBlock, "Bounding Box" );
+	// Check if there's any old style collision bounding volume set
+	if ( nif->get<bool>( iBlock, "Has Bounding Volume" ) == true ) {
+		QModelIndex iBox = nif->getIndex( iBlock, "Bounding Volume" );
 
-		Transform bt;
+		if ( nif->get<quint32>( iBox, "Collision Type" ) == 1 ) {
+			// TODO: implement support for collision types other than Box
+			iBox = nif->getIndex( iBox, "Box" );
 
-		bt.translation = nif->get<Vector3>( iBox, "Translation" );
-		bt.rotation = nif->get<Matrix>( iBox, "Rotation" );
-		bt.scale = 1.0f;
+			Transform bt( nif->get<Vector3>( iBox, "Center" ), 1.0f );
+			if ( QVector<Vector3> axis = nif->getArray<Vector3>( iBox, "Axis" ); axis.size() == 3 )
+				bt.rotation = Matrix( &( axis.at(0)[0] ) );
 
-		Vector3 rad = nif->get<Vector3>( iBox, "Radius" );
+			Vector3 rad = nif->get<Vector3>( iBox, "Extent" );
 
-		// The Morrowind construction set seems to completely ignore the node transform
-		//glMultMatrix( worldTrans() );
-		scene->pushAndMultModelViewMatrix( bt );
+			// The Morrowind construction set seems to completely ignore the node transform
+			//scene->multModelViewMatrix( worldTrans() );
+			scene->pushAndMultModelViewMatrix( bt );
 
-		FloatVector4	color( 1.0f, 0.0f, 0.0f, 1.0f );
-		if ( scene->selecting )
-			color = getColorKeyFromID( nodeId );
+			FloatVector4	color( 1.0f, 0.0f, 0.0f, 1.0f );
+			if ( scene->selecting )
+				color = getColorKeyFromID( nodeId );
 
-		scene->setGLColor( color );
-		scene->setGLLineWidth( GLView::Settings::lineWidthWireframe * 0.625f );
-		scene->drawBox( rad, -rad );
+			scene->setGLColor( color );
+			scene->setGLLineWidth( GLView::Settings::lineWidthWireframe * 0.625f );
+			scene->drawBox( rad, -rad );
 
-		scene->popModelViewMatrix();
+			scene->popModelViewMatrix();
+		}
 	}
 
 	// Only Bethesda support after this
