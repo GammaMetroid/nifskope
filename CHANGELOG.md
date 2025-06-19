@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Added new spells to move array items up, down, or to a specific row.
 * "Block/Convert" now sets the number of partitions on conversion from NiSkinInstance to BSDismemberSkinInstance. Note that body parts and flags are still initialized with the defaults.
 * Fixed BSTriShape vertex positions and bitangent X being lost on changes to the full precision flag.
 * Fixed rendering BSConnectPoint::Parents, the transforms of the parent nodes are now correctly applied.
