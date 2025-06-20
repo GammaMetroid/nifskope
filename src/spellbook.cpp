@@ -274,17 +274,18 @@ SpellPtr SpellBook::lookup( const QString & id )
 	return nullptr;
 }
 
-SpellPtr SpellBook::lookup( const QKeySequence & hotkey )
+QList<SpellPtr> SpellBook::lookup( const QKeySequence & hotkey )
 {
-	if ( hotkey.isEmpty() )
-		return nullptr;
+	QList<SpellPtr> spellsFound;
 
-	for ( SpellPtr spell : spells() ) {
-		if ( spell->hotkey() == hotkey )
-			return spell;
+	if ( !hotkey.isEmpty() ) {
+		for ( SpellPtr spell : spells() ) {
+			if ( spell->hotkey() == hotkey )
+				spellsFound.append( spell );
+		}
 	}
 
-	return nullptr;
+	return spellsFound;
 }
 
 SpellPtr SpellBook::instant( const NifModel * nif, const QModelIndex & index )

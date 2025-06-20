@@ -409,9 +409,9 @@ void NifTreeView::keyPressEvent( QKeyEvent * e )
 		}
 	}
 
-	SpellPtr spell = SpellBook::lookup( QKeySequence( e->modifiers() | e->key() ) );
+	auto spells = SpellBook::lookup( QKeySequence( e->modifiers() | e->key() ) );
 
-	if ( spell ) {
+	for ( auto spell : spells ) {
 		QPersistentModelIndex oldidx;
 
 		// Clear this on any spell cast to prevent it overriding other paste behavior like block -> link row
