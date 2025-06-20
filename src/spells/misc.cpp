@@ -383,6 +383,7 @@ class spMoveArrayItemUp final : public spMoveArrayItem
 {
 public:
 	QString name() const override final { return Spell::tr( "Move Up" ); }
+	QKeySequence hotkey() const override final { return { Qt::ControlModifier | Qt::Key_Up }; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -405,6 +406,7 @@ class spMoveArrayItemDown final : public spMoveArrayItem
 {
 public:
 	QString name() const override final { return Spell::tr( "Move Down" ); }
+	QKeySequence hotkey() const override final { return { Qt::ControlModifier | Qt::Key_Down }; }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
