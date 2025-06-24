@@ -140,6 +140,10 @@ public slots:
 	void rotateSelection();
 	//! Export Starfield .mesh file
 	void exportSFMesh();
+	//! Copy selected vertices to the clipboard in text format
+	void copyTexCoord();
+	//! Paste data from clipboard
+	void pasteTexCoord();
 
 	void updateSettings();
 	void update_Blend( [[maybe_unused]] bool tmp ) { update(); }

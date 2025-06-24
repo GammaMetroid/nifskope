@@ -48,22 +48,25 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "glview.h"
 #include "qt5compat.hpp"
 
-#include <QUndoStack> // QUndoCommand Inherited
 #include <QActionGroup>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
 #include <QGridLayout>
+#include <QGuiApplication>
 #include <QInputDialog>
 #include <QLabel>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 #include <QPushButton>
 #include <QSettings>
-#include <QMessageBox>
-#include <QFileDialog>
 #include <QSurfaceFormat>
+#include <QTextStream>
+#include <QUndoStack> // QUndoCommand Inherited
 
 #define BASESIZE 1024.0
 #define GRIDSIZE 16.0
@@ -188,6 +191,14 @@ UVWidget::UVWidget( QWidget * parent )
 	aRotateSelection->setShortcut( QKeySequence( "Alt+R" ) );
 	connect( aRotateSelection, &QAction::triggered, this, &UVWidget::rotateSelection );
 	addAction( aRotateSelection );
+
+	QAction * aCopyTexCoord = new QAction( tr( "Copy to Clipboard" ), this );
+	connect( aCopyTexCoord, &QAction::triggered, this, &UVWidget::copyTexCoord );
+	addAction( aCopyTexCoord );
+
+	QAction * aPasteTexCoord = new QAction( tr( "Paste from Clipboard" ), this );
+	connect( aPasteTexCoord, &QAction::triggered, this, &UVWidget::pasteTexCoord );
+	addAction( aPasteTexCoord );
 
 	aSep = new QAction( this );
 	aSep->setSeparator( true );
@@ -1838,6 +1849,78 @@ void UVWidget::exportSFMesh()
 		return;
 	}
 	outFile.write( sfMeshData.data(), sfMeshData.size() );
+}
+
+void UVWidget::copyTexCoord()
+{
+	std::string buf;
+
+	if ( !selection.isEmpty() ) {
+		for ( auto i : selection ) {
+			if ( i >= 0 && i < texcoords.size() ) {
+				const auto & v = texcoords.at( i );
+				printToString( buf, "vt %.8g %.8g %d\n", v[0], 1.0 - v[1], i + 1 );
+			}
+		}
+	} else {
+		for ( const auto & v : texcoords )
+			printToString( buf, "vt %.8g %.8g\n", v[0], 1.0 - v[1] );
+	}
+
+	if ( QClipboard * clipboard = QGuiApplication::clipboard(); clipboard && !buf.empty() )
+		clipboard->setText( QString::fromStdString( buf ) );
+}
+
+void UVWidget::pasteTexCoord()
+{
+	std::map< int, Vector2 > clipboardData;
+
+	if ( QClipboard * clipboard = QGuiApplication::clipboard(); clipboard ) {
+		if ( auto clipboardText = clipboard->text(); !clipboardText.isEmpty() ) {
+			QTextStream s( &clipboardText, QIODevice::ReadOnly );
+			QString l;
+			int i = 0;
+			while ( !( l = s.readLine() ).isNull() ) {
+				if ( auto v = l.split( QChar(' '), Qt::SkipEmptyParts ); v.size() >= 3 && v.at( 0 ) == "vt" ) {
+					i++;
+					bool isValid = false;
+					float u = v.at( 1 ).toFloat( &isValid );
+					if ( !isValid )
+						continue;
+					if ( v.size() >= 4 )
+						i = v.at( 3 ).toInt();
+					if ( i > 0 )
+						clipboardData[i - 1] = Vector2( u, float( 1.0 - v.at( 2 ).toDouble() ) );
+				}
+			}
+		}
+	}
+
+	if ( clipboardData.empty() )
+		return;
+	if ( QMessageBox::question( this, tr( "NifSkope warning" ),
+								tr( "This action cannot currently be undone. Do you want to continue?" ) )
+			!= QMessageBox::Yes ) {
+		return;
+	}
+
+	int vertexOffs = 0;
+	if ( clipboardData.size() < size_t( texcoords.size() ) && !selection.isEmpty() ) {
+		int selectionBase = selection.at( 0 );
+		for ( int i : selection )
+			selectionBase = std::min( selectionBase, i );
+		vertexOffs = selectionBase - clipboardData.cbegin()->first;
+	}
+
+	for ( const auto & v : clipboardData ) {
+		int i = v.first + vertexOffs;
+		if ( i >= 0 && i < texcoords.size() )
+			texcoords[i] = v.second;
+	}
+
+	// TODO: implement undo support
+	updateNif();
+	update();
 }
 
 void UVWidget::getTexSlots()

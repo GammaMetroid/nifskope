@@ -1,6 +1,7 @@
  == CHANGELOG ==
 
 * Added new spells to move array items up, down, or to a specific row.
+* Implemented copy and paste in the UV editor. UV data is stored on the clipboard in a text format similar to OBJ files, with an additional vertex number field when copying a selection. When pasting a selection to a selection, vertex numbers are remapped, otherwise they are not changed. The paste operation currently does not support the undo/redo feature of the UV editor.
 * "Block/Convert" now sets the number of partitions on conversion from NiSkinInstance to BSDismemberSkinInstance. Note that body parts and flags are still initialized with the defaults.
 * Fixed BSTriShape vertex positions and bitangent X being lost on changes to the full precision flag.
 * Fixed rendering BSConnectPoint::Parents, the transforms of the parent nodes are now correctly applied.
