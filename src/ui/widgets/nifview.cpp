@@ -164,77 +164,12 @@ void NifTreeView::pasteTo( const QModelIndex iDest, const NifValue & srcValue )
 		return;
 
 	NifItem * item = nif->getItem( iDest );
-	if ( !item || item->valueType() != srcValue.type() )
+	if ( !item || item->valueType() != srcValue.type() || item->valueType() == NifValue::tNone )
 		return;
+
+	nif->setItemValue( item, srcValue );
 
 	auto valueType = model()->sibling( iDest.row(), 0, iDest ).data().toString();
-
-	switch ( item->valueType() ) {
-	case NifValue::tByte:
-		item->set<quint8>( srcValue.get<quint8>( nif, nullptr ) );
-		break;
-	case NifValue::tWord:
-	case NifValue::tShort:
-	case NifValue::tFlags:
-	case NifValue::tBlockTypeIndex:
-		item->set<quint16>( srcValue.get<quint16>( nif, nullptr ) );
-		break;
-	case NifValue::tStringOffset:
-	case NifValue::tInt:
-	case NifValue::tUInt:
-	case NifValue::tULittle32:
-	case NifValue::tStringIndex:
-	case NifValue::tUpLink:
-	case NifValue::tLink:
-		item->set<quint32>( srcValue.get<quint32>( nif, nullptr ) );
-		break;
-	case NifValue::tVector2:
-	case NifValue::tHalfVector2:
-		item->set<Vector2>( srcValue.get<Vector2>( nif, nullptr ) );
-		break;
-	case NifValue::tVector3:
-	case NifValue::tByteVector3:
-	case NifValue::tHalfVector3:
-		item->set<Vector3>( srcValue.get<Vector3>( nif, nullptr ) );
-		break;
-	case NifValue::tVector4:
-		item->set<Vector4>( srcValue.get<Vector4>( nif, nullptr ) );
-		break;
-	case NifValue::tFloat:
-	case NifValue::tHfloat:
-	case NifValue::tNormbyte:
-		item->set<float>( srcValue.get<float>( nif, nullptr ) );
-		break;
-	case NifValue::tColor3:
-		item->set<Color3>( srcValue.get<Color3>( nif, nullptr ) );
-		break;
-	case NifValue::tColor4:
-	case NifValue::tByteColor4:
-		item->set<Color4>( srcValue.get<Color4>( nif, nullptr ) );
-		break;
-	case NifValue::tQuat:
-	case NifValue::tQuatXYZW:
-		item->set<Quat>( srcValue.get<Quat>( nif, nullptr ) );
-		break;
-	case NifValue::tMatrix:
-		item->set<Matrix>( srcValue.get<Matrix>( nif, nullptr ) );
-		break;
-	case NifValue::tMatrix4:
-		item->set<Matrix4>( srcValue.get<Matrix4>( nif, nullptr ) );
-		break;
-	case NifValue::tSizedString:
-	case NifValue::tSizedString16:
-	case NifValue::tText:
-	case NifValue::tShortString:
-	case NifValue::tHeaderString:
-	case NifValue::tLineString:
-	case NifValue::tChar8String:
-		item->set<QString>( srcValue.get<QString>( nif, nullptr ) );
-		break;
-	default:
-		// Return and do not push to Undo Stack
-		return;
-	}
 
 	auto n = static_cast<NifModel*>(nif);
 	if ( n )
