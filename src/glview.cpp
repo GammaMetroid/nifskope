@@ -1600,46 +1600,37 @@ void GLView::saveImage()
 
 			QSize	fboSize( getSizeInPixels() );
 			auto	savedSceneOptions = scene->options;
-			auto	savedSceneVisMode = scene->visMode;
 			bool	haveAlpha = ( imgFormat == 1 || imgFormat == 4 );	// PNG or DDS
-			bool	useSilhouette = ( imgFormat == 1 );
 			std::string	err;
 
 			QImage	rgbImg;
-			QImage	alphaImg;
 			const Color4 & c = cfg.background;
 			try {
-				for ( int i = 0; i <= int( useSilhouette ); i++ ) {
-					QOpenGLFramebufferObjectFormat fboFmt;
-					fboFmt.setTextureTarget( GL_TEXTURE_2D );
-					fboFmt.setInternalTextureFormat( i == 0 ? GL_SRGB8_ALPHA8 : GL_RGBA8 );
-					fboFmt.setMipmap( false );
-					fboFmt.setAttachment( QOpenGLFramebufferObject::Attachment::Depth );
-					fboFmt.setSamples( 16 >> ss );
+				QOpenGLFramebufferObjectFormat fboFmt;
+				fboFmt.setTextureTarget( GL_TEXTURE_2D );
+				fboFmt.setInternalTextureFormat( GL_SRGB8_ALPHA8 );
+				fboFmt.setMipmap( false );
+				fboFmt.setAttachment( QOpenGLFramebufferObject::Attachment::Depth );
+				fboFmt.setSamples( 16 >> ss );
 
-					QOpenGLFramebufferObject fbo( fboSize.width(), fboSize.height(), fboFmt );
-					fbo.bind();
+				QOpenGLFramebufferObject fbo( fboSize.width(), fboSize.height(), fboFmt );
+				fbo.bind();
 
-					if ( haveAlpha ) {
-						if ( !useSilhouette )
-							glClearColor( c.red(), c.green(), c.blue(), 0.0f );
-						scene->options = savedSceneOptions & ~( Scene::ShowAxes | Scene::ShowGrid );
-						if ( i )
-							scene->visMode = Scene::VisSilhouette;
-					}
-					paintGL();
-
-					fbo.release();
-
-					( i == 0 ? rgbImg : alphaImg ) = fbo.toImage();
+				if ( haveAlpha ) {
+					glClearColor( c.red(), c.green(), c.blue(), 0.0f );
+					scene->options = savedSceneOptions & ~( Scene::ShowAxes | Scene::ShowGrid );
 				}
+				paintGL();
+
+				fbo.release();
+
+				rgbImg = fbo.toImage();
 			} catch ( std::exception & e ) {
 				err = e.what();
 			}
 
 			// Restore settings and return viewport to original size
 			scene->options = savedSceneOptions;
-			scene->visMode = savedSceneVisMode;
 			glClearColor( c.red(), c.green(), c.blue(), c.alpha() );
 			if ( ss > 0 )
 				resizeGL( int( p * w + 0.5 ), int( p * h + 0.5 ) );
@@ -1654,21 +1645,6 @@ void GLView::saveImage()
 			rgbImg.reinterpretAsFormat( !haveAlpha ? QImage::Format_RGB32 : QImage::Format_ARGB32 );
 			int	imgWidth = rgbImg.bytesPerLine() >> 2;
 			int	imgHeight = rgbImg.height();
-
-			for ( int y = 0; useSilhouette && y < imgHeight; y++ ) {
-				// Combine RGB image with alpha mask from silhouette (FIXME: possible byte order issues)
-				if ( !( alphaImg.width() >= rgbImg.width() && y < alphaImg.height() ) ) [[unlikely]]
-					continue;
-				std::uint32_t *	rgbPtr = reinterpret_cast< std::uint32_t * >( rgbImg.scanLine( y ) );
-				const std::uint32_t *	alphaPtr =
-					reinterpret_cast< const std::uint32_t * >( alphaImg.constScanLine( y ) );
-				for ( int x = 0; x < imgWidth; x++ ) {
-					FloatVector4	rgba( rgbPtr + x );
-					FloatVector4	a( alphaPtr + x );
-					rgba[3] = a.dotProduct3( FloatVector4( -1.0f / 3.0f ) ) + 255.0f;
-					rgbPtr[x] = std::uint32_t( rgba );
-				}
-			}
 
 			try {
 				if ( imgFormat != 4 ) {
