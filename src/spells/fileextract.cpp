@@ -722,7 +722,8 @@ public:
 		spellFlagMeshlets = 128,
 		spellFlagUpdateBounds = 256,
 		spellFlagCombineProperties = 512,
-		spellFlagExternalGeom = 1024
+		spellFlagExternalGeom = 1024,
+		spellFlagSanitize = 2048
 	};
 	static bool processFile( NifModel * nif, void * p );
 	static void findNIFFiles( QStringList & fileList, const QStringList & folderList );
@@ -807,6 +808,11 @@ bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 		fileChanged = true;
 	}
 
+	if ( spellMask & spellFlagSanitize ) {
+		SpellBook::sanitize( nif );
+		fileChanged = true;
+	}
+
 	return fileChanged;
 }
 
@@ -851,6 +857,7 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		QCheckBox *	checkUpdateBounds = new QCheckBox( "Update Bounds", &dlg );
 		QCheckBox *	checkCombineProperties = new QCheckBox( "Combine Properties", &dlg );
 		QCheckBox *	checkExternalGeom = new QCheckBox( "Convert to External Geometry", &dlg );
+		QCheckBox *	checkSanitize = new QCheckBox( "Sanitize before Save", &dlg );
 		QCheckBox *	checkSelectFolder = new QCheckBox( "Select and Process Folder", &dlg );
 		QPushButton *	okButton = new QPushButton( "OK", &dlg );
 		QPushButton *	cancelButton = new QPushButton( "Cancel", &dlg );
@@ -871,11 +878,12 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		grid->addWidget( checkUpdateBounds, 11, 0, 1, 5 );
 		grid->addWidget( checkCombineProperties, 12, 0, 1, 5 );
 		grid->addWidget( checkExternalGeom, 13, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 14, 0, 1, 5 );
-		grid->addWidget( checkSelectFolder, 15, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 16, 0, 1, 5 );
-		grid->addWidget( okButton, 17, 1, 1, 1 );
-		grid->addWidget( cancelButton, 17, 3, 1, 1 );
+		grid->addWidget( checkSanitize, 14, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 15, 0, 1, 5 );
+		grid->addWidget( checkSelectFolder, 16, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 17, 0, 1, 5 );
+		grid->addWidget( okButton, 18, 1, 1, 1 );
+		grid->addWidget( cancelButton, 18, 3, 1, 1 );
 
 		QObject::connect( okButton, &QPushButton::clicked, &dlg, &QDialog::accept );
 		QObject::connect( cancelButton, &QPushButton::clicked, &dlg, &QDialog::reject );
@@ -905,6 +913,8 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 			spellMask = spellMask | spellFlagCombineProperties;
 		if ( checkExternalGeom->isChecked() )
 			spellMask = spellMask | spellFlagExternalGeom;
+		if ( checkSanitize->isChecked() )
+			spellMask = spellMask | spellFlagSanitize;
 		if ( !spellMask )
 			return index;
 
