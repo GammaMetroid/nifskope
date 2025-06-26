@@ -5,6 +5,7 @@
 * "Block/Convert" now sets the number of partitions on conversion from NiSkinInstance to BSDismemberSkinInstance. Note that body parts and flags are still initialized with the defaults.
 * PNG format screenshots no longer use the silhouette method for alpha, the output image should be identical to DDS.
 * Fixed BSTriShape vertex positions and bitangent X being lost on changes to the full precision flag.
+* Fixed Update Bounds on BSDynamicTriShape.
 * Fixed rendering BSConnectPoint::Parents, the transforms of the parent nodes are now correctly applied.
 * Fixed Fallout 76 translucency with image based lighting.
 * Fixed rendering bounding volume collision used in older games like Morrowind. Collision types other than Box are still not supported.

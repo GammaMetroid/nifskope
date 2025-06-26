@@ -1608,10 +1608,13 @@ QModelIndex spRemoveWasteVertices::cast( NifModel * nif, const QModelIndex & ind
 
 void spRemoveWasteVertices::updateBSTriShape( NifModel * nif, const QModelIndex & index, bool dataSizeOnly )
 {
+	bool	isDynamic = false;
 	if ( const NifItem * i = nif->getItem( index, false ); i ) {
 		if ( !( i->hasName( "BSTriShape" ) || i->hasName( "BSMeshLODTriShape" )
-				|| i->hasName( "BSSubIndexTriShape" ) || i->hasName( "BSDynamicTriShape" ) ) ) {
-			return;
+				|| i->hasName( "BSSubIndexTriShape" ) ) ) {
+			isDynamic = i->hasName( "BSDynamicTriShape" );
+			if ( !isDynamic )
+				return;
 		}
 	} else {
 		return;
@@ -1623,6 +1626,9 @@ void spRemoveWasteVertices::updateBSTriShape( NifModel * nif, const QModelIndex 
 	quint32	totalDataSize = ( numVerts * vertexDesc.GetVertexSize() ) + ( numTriangles * 6U );
 	if ( auto i = nif->getIndex( index, "Data Size" ); i.isValid() && nif->get<quint32>( i ) != totalDataSize )
 		nif->set<quint32>( i, totalDataSize );
+
+	if ( isDynamic )
+		nif->set<quint32>( index, "Dynamic Data Size", quint32( numVerts * ( sizeof(float) * 4 ) ) );
 
 	if ( nif->getBSVersion() == 100 && !dataSizeOnly && !( vertexDesc & VertexFlags::VF_SKINNED ) ) {
 		QModelIndex	iParticleDataSize = nif->getIndex( index, "Particle Data Size" );
@@ -1819,11 +1825,21 @@ bool spUpdateBounds::calculateBoneBounds(
 		}
 		if ( iVertexData.isValid() && nif->isArray( iVertexData ) ) {
 			int	numVerts = nif->rowCount( iVertexData );
+			bool	isDynamic = false;
+			QModelIndex	iDynamicData;
+			if ( nif->isNiBlock( iBlock, "BSDynamicTriShape" ) ) {
+				iDynamicData = nif->getIndex( iBlock, "Vertices" );
+				isDynamic = ( iDynamicData.isValid() && nif->rowCount( iDynamicData ) >= numVerts );
+			}
 			for ( int i = 0; i < numVerts; i++ ) {
 				auto	iVertex = nif->getIndex( iVertexData, i );
 				if ( !iVertex.isValid() )
 					continue;
-				Vector3	v = nif->get<Vector3>( iVertex, "Vertex" );
+				Vector3	v;
+				if ( isDynamic )
+					v = Vector3( nif->get<Vector4>( nif->getIndex( iDynamicData, i ) ) );
+				else
+					v = nif->get<Vector3>( iVertex, "Vertex" );
 				auto	iWeights = nif->getIndex( iVertex, "Bone Weights" );
 				auto	iIndices = nif->getIndex( iVertex, "Bone Indices" );
 				int	numWeights;
@@ -1982,17 +1998,22 @@ QModelIndex spUpdateBounds::cast( NifModel * nif, const QModelIndex & index )
 	FloatVector4	bndCenter( float(FLT_MAX) );
 	FloatVector4	bndDims( float(FLT_MAX) );
 
-	if ( !calculateBoneBounds( nif, iBlock ) ) {
-		auto vertData = nif->getIndex( iBlock, "Vertex Data" );
+	bool	isDynamic = nif->isNiBlock( iBlock, "BSDynamicTriShape" );
+	if ( !calculateBoneBounds( nif, iBlock ) || isDynamic ) {
+		auto	vertData = nif->getIndex( iBlock, ( !isDynamic ? "Vertex Data" : "Vertices" ) );
+		int	numVerts;
+		if ( !( vertData.isValid() && nif->isArray( vertData ) && ( numVerts = nif->rowCount( vertData ) ) > 0 ) )
+			return index;
 
 		// Retrieve the verts
-		QVector<Vector3> verts;
-		for ( int i = 0; i < nif->rowCount( vertData ); i++ ) {
-			verts << nif->get<Vector3>( nif->getIndex( vertData, i ), "Vertex" );
+		QVector<Vector3> verts( numVerts );
+		for ( Vector3 & v : verts ) {
+			QModelIndex	i = nif->getIndex( vertData, int( &v - verts.constData() ) );
+			if ( isDynamic )
+				v = Vector3( nif->get<Vector4>( i ) );
+			else
+				v = nif->get<Vector3>( i, "Vertex" );
 		}
-
-		if ( verts.isEmpty() )
-			return index;
 
 		// Creating a bounding sphere from the verts
 		bounds = BoundSphere( verts, true );
