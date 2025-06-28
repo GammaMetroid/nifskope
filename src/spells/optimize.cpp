@@ -250,7 +250,7 @@ public:
 			}
 		} while ( removed );
 
-		if ( cnt > 0 )
+		if ( cnt > 0 && !nif->getBatchProcessingMode() )
 			Message::info( nullptr, Spell::tr( "Removed %1 nodes" ).arg( cnt ) );
 
 		return QModelIndex();
