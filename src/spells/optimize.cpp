@@ -255,7 +255,15 @@ public:
 
 		return QModelIndex();
 	}
+
+	static QModelIndex cast_Static( NifModel * nif, const QModelIndex & index );
 };
+
+QModelIndex spRemoveBogusNodes::cast_Static( NifModel * nif, const QModelIndex & index )
+{
+	spRemoveBogusNodes	sp;
+	return sp.cast( nif, index );
+}
 
 REGISTER_SPELL( spRemoveBogusNodes )
 
