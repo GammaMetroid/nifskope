@@ -1623,7 +1623,9 @@ void spRemoveWasteVertices::updateBSTriShape( NifModel * nif, const QModelIndex 
 	quint32	numVerts = nif->get<quint32>( index, "Num Vertices" );
 	quint32	numTriangles = nif->get<quint32>( index, "Num Triangles" );
 	BSVertexDesc	vertexDesc = nif->get<BSVertexDesc>( index, "Vertex Desc" );
-	quint32	totalDataSize = ( numVerts * vertexDesc.GetVertexSize() ) + ( numTriangles * 6U );
+	quint32	totalDataSize = numTriangles * 6U;
+	if ( !isDynamic )
+		totalDataSize += numVerts * vertexDesc.GetVertexSize();
 	if ( auto i = nif->getIndex( index, "Data Size" ); i.isValid() && nif->get<quint32>( i ) != totalDataSize )
 		nif->set<quint32>( i, totalDataSize );
 
