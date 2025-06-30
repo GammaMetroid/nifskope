@@ -1126,7 +1126,7 @@ XXH_PUBLIC_API XXH_PUREF XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const
 #  define XXH_SVE    6 /*!< SVE for some ARMv8-A and ARMv9-A */
 #  define XXH_LSX    7 /*!< LSX (128-bit SIMD) for LoongArch64 */
 #  define XXH_LASX   8 /*!< LASX (256-bit SIMD) for LoongArch64 */
-
+#  define XXH_RVV    9 /*!< RVV (RISC-V Vector) for RISC-V */
 
 /*-**********************************************************************
 *  XXH3 64-bit variant
@@ -2661,7 +2661,7 @@ typedef union { xxh_u32 u32; } __attribute__((__packed__)) unalign;
 #endif
 static xxh_u32 XXH_read32(const void* ptr)
 {
-    typedef __attribute__((__aligned__(1))) xxh_u32 xxh_unalign32;
+    typedef __attribute__((__aligned__(1))) __attribute__((__may_alias__)) xxh_u32 xxh_unalign32;
     return *((const xxh_unalign32*)ptr);
 }
 
@@ -3374,7 +3374,7 @@ typedef union { xxh_u32 u32; xxh_u64 u64; } __attribute__((__packed__)) unalign6
 #endif
 static xxh_u64 XXH_read64(const void* ptr)
 {
-    typedef __attribute__((__aligned__(1))) xxh_u64 xxh_unalign64;
+    typedef __attribute__((__aligned__(1))) __attribute__((__may_alias__)) xxh_u64 xxh_unalign64;
     return *((const xxh_unalign64*)ptr);
 }
 
@@ -3882,6 +3882,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #    include <lsxintrin.h>
 #  elif defined(__loongarch_sx)
 #    include <lsxintrin.h>
+#  elif defined(__riscv_vector)
+#    include <riscv_vector.h>
 #  endif
 #endif
 
@@ -4020,6 +4022,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #    define XXH_VECTOR XXH_LASX
 #  elif defined(__loongarch_sx)
 #    define XXH_VECTOR XXH_LSX
+#  elif defined(__riscv_vector)
+#    define XXH_VECTOR XXH_RVV
 #  else
 #    define XXH_VECTOR XXH_SCALAR
 #  endif
@@ -4061,6 +4065,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
 #     define XXH_ACC_ALIGN 64
 #  elif XXH_VECTOR == XXH_LSX   /* lsx */
 #     define XXH_ACC_ALIGN 64
+#  elif XXH_VECTOR == XXH_RVV   /* rvv */
+#     define XXH_ACC_ALIGN 64
 #  endif
 #endif
 
@@ -4068,6 +4074,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(XXH_NOESCAPE const XXH64_can
     || XXH_VECTOR == XXH_AVX2 || XXH_VECTOR == XXH_AVX512
 #  define XXH_SEC_ALIGN XXH_ACC_ALIGN
 #elif XXH_VECTOR == XXH_SVE
+#  define XXH_SEC_ALIGN XXH_ACC_ALIGN
+#elif XXH_VECTOR == XXH_RVV
 #  define XXH_SEC_ALIGN XXH_ACC_ALIGN
 #else
 #  define XXH_SEC_ALIGN 8
@@ -5273,10 +5281,18 @@ XXH_FORCE_INLINE XXH_TARGET_SSE2 void XXH3_initCustomSecret_sse2(void* XXH_RESTR
     (void)(&XXH_writeLE64);
     {   int const nbRounds = XXH_SECRET_DEFAULT_SIZE / sizeof(__m128i);
 
-#       if defined(_MSC_VER) && defined(_M_IX86) && _MSC_VER < 1900
-        /* MSVC 32bit mode does not support _mm_set_epi64x before 2015 */
-        XXH_ALIGN(16) const xxh_i64 seed64x2[2] = { (xxh_i64)seed64, (xxh_i64)(0U - seed64) };
-        __m128i const seed = _mm_load_si128((__m128i const*)seed64x2);
+#       if defined(_MSC_VER) && defined(_M_IX86) && _MSC_VER <= 1900
+        /* MSVC 32bit mode does not support _mm_set_epi64x before 2015
+         * and some specific variants of 2015 may also lack it */
+        /* Cast to unsigned 64-bit first to avoid signed arithmetic issues */
+        xxh_u64 const seed64_unsigned = (xxh_u64)seed64;
+        xxh_u64 const neg_seed64 = (xxh_u64)(0ULL - seed64_unsigned);
+        __m128i const seed = _mm_set_epi32(
+            (int)(neg_seed64 >> 32),      /* high 32 bits of negated seed */
+            (int)(neg_seed64),            /* low 32 bits of negated seed */
+            (int)(seed64_unsigned >> 32), /* high 32 bits of original seed */
+            (int)(seed64_unsigned)        /* low 32 bits of original seed */
+        );
 #       else
         __m128i const seed = _mm_set_epi64x((xxh_i64)(0U - seed64), (xxh_i64)seed64);
 #       endif
@@ -5825,6 +5841,136 @@ XXH3_scrambleAcc_lasx(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
 
 #endif
 
+#if (XXH_VECTOR == XXH_RVV)
+#if ((defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 13) || \
+        (defined(__clang__) && __clang_major__ < 16))
+    #define RVV_OP(op) op
+#else
+    #define concat2(X, Y) X ## Y
+    #define concat(X, Y) concat2(X, Y)
+    #define RVV_OP(op) concat(__riscv_, op)
+#endif
+XXH_FORCE_INLINE void
+XXH3_accumulate_512_rvv(  void* XXH_RESTRICT acc,
+                    const void* XXH_RESTRICT input,
+                    const void* XXH_RESTRICT secret)
+{
+    XXH_ASSERT((((size_t)acc) & 63) == 0);
+    {
+        // Try to set vector lenght to 512 bits.
+        // If this length is unavailable, then maximum available will be used
+        size_t vl = RVV_OP(vsetvl_e64m2)(8);
+
+        uint64_t* const xacc = (uint64_t*) acc;
+        const uint64_t* const xinput = (const uint64_t*) input;
+        const uint64_t* const xsecret = (const uint64_t*) secret;
+        uint64_t swap_mask[16] = {1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14};
+        vuint64m2_t xswap_mask = RVV_OP(vle64_v_u64m2)(swap_mask, vl);
+
+        // vuint64m1_t is sizeless.
+        // But we can assume that vl can be only 4(vlen=128) or 8(vlen=256,512)
+        for(size_t i = 0; i < XXH_STRIPE_LEN/(8 * vl); i++){
+            /* data_vec    = input[i]; */
+            vuint64m2_t data_vec = RVV_OP(vreinterpret_v_u8m2_u64m2)(RVV_OP(vle8_v_u8m2)((const uint8_t*)(xinput + vl * i), vl * 8));
+            /* key_vec     = secret[i]; */
+            vuint64m2_t key_vec = RVV_OP(vreinterpret_v_u8m2_u64m2)(RVV_OP(vle8_v_u8m2)((const uint8_t*)(xsecret + vl * i), vl * 8));
+            /* data_key    = data_vec ^ key_vec; */
+            vuint64m2_t data_key = RVV_OP(vxor_vv_u64m2)(data_vec, key_vec, vl);
+            /* data_key_lo = data_key >> 32; */
+            vuint64m2_t data_key_lo = RVV_OP(vsrl_vx_u64m2)(data_key, 32, vl);
+            /* product     = (data_key & 0xffffffff) * (data_key_lo & 0xffffffff); */
+            vuint64m2_t product = RVV_OP(vmul_vv_u64m2)(RVV_OP(vand_vx_u64m2)(data_key, 0xffffffff, vl), RVV_OP(vand_vx_u64m2)(data_key_lo, 0xffffffff, vl), vl);
+            /* acc_vec = xacc[i]; */
+            vuint64m2_t acc_vec = RVV_OP(vle64_v_u64m2)(xacc + vl * i, vl);
+            acc_vec = RVV_OP(vadd_vv_u64m2)(acc_vec, product, vl);
+            {
+                /* swap high and low halves */
+                vuint64m2_t data_swap = RVV_OP(vrgather_vv_u64m2)(data_vec, xswap_mask, vl);
+                acc_vec = RVV_OP(vadd_vv_u64m2)(acc_vec, data_swap, vl);
+            }
+            RVV_OP(vse64_v_u64m2)(xacc + vl * i, acc_vec, vl);
+        }
+    }
+}
+
+XXH_FORCE_INLINE XXH3_ACCUMULATE_TEMPLATE(rvv)
+
+XXH_FORCE_INLINE void
+XXH3_scrambleAcc_rvv(void* XXH_RESTRICT acc, const void* XXH_RESTRICT secret)
+{
+    XXH_ASSERT((((size_t)acc) & 63) == 0);
+    {
+        // Try to set vector lenght to 512 bits.
+        // If this length is unavailable, then maximum available will be used
+        size_t vl = RVV_OP(vsetvl_e64m2)(8);
+        uint64_t* const xacc = (uint64_t*) acc;
+        const uint64_t* const xsecret = (const uint64_t*) secret;
+
+        uint64_t prime[16] = {XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1,\
+                                XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1, XXH_PRIME32_1};
+        vuint64m2_t vprime = RVV_OP(vle64_v_u64m2)(prime, vl);
+
+        // vuint64m2_t is sizeless.
+        // But we can assume that vl can be only 4(vlen=128) or 8(vlen=256,512)
+        for(size_t i = 0; i < XXH_STRIPE_LEN/(8 * vl); i++){
+            /* xacc[i] ^= (xacc[i] >> 47) */
+            vuint64m2_t acc_vec = RVV_OP(vle64_v_u64m2)(xacc + vl * i, vl);
+            vuint64m2_t shifted = RVV_OP(vsrl_vx_u64m2)(acc_vec, 47, vl);
+            vuint64m2_t data_vec = RVV_OP(vxor_vv_u64m2)(acc_vec, shifted, vl);
+            /* xacc[i] ^= xsecret[i]; */
+            vuint64m2_t key_vec = RVV_OP(vreinterpret_v_u8m2_u64m2)(RVV_OP(vle8_v_u8m2)((const uint8_t*)(xsecret + vl * i), vl * 8));
+            vuint64m2_t data_key = RVV_OP(vxor_vv_u64m2)(data_vec, key_vec, vl);
+
+            /* xacc[i] *= XXH_PRIME32_1; */
+            vuint64m2_t prod_even = RVV_OP(vmul_vv_u64m2)(RVV_OP(vand_vx_u64m2)(data_key, 0xffffffff, vl), vprime, vl);
+            vuint64m2_t prod_odd = RVV_OP(vmul_vv_u64m2)(RVV_OP(vsrl_vx_u64m2)(data_key, 32, vl), vprime, vl);
+            vuint64m2_t prod = RVV_OP(vadd_vv_u64m2)(prod_even, RVV_OP(vsll_vx_u64m2)(prod_odd, 32, vl), vl);
+            RVV_OP(vse64_v_u64m2)(xacc + vl * i, prod, vl);
+        }
+    }
+}
+
+XXH_FORCE_INLINE void
+XXH3_initCustomSecret_rvv(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
+{
+    XXH_STATIC_ASSERT((XXH_SECRET_DEFAULT_SIZE & 63) == 0);
+    XXH_STATIC_ASSERT(XXH_SEC_ALIGN == 64);
+    XXH_ASSERT(((size_t)customSecret & 63) == 0);
+    {
+        uint64_t* const xcustomSecret = (uint64_t*)customSecret;
+
+        (void)(&XXH_writeLE64);
+        {
+            // Calculate the number of 64-bit elements in the `XXH3_kSecret` secret
+            size_t XXH3_kSecret_64b_len = XXH_SECRET_DEFAULT_SIZE / 8;
+            // Create an array of repeated seed values, alternating between seed64 and -seed64.
+            uint64_t seed_pos[16] = {seed64, (uint64_t)(-(int64_t)seed64), \
+                                    seed64, (uint64_t)(-(int64_t)seed64), \
+                                    seed64, (uint64_t)(-(int64_t)seed64), \
+                                    seed64, (uint64_t)(-(int64_t)seed64), \
+                                    seed64, (uint64_t)(-(int64_t)seed64), \
+                                    seed64, (uint64_t)(-(int64_t)seed64), \
+                                    seed64, (uint64_t)(-(int64_t)seed64), \
+                                    seed64, (uint64_t)(-(int64_t)seed64)};
+            // Cast the default secret to a signed 64-bit pointer for vectorized access
+            const int64_t* const xXXH3_kSecret = (const int64_t*)XXH3_kSecret;
+            size_t vl = 0;
+            for (size_t i=0; i < XXH3_kSecret_64b_len; i += vl) {
+
+                vl = RVV_OP(vsetvl_e64m2)(XXH3_kSecret_64b_len - i);
+                {
+                    vint64m2_t seed = RVV_OP(vle64_v_i64m2)((int64_t*)seed_pos, vl);
+                    vint64m2_t src = RVV_OP(vle64_v_i64m2)((const int64_t*)&xXXH3_kSecret[i], vl);
+                    vint64m2_t res = RVV_OP(vadd_vv_i64m2)(src, seed, vl);
+                    RVV_OP(vse64_v_i64m2)((int64_t*)&xcustomSecret[i], res, vl);
+                }
+            }
+        }
+    }
+}
+#endif
+
+
 /* scalar variants - universal */
 
 #if defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
@@ -6066,6 +6212,12 @@ typedef void (*XXH3_f_initCustomSecret)(void* XXH_RESTRICT, xxh_u64);
 #define XXH3_accumulate     XXH3_accumulate_lsx
 #define XXH3_scrambleAcc    XXH3_scrambleAcc_lsx
 #define XXH3_initCustomSecret XXH3_initCustomSecret_scalar
+
+#elif (XXH_VECTOR == XXH_RVV)
+#define XXH3_accumulate_512 XXH3_accumulate_512_rvv
+#define XXH3_accumulate     XXH3_accumulate_rvv
+#define XXH3_scrambleAcc    XXH3_scrambleAcc_rvv
+#define XXH3_initCustomSecret XXH3_initCustomSecret_rvv
 
 #else /* scalar */
 
@@ -6563,6 +6715,16 @@ XXH3_update(XXH3_state_t* XXH_RESTRICT const state,
     }
 
     XXH_ASSERT(state != NULL);
+    state->totalLen += len;
+
+    /* small input : just fill in tmp buffer */
+    XXH_ASSERT(state->bufferedSize <= XXH3_INTERNALBUFFER_SIZE);
+    if (len <= XXH3_INTERNALBUFFER_SIZE - state->bufferedSize) {
+        XXH_memcpy(state->buffer + state->bufferedSize, input, len);
+        state->bufferedSize += (XXH32_hash_t)len;
+        return XXH_OK;
+    }
+
     {   const xxh_u8* const bEnd = input + len;
         const unsigned char* const secret = (state->extSecret == NULL) ? state->customSecret : state->extSecret;
 #if defined(XXH3_STREAM_USE_STACK) && XXH3_STREAM_USE_STACK >= 1
@@ -6575,15 +6737,6 @@ XXH3_update(XXH3_state_t* XXH_RESTRICT const state,
 #else
         xxh_u64* XXH_RESTRICT const acc = state->acc;
 #endif
-        state->totalLen += len;
-        XXH_ASSERT(state->bufferedSize <= XXH3_INTERNALBUFFER_SIZE);
-
-        /* small input : just fill in tmp buffer */
-        if (len <= XXH3_INTERNALBUFFER_SIZE - state->bufferedSize) {
-            XXH_memcpy(state->buffer + state->bufferedSize, input, len);
-            state->bufferedSize += (XXH32_hash_t)len;
-            return XXH_OK;
-        }
 
         /* total input is now > XXH3_INTERNALBUFFER_SIZE */
         #define XXH3_INTERNALBUFFER_STRIPES (XXH3_INTERNALBUFFER_SIZE / XXH_STRIPE_LEN)

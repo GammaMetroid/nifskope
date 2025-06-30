@@ -6503,6 +6503,7 @@ NLOHMANN_JSON_NAMESPACE_END
 #include <iterator> // begin, end, iterator_traits, random_access_iterator_tag, distance, next
 #include <memory> // shared_ptr, make_shared, addressof
 #include <numeric> // accumulate
+#include <streambuf> // streambuf
 #include <string> // string, char_traits
 #include <type_traits> // enable_if, is_base_of, is_pointer, is_integral, remove_pointer
 #include <utility> // pair, declval
@@ -12765,7 +12766,7 @@ class binary_reader
                 success = false;
                 break;
             }
-            result.push_back(static_cast<std::uint8_t>(current));
+            result.push_back(static_cast<typename binary_t::value_type>(current));
         }
         return success;
     }
@@ -17591,9 +17592,9 @@ class binary_writer
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wfloat-equal"
 #endif
-        if (static_cast<double>(n) >= static_cast<double>(std::numeric_limits<float>::lowest()) &&
-                static_cast<double>(n) <= static_cast<double>((std::numeric_limits<float>::max)()) &&
-                static_cast<double>(static_cast<float>(n)) == static_cast<double>(n))
+        if (!std::isfinite(n) || ((static_cast<double>(n) >= static_cast<double>(std::numeric_limits<float>::lowest()) &&
+                                   static_cast<double>(n) <= static_cast<double>((std::numeric_limits<float>::max)()) &&
+                                   static_cast<double>(static_cast<float>(n)) == static_cast<double>(n))))
         {
             oa->write_character(format == detail::input_format_t::cbor
                                 ? get_cbor_float_prefix(static_cast<float>(n))

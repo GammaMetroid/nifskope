@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20250630
+
 * Added new spells to move array items up, down, or to a specific row.
 * Implemented copy and paste in the UV editor. UV data is stored on the clipboard in a text format similar to OBJ files, with an additional vertex number field when copying a selection. When pasting a selection to a selection, vertex numbers are remapped, otherwise they are not changed. The paste operation currently does not support the undo/redo feature of the UV editor.
 * Sanitize before save and Remove Bogus Nodes have been added as options when processing multiple NIF files.
