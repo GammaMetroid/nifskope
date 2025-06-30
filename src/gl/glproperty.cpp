@@ -1130,7 +1130,7 @@ QString BSShaderLightingProperty::fileName( int id ) const
 		// BSLSP
 		auto m = static_cast<ShaderMaterial *>(material);
 		if ( m->isValid() ) {
-			auto tex = m->textures();
+			const auto & tex = m->textures();
 			if ( tex.count() >= BGSM1_MAX ) {
 				switch ( id ) {
 				case 0: // Diffuse
@@ -1186,10 +1186,10 @@ QString BSShaderLightingProperty::fileName( int id ) const
 		// From Fallout 4 or 76 effect material file
 		auto m = static_cast<EffectMaterial*>(material);
 		if ( m->isValid() ) {
-			auto tex = m->textures();
+			const auto & tex = m->textures();
 			if ( id == 6 || id == 7 )
 				id--;
-			return tex[id];
+			return tex.value( id );
 		}
 
 		return QString();

@@ -14,6 +14,7 @@
 * Fixed rendering bounding volume collision used in older games like Morrowind. Collision types other than Box are still not supported.
 * Fixed errors on copying and pasting certain value types like ByteColor4, HalfVector2, and others.
 * Fixed selection colors on Havok constraints.
+* Fixed crash on invalid or missing Fallout 76 effect materials.
 
 #### NifSkope-2.0.dev11-20250530
 
