@@ -13,6 +13,7 @@ auto sld = []( QSlider * slider, int min, int max, int val ) {
 	slider->setSizePolicy( QSizePolicy::MinimumExpanding, QSizePolicy::Maximum );
 	slider->setRange( min, max );
 	slider->setSingleStep( max / 8 );
+	slider->setPageStep( ( max - min ) / 4 );
 	slider->setTickInterval( max / 2 );
 	slider->setTickPosition( QSlider::TicksBelow );
 	slider->setValue( val );

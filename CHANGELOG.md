@@ -5,6 +5,7 @@
 * Sanitize before save and Remove Bogus Nodes have been added as options when processing multiple NIF files.
 * "Block/Convert" now sets the number of partitions on conversion from NiSkinInstance to BSDismemberSkinInstance. Note that body parts and flags are still initialized with the defaults.
 * PNG format screenshots no longer use the silhouette method for alpha, the output image should be identical to DDS.
+* Sliders on the lighting widget now use a page step (when moving the slider with the Page Up/Page Down keys) of a quarter of the full range.
 * Fixed BSTriShape vertex positions and bitangent X being lost on changes to the full precision flag.
 * Fixed Update Bounds on BSDynamicTriShape.
 * Fixed rendering BSConnectPoint::Parents, the transforms of the parent nodes are now correctly applied.
