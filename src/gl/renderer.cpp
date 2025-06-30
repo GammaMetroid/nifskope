@@ -701,7 +701,17 @@ bool Renderer::setupProgramCE1( const NifModel * nif, Program * prog, Shape * me
 		else
 			prog->uni1f( "glowMult", 0 );
 
-		prog->uni1i( "hasEmit", lsp->hasEmittance );
+		bool hasEmit = lsp->hasEmittance;
+		if ( hasEmit && nifVersion >= 151 ) {
+			// disable Fallout 76 emittance if the lighting map has no alpha channel
+			hasEmit = false;
+			if ( auto txtInfo = scene->getTextureInfo( bsprop->fileName( 9 ) ); txtInfo ) {
+				hasEmit = bool( txtInfo->format.imageEncoding
+								& ( TexCache::TexFmt::TEXFMT_DXT3 | TexCache::TexFmt::TEXFMT_DXT5
+									| TexCache::TexFmt::TEXFMT_RGBA8 ) );
+			}
+		}
+		prog->uni1i( "hasEmit", hasEmit );
 		prog->uni1i( "hasGlowMap", lsp->hasGlowMap );
 		prog->uni3f( "glowColor", lsp->emissiveColor.red(), lsp->emissiveColor.green(), lsp->emissiveColor.blue() );
 
