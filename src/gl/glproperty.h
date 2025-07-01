@@ -485,7 +485,7 @@ namespace ShaderFlags
 		SLSF1_Environment_Mapping = 1 << 7,  // 7
 		SLSF1_Receive_Shadows = 1 << 8,  // 8
 		SLSF1_Cast_Shadows = 1 << 9,  // 9
-		SLSF1_Facegen_Detail_Map = 1 << 10,  // 10
+		SLSF1_Facegen = 1 << 10,  // 10
 		SLSF1_Parallax = 1 << 11,  // 11
 		SLSF1_Model_Space_Normals = 1 << 12,  // 12
 		SLSF1_Non_Projective_Shadows = 1 << 13,  // 13
@@ -493,10 +493,10 @@ namespace ShaderFlags
 		SLSF1_Refraction = 1 << 15,  // 15!
 		SLSF1_Fire_Refraction = 1 << 16,  // 16
 		SLSF1_Eye_Environment_Mapping = 1 << 17,  // 17
-		SLSF1_Hair_Soft_Lighting = 1 << 18,  // 18
+		SLSF1_Hair_Tint = 1 << 18,  // 18
 		SLSF1_Screendoor_Alpha_Fade = 1 << 19,  // 19
 		SLSF1_Localmap_Hide_Secret = 1 << 20,  // 20
-		SLSF1_FaceGen_RGB_Tint = 1 << 21,  // 21
+		SLSF1_Skin_Tint = 1 << 21,  // 21
 		SLSF1_Own_Emit = 1 << 22,  // 22
 		SLSF1_Projected_UV = 1 << 23,  // 23
 		SLSF1_Multiple_Textures = 1 << 24,  // 24
@@ -519,7 +519,7 @@ namespace ShaderFlags
 		SLSF2_Vertex_Colors = 1 << 5,  // 5
 		SLSF2_Glow_Map = 1 << 6,  // 6
 		SLSF2_Assume_Shadowmask = 1 << 7,  // 7
-		SLSF2_Packed_Tangent = 1 << 8,  // 8
+		SLSF2_Character_Lighting = 1 << 8,  // 8
 		SLSF2_Multi_Index_Snow = 1 << 9,  // 9
 		SLSF2_Vertex_Lighting = 1 << 10,  // 10
 		SLSF2_Uniform_Scale = 1 << 11,  // 11
@@ -551,7 +551,7 @@ namespace ShaderFlags
 		ST_EnvironmentMap,
 		ST_GlowShader,
 		ST_Heightmap,
-		ST_FaceTint,
+		ST_Facegen,
 		ST_SkinTint,
 		ST_HairTint,
 		ST_ParallaxOccMaterial,
