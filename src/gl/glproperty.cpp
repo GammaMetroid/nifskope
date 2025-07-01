@@ -1465,7 +1465,7 @@ void BSLightingShaderProperty::updateParams( const NifModel * nif )
 			hasMultiLayerParallax = hasSF2( ShaderFlags::SLSF2_Multi_Layer_Parallax );
 			hasRefraction = hasSF1( ShaderFlags::SLSF1_Refraction );
 
-			hasTintMask = isST( ShaderFlags::ST_FaceTint );
+			hasTintMask = isST( ShaderFlags::ST_Facegen );
 			hasDetailMask = hasTintMask;
 
 			if ( isST( ShaderFlags::ST_HairTint ) )
@@ -1703,14 +1703,14 @@ namespace ShaderFlags
 		{SKINNED, SLSF1_Skinned},
 		{ENVMAP, SLSF1_Environment_Mapping},
 		{VERTEX_ALPHA, SLSF1_Vertex_Alpha},
-		{FACE, SLSF1_Facegen_Detail_Map},
+		{FACE, SLSF1_Facegen},
 		{GRAYSCALE_TO_PALETTE_COLOR, SLSF1_Greyscale_To_PaletteColor},
 		{GRAYSCALE_TO_PALETTE_ALPHA, SLSF1_Greyscale_To_PaletteAlpha},
 		{DECAL, SLSF1_Decal},
 		{DYNAMIC_DECAL, SLSF1_Dynamic_Decal},
 		{EMIT_ENABLED, SLSF1_Own_Emit},
 		{REFRACTION, SLSF1_Refraction},
-		{SKIN_TINT, SLSF1_FaceGen_RGB_Tint},
+		{SKIN_TINT, SLSF1_Skin_Tint},
 		{RGB_FALLOFF, SLSF1_Receive_Shadows},
 		{EXTERNAL_EMITTANCE, SLSF1_External_Emittance},
 		{MODELSPACENORMALS, SLSF1_Model_Space_Normals},
