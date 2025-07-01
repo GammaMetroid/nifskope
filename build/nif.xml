@@ -1892,22 +1892,22 @@
     <enum name="BSLightingShaderType" storage="uint" prefix="ST" versions="#SKY_AND_LATER#">
         Values for configuring the shader type in a BSLightingShaderProperty
         <option value="0" name="Default" />
-        <option value="1" name="Environment Map">Enables EnvMap Mask(TS6), EnvMap Scale</option>
-        <option value="2" name="Glow Shader">Enables Glow(TS3)</option>
-        <option value="3" name="Parallax">Enables Height(TS4)</option>
-        <option value="4" name="Face Tint">Enables Detail(TS4), Tint(TS7)</option>
-        <option value="5" name="Skin Tint">Enables Skin Tint Color</option>
-        <option value="6" name="Hair Tint">Enables Hair Tint Color</option>
+        <option value="1" name="Environment Map">Enables EnvMap(TS5) EnvMap Mask(TS6), EnvMap Scale, Requires Environment and EnvMap_Light_Fade flags</option>
+        <option value="2" name="Glow Shader">Enables Glow(TS3), Requires Glow and Own_Emit flags</option>
+        <option value="3" name="Parallax">Enables Height(TS4), Requires Parallax Flag</option>
+        <option value="4" name="Facegen">Enables Skin(TS3), Detail(TS4), Tint(TS7), Requires Facegen and Soft Lighting flags</option>
+        <option value="5" name="Skin Tint">Enables Skin(TS3), Skin Tint Color, Requires Skin Tint and Soft Lighting flags</option>
+        <option value="6" name="Hair Tint">Enables Hair Tint Color, Requires Hair Tint flag</option>
         <option value="7" name="Parallax Occ">Enables Height(TS4), Max Passes, Scale. Unimplemented.</option>
         <option value="8" name="Multitexture Landscape" />
         <option value="9" name="LOD Landscape" />
         <option value="10" name="Snow" />
-        <option value="11" name="MultiLayer Parallax">Enables EnvMap Mask(TS6), Layer(TS7), Parallax Layer Thickness, Parallax Refraction Scale, Parallax Inner Layer U Scale, Parallax Inner Layer V Scale, EnvMap Scale</option>
+        <option value="11" name="MultiLayer Parallax">Enables EnvMap(TS5), EnvMap Mask(TS6), Layer(TS7), Parallax Layer Thickness, Parallax Refraction Scale, Parallax Inner Layer U Scale, Parallax Inner Layer V Scale, EnvMap Scale, requires Multi_Layer_Parallax Flag</option>
         <option value="12" name="Tree Anim" />
         <option value="13" name="LOD Objects" />
         <option value="14" name="Sparkle Snow">Enables SparkleParams</option>
         <option value="15" name="LOD Objects HD" />
-        <option value="16" name="Eye Envmap">Enables EnvMap Mask(TS6), Eye EnvMap Scale</option>
+        <option value="16" name="Eye Envmap">Enables EnvMap(TS5), EnvMap Mask(TS6), Eye EnvMap Scale, Requires Eye_EnvMap and Envmap_Light_Fade flags</option>
         <option value="17" name="Cloud" />
         <option value="18" name="LOD Landscape Noise" />
         <option value="19" name="Multitexture Landscape LOD Blend" />
@@ -6923,22 +6923,22 @@
         <option bit="4" name="Greyscale_To_PaletteColor">in EffectShaderProperty</option>
         <option bit="5" name="Greyscale_To_PaletteAlpha">in EffectShaderProperty</option>
         <option bit="6" name="Use_Falloff">Use Falloff value in EffectShaderProperty</option>
-        <option bit="7" name="Environment_Mapping">Environment mapping (uses Envmap Scale).</option>
+        <option bit="7" name="Environment_Mapping">Environment mapping (uses Envmap Scale), required on Environment Shader Type.</option>
         <option bit="8" name="Receive_Shadows">Object can recieve shadows.</option>
         <option bit="9" name="Cast_Shadows">Can cast shadows</option>
-        <option bit="10" name="Facegen_Detail_Map">Use a face detail map in the 4th texture slot.</option>
-        <option bit="11" name="Parallax">Unused?</option>
-        <option bit="12" name="Model_Space_Normals">Use Model space normals and an external Specular Map.</option>
+        <option bit="10" name="Facegen">Use a facegen detail map in the 4th texture slot and face tint texture in the 7th texture slot, Required for Facegen shader type.</option>
+        <option bit="11" name="Parallax">Use a height map in the 4th texture slot, required for Parallax Shader Type, also requires Vertex Colors.</option>
+        <option bit="12" name="Model_Space_Normals">Use Model space normals and an external Specular Map, not compatible with Backlighting if Specular is enabled.</option>
         <option bit="13" name="Non_Projective_Shadows"></option>
         <option bit="14" name="Landscape"></option>
         <option bit="15" name="Refraction">Use normal map for refraction effect.</option>
         <option bit="16" name="Fire_Refraction"></option>
         <option bit="17" name="Eye_Environment_Mapping">Eye Environment Mapping (Must use the Eye shader and the model must be skinned)</option>
-        <option bit="18" name="Hair_Soft_Lighting">Keeps from going too bright under lights (hair shader only)</option>
+        <option bit="18" name="Hair_Tint">Keeps from going too bright under lights, Required for Hair Tint shader type</option>
         <option bit="19" name="Screendoor_Alpha_Fade"></option>
         <option bit="20" name="Localmap_Hide_Secret">Object and anything it is positioned above will not render on local map view.</option>
-        <option bit="21" name="FaceGen_RGB_Tint">Use tintmask for Face.</option>
-        <option bit="22" name="Own_Emit">Provides its own emittance color. (will not absorb light/ambient color?)</option>
+        <option bit="21" name="Skin_Tint">Use skin tint map in texture slot 3 for Skin, Required for Skin Tint shader type.</option>
+        <option bit="22" name="Own_Emit">Provides its own emittance color, if Emissive Color is #000000, should/can be disabled. (will not absorb light/ambient color?)</option>
         <option bit="23" name="Projected_UV">Used for decalling?</option>
         <option bit="24" name="Multiple_Textures"></option>
         <option bit="25" name="Remappable_Textures"></option>
@@ -6960,14 +6960,14 @@
         <option bit="5" name="Vertex_Colors">Has Vertex Colors.</option>
         <option bit="6" name="Glow_Map">Use Glow Map in the third texture slot.</option>
         <option bit="7" name="Assume_Shadowmask"></option>
-        <option bit="8" name="Packed_Tangent"></option>
+        <option bit="8" name="Character_Lighting"> Required for Actors or the Character Lighting shader looks terrible.  Headparts and Facegen .nifs with BSDynamicTriShape blocks</option>
         <option bit="9" name="Multi_Index_Snow"></option>
         <option bit="10" name="Vertex_Lighting"></option>
         <option bit="11" name="Uniform_Scale"></option>
         <option bit="12" name="Fit_Slope"></option>
         <option bit="13" name="Billboard"></option>
         <option bit="14" name="No_LOD_Land_Blend"></option>
-        <option bit="15" name="EnvMap_Light_Fade"></option>
+        <option bit="15" name="EnvMap_Light_Fade"> Required for Environment, Eye EnvMap, and MultiLayer Parallax shader types</option>
         <option bit="16" name="Wireframe">Wireframe (Seems to only work on particles)</option>
         <option bit="17" name="Weapon_Blood">Used for blood decals on weapons.</option>
         <option bit="18" name="Hide_On_Local_Map">Similar to hide secret, but only for self?</option>
@@ -6977,11 +6977,11 @@
         <option bit="22" name="No_Transparency_Multisampling"></option>
         <option bit="23" name="Unused01">Unused?</option>
         <option bit="24" name="Multi_Layer_Parallax">Use Multilayer (inner-layer) Map</option>
-        <option bit="25" name="Soft_Lighting">Use Soft Lighting Map</option>
-        <option bit="26" name="Rim_Lighting">Use Rim Lighting Map</option>
-        <option bit="27" name="Back_Lighting">Use Back Lighting Map</option>
+        <option bit="25" name="Soft_Lighting">Use Soft Lighting Map, not compatible with Rim Lighting</option>
+        <option bit="26" name="Rim_Lighting">Use Rim Lighting Map, not compatible with Soft Lighting</option>
+        <option bit="27" name="Back_Lighting">Use Back Lighting Map, not compatible with Modelspace Normals + Specular</option>
         <option bit="28" name="Unused02">Unused?</option>
-        <option bit="29" name="Tree_Anim">Enables Vertex Animation, Flutter Animation</option>
+        <option bit="29" name="Tree_Anim">Enables Vertex Animation, Flutter Animation, root block MUST be BSTreeNode or BSLeafAnimNode</option>
         <option bit="30" name="Effect_Lighting"></option>
         <option bit="31" name="HD_LOD_Objects"></option>
     </bitflags>
