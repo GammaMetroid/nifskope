@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+* Fixed the sort order of bhkBallSocketConstraintChain in the Reorder Blocks spell.
+
 #### NifSkope-2.0.dev11-20250630
 
 * Added new spells to move array items up, down, or to a specific row.
