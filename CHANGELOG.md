@@ -1,7 +1,7 @@
  == CHANGELOG ==
 
 * Fixed the sort order of bhkBallSocketConstraintChain in the Reorder Blocks spell.
-* Fixed BSBlastNode blocks being incorrectly deleted by Remove Bogus Nodes.
+* Fixed BSBlastNode, BSDamageStage and BSDebrisNode blocks being incorrectly deleted by Remove Bogus Nodes.
 
 #### NifSkope-2.0.dev11-20250630
 

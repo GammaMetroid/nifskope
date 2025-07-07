@@ -224,7 +224,8 @@ public:
 
 				if ( iNode.isValid() ) {
 					if ( nif->getChildLinks( b ).isEmpty() && nif->getParentLinks( b ).isEmpty() ) {
-						int x = int( nif->isNiBlock( nif->getBlockIndex( b ), { "BSBlastNode", "BSValueNode" } ) );
+						int x = int( nif->isNiBlock( nif->getBlockIndex( b ), { "BSBlastNode", "BSDamageStage",
+																				"BSDebrisNode", "BSValueNode" } ) );
 
 						for ( int c = 0; c < nif->getBlockCount(); c++ ) {
 							if ( c != b ) {
