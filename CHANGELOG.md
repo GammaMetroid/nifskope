@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Added new general settings for the Havok layer and material when importing OBJ as collision. The material can be specified as the CRC32 hash (decimal or hexadecimal with a 0x prefix), or as the string name (e.g. Broken Stone), empty defaults to None. Note that some existing settings previously under NIF have been reset because they were moved to a new Import/Export tab.
 * Fixed the sort order of bhkBallSocketConstraintChain in the Reorder Blocks spell.
 * Fixed BSBlastNode, BSDamageStage and BSDebrisNode blocks being incorrectly deleted by Remove Bogus Nodes.
 

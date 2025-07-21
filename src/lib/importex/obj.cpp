@@ -684,6 +684,59 @@ static void addLink( NifModel * nif, const QModelIndex & iBlock, const QString &
 	nif->setLink( nif->getIndex( iArray, numIndices, 0 ), link );
 }
 
+static void setCollisionLayerAndMat( NifModel * nif, const QModelIndex & iBody, const QModelIndex & iShape )
+{
+	quint32 havokLayer = 0x59241;			// Static (1), Clutter (4), AnimStatic (2), Tree (9), Weapon (5)
+	int havokMass = 0x10110;
+	quint32 hkMotionType = 0x37437;			// Fixed (7), Sphere Stabilized (3), Inertia (4), Fixed, Sphere Stabilized
+	quint32 hkDeactivatorType = 0x20110;	// Invalid (0), Never (1), Never, Invalid, Spatial (2)
+	quint32 hkSolverDeactivation = 0x21221;	// Off (1), Low (2), Low, Off, Low
+	quint32 hkQualityType = 0x41441;		// Fixed (1), Moving (4), Moving, Fixed, Moving
+	quint32 havokMat = 0;
+	{
+		QSettings settings;
+		int tmp = settings.value( "Settings/Importex/Obj Import Collision Layer", 0 ).toInt();
+		tmp = std::clamp< int >( tmp, 0, 4 ) << 2;
+		havokLayer = ( havokLayer >> tmp ) & 0x0F;
+		havokMass = ( havokMass >> tmp ) & 0x0F;
+		hkMotionType = ( hkMotionType >> tmp ) & 0x0F;
+		hkDeactivatorType = ( hkDeactivatorType >> tmp ) & 0x0F;
+		hkSolverDeactivation = ( hkSolverDeactivation >> tmp ) & 0x0F;
+		hkQualityType = ( hkQualityType >> tmp ) & 0x0F;
+
+		QString matString = settings.value( "Settings/Importex/Obj Import Collision Mat", QString() ).toString();
+		if ( !matString.trimmed().isEmpty() ) {
+			bool isHash = false;
+			havokMat = quint32( matString.toUInt( &isHash, 0 ) );
+			if ( !isHash ) {
+				std::uint32_t h = 0;
+				for ( QChar c : matString )
+					hashFunctionCRC32( h, (unsigned char) c.toLower().unicode() );
+				havokMat = h;
+			}
+		}
+	}
+
+	nif->set<quint32>( iBody, "Layer", havokLayer );
+	if ( QModelIndex iRigidBodyInfo = nif->getIndex( iBody, "Rigid Body Info" ); iRigidBodyInfo.isValid() ) {
+		nif->set<quint32>( iRigidBodyInfo, "Layer", havokLayer );
+		if ( !havokMass ) {
+			if ( QModelIndex i = nif->getIndex( iRigidBodyInfo, "Inertia Tensor" ); i.isValid() ) {
+				nif->set<float>( i, "m11", 0.0f );
+				nif->set<float>( i, "m22", 0.0f );
+				nif->set<float>( i, "m33", 0.0f );
+			}
+		}
+		nif->set<float>( iRigidBodyInfo, "Mass", float( havokMass ) );
+		nif->set<quint32>( iRigidBodyInfo, "Motion System", hkMotionType );
+		nif->set<quint32>( iRigidBodyInfo, "Deactivator Type", hkDeactivatorType );
+		nif->set<quint32>( iRigidBodyInfo, "Solver Deactivation", hkSolverDeactivation );
+		nif->set<quint32>( iRigidBodyInfo, "Quality Type", hkQualityType );
+	}
+
+	nif->set<quint32>( iShape, "Material", havokMat );
+}
+
 void importObjMain( NifModel * nif, const QModelIndex & index, bool collision )
 {
 	//--Determine how the file will import, and be sure the user wants to continue--//
@@ -1266,6 +1319,8 @@ void importObjMain( NifModel * nif, const QModelIndex & index, bool collision )
 				nif->setLink( iObject, "Body", nif->getBlockNumber( iBody ) );
 
 				nif->setLink( iParent, "Collision Object", nif->getBlockNumber( iObject ) );
+
+				setCollisionLayerAndMat( nif, iBody, iStripsShape );
 			}
 
 			if ( shapecount >= 1 ) {
