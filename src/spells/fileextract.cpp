@@ -512,7 +512,7 @@ QModelIndex spMeshFileExport::cast( NifModel * nif, const QModelIndex & index )
 	QString	meshDir;
 	{
 		QSettings	settings;
-		meshDir = settings.value( "Settings/Nif/Mesh Export Dir", QString() ).toString().trimmed().toLower();
+		meshDir = settings.value( "Settings/Importex/Mesh Export Dir", QString() ).toString().trimmed().toLower();
 	}
 	meshDir.replace( QChar('/'), QChar('\\') );
 	while ( meshDir.endsWith( QChar('\\') ) )

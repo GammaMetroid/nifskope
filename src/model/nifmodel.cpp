@@ -1865,7 +1865,7 @@ bool NifModel::load( QIODevice & device, const char* fileName )
 	QSettings settings;
 	bool ignoreSize = settings.value( "Ignore Block Size", true ).toBool();
 	bool convertSFMeshes =
-		settings.value( "Settings/Nif/Convert meshes to internal geometry on load", false ).toBool();
+		settings.value( "Settings/Importex/Convert meshes to internal geometry on load", false ).toBool();
 
 	clear();
 

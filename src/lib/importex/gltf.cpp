@@ -1333,9 +1333,9 @@ void exportGltf( const NifModel * nif, const Scene * scene, [[maybe_unused]] con
 		if ( nif->getBSVersion() < 170 )
 			gltfEnableLOD = false;
 		else
-			gltfEnableLOD = settings.value( "Settings/Nif/Enable LOD", false ).toBool();
-		useFullMatPaths = settings.value( "Settings/Nif/Export full material paths", true ).toBool();
-		textureMipLevel = settings.value( "Settings/Nif/Gl TF Export Mip Level", 1 ).toInt();
+			gltfEnableLOD = settings.value( "Settings/Importex/Enable LOD", false ).toBool();
+		useFullMatPaths = settings.value( "Settings/Importex/Export full material paths", true ).toBool();
+		textureMipLevel = settings.value( "Settings/Importex/Gl TF Export Mip Level", 1 ).toInt();
 		textureMipLevel = std::min< int >( std::max< int >( textureMipLevel, -1 ), 15 );
 	}
 	if ( !filename.endsWith( ".gltf", Qt::CaseInsensitive ) )
@@ -2429,7 +2429,7 @@ void importGltf( NifModel * nif, const QModelIndex & index )
 		gltfEnableLOD = false;
 	} else {
 		QSettings	settings;
-		gltfEnableLOD = settings.value( "Settings/Nif/Enable LOD", false ).toBool();
+		gltfEnableLOD = settings.value( "Settings/Importex/Enable LOD", false ).toBool();
 	}
 
 	tinygltf::TinyGLTF	reader;
