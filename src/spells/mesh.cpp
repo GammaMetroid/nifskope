@@ -2357,8 +2357,13 @@ public:
 
 		QSettings	settings;
 		QString	key = QString( "%1/%2/%3/Last Mesh Path" ).arg( "Spells", page(), name() );
-		if ( prvPath.empty() )
-			prvPath = settings.value( key, QString() ).toString().toStdString();
+		if ( prvPath.empty()
+			|| settings.value( "Settings/UI/Resource File Choosers Default to the Path of the File Last Selected",
+								false ).toBool() ) {
+			QString	tmp = settings.value( key, QString() ).toString();
+			if ( prvPath.empty() || !nif->findResourceFile( tmp, "geometries/", ".mesh" ).isEmpty() )
+				prvPath = tmp.toStdString();
+		}
 
 		FileBrowserWidget	fileBrowser( 800, 600, "Choose Mesh File", meshPaths, prvPath );
 		if ( fileBrowser.exec() == QDialog::Accepted ) {

@@ -246,8 +246,13 @@ public:
 
 		QSettings	settings;
 		QString	key = QString( "%1/%2/%3/Last Texture Path" ).arg( "Spells", page(), name() );
-		if ( file.isEmpty() )
-			file = settings.value( key, QVariant( QDir::homePath() ) ).toString();
+		if ( file.isEmpty()
+			|| settings.value( "Settings/UI/Resource File Choosers Default to the Path of the File Last Selected",
+								false ).toBool() ) {
+			QString	tmp = settings.value( key, QString() ).toString();
+			if ( file.isEmpty() || !nif->findResourceFile( tmp, "textures", ".dds" ).isEmpty() )
+				file = tmp;
+		}
 
 		std::set< std::string_view >	texturePaths;
 		nif->listResourceFiles( texturePaths, &texturePathFilterFunc );
