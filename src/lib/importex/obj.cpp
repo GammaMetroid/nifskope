@@ -688,16 +688,16 @@ static void setCollisionLayerAndMat( NifModel * nif, const QModelIndex & iBody, 
 {
 	// Static (1), Clutter (4), AnimStatic (2), Tree (9), Weapon (5), Biped (8), Props (10), NonCollidable (15)
 	quint32 havokLayer = 0xFA859241u;
-	int havokMass = 0x055A0050;
-	// Box Stabilized (5), Sphere Stabilized (3), Box Inertia (4), Box Stabilized,
-	// Sphere Stabilized, Box Inertia, Sphere Stabilized, Box Stabilized
-	quint32 hkMotionType = 0x53435435;
+	int havokMass = 0x01110010;
+	// Fixed (7), Sphere Stabilized (3), Box Stabilized (5), Fixed,
+	// Sphere Stabilized, Box Inertia (4), Sphere Stabilized, Fixed
+	quint32 hkMotionType = 0x73437537;
 	// Never (1), Never, Never, Never, Never, Never, Never, Never
 	quint32 hkDeactivatorType = 0x11111111;
 	// Off (1), Low (2), Low, Off, Low, Low, Low, Off
 	quint32 hkSolverDeactivation = 0x12221221;
-	// Invalid (0), Moving (4), Fixed (1), Invalid, Moving, Fixed, Moving, Invalid
-	quint32 hkQualityType = 0x04140140;
+	// Fixed (1), Moving (4), Fixed, Fixed, Moving, Fixed, Moving, Fixed
+	quint32 hkQualityType = 0x14141141;
 	quint32 havokMat = 0;
 	{
 		QSettings settings;
