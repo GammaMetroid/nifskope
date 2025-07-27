@@ -686,17 +686,23 @@ static void addLink( NifModel * nif, const QModelIndex & iBlock, const QString &
 
 static void setCollisionLayerAndMat( NifModel * nif, const QModelIndex & iBody, const QModelIndex & iShape )
 {
-	quint32 havokLayer = 0x59241;			// Static (1), Clutter (4), AnimStatic (2), Tree (9), Weapon (5)
-	int havokMass = 0x10110;
-	quint32 hkMotionType = 0x37437;			// Fixed (7), Sphere Stabilized (3), Inertia (4), Fixed, Sphere Stabilized
-	quint32 hkDeactivatorType = 0x20110;	// Invalid (0), Never (1), Never, Invalid, Spatial (2)
-	quint32 hkSolverDeactivation = 0x21221;	// Off (1), Low (2), Low, Off, Low
-	quint32 hkQualityType = 0x41441;		// Fixed (1), Moving (4), Moving, Fixed, Moving
+	// Static (1), Clutter (4), AnimStatic (2), Tree (9), Weapon (5), Biped (8), Props (10), NonCollidable (15)
+	quint32 havokLayer = 0xFA859241u;
+	int havokMass = 0x055A0050;
+	// Box Stabilized (5), Sphere Stabilized (3), Box Inertia (4), Box Stabilized,
+	// Sphere Stabilized, Box Inertia, Sphere Stabilized, Box Stabilized
+	quint32 hkMotionType = 0x53435435;
+	// Never (1), Never, Never, Never, Never, Never, Never, Never
+	quint32 hkDeactivatorType = 0x11111111;
+	// Off (1), Low (2), Low, Off, Low, Low, Low, Off
+	quint32 hkSolverDeactivation = 0x12221221;
+	// Invalid (0), Moving (4), Fixed (1), Invalid, Moving, Fixed, Moving, Invalid
+	quint32 hkQualityType = 0x04140140;
 	quint32 havokMat = 0;
 	{
 		QSettings settings;
 		int tmp = settings.value( "Settings/Importex/Obj Import Collision Layer", 0 ).toInt();
-		tmp = std::clamp< int >( tmp, 0, 4 ) << 2;
+		tmp = std::clamp< int >( tmp, 0, 7 ) << 2;
 		havokLayer = ( havokLayer >> tmp ) & 0x0F;
 		havokMass = ( havokMass >> tmp ) & 0x0F;
 		hkMotionType = ( hkMotionType >> tmp ) & 0x0F;

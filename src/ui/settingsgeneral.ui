@@ -883,6 +883,21 @@
               <string>Weapon</string>
              </property>
             </item>
+            <item>
+             <property name="text">
+              <string>Biped</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>Props</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>NonCollidable</string>
+             </property>
+            </item>
            </widget>
           </item>
           <item row="1" column="0">

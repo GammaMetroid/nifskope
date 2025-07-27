@@ -75,11 +75,10 @@ int main()
     FileBuffer  buf(tmpBuf.data, tmpBuf.size);
     loadStrings(cdbStrings, buf);
   }
-  static const char *esmFileNames[9] =
+  static const char *esmFileNames[8] =
   {
-    "Starfield.esm", "BlueprintShips-Starfield.esm",
-    "BlueprintShips-SFTA03.esm", "SFBGS003.esm", "SFBGS004.esm",
-    "SFBGS006.esm", "SFBGS007.esm", "SFBGS008.esm", nullptr
+    "Starfield.esm", "BlueprintShips-Starfield.esm", "SFBGS003.esm",
+    "SFBGS004.esm", "SFBGS006.esm", "SFBGS007.esm", "SFBGS008.esm", nullptr
   };
   for (size_t j = 0; esmFileNames[j]; j++)
   {
