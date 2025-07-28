@@ -2,6 +2,7 @@
 
 * Added new general settings for the Havok layer and material when importing OBJ as collision. The material can be specified as the CRC32 hash (decimal or hexadecimal with a 0x prefix), or as the string name (e.g. Broken Stone), empty defaults to None. Note that some existing settings previously under NIF have been reset because they were moved to a new Import/Export tab.
 * Resource file choosers can now default to the path of the last file of the same type (texture, material or mesh) selected, instead of the original path in the NIF or material, if the last selected file exists. This can be enabled in the general settings.
+* Fixed highlighting the selected vertices of BSDynamicTriShape blocks.
 * Fixed the sort order of bhkBallSocketConstraintChain in the Reorder Blocks spell.
 * Fixed BSBlastNode, BSDamageStage and BSDebrisNode blocks being incorrectly deleted by Remove Bogus Nodes.
 

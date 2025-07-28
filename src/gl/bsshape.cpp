@@ -327,8 +327,10 @@ void BSShape::drawVerts() const
 			// Highlight selected vertex
 			auto idx = scene->currentIndex;
 			auto n = idx.data( NifSkopeDisplayRole ).toString();
-			if ( n == "Vertex" || n == "Vertices" )
+			if ( n == "Vertex" )
 				vertexSelected = idx.parent().row();
+			else if ( ( n == "Vertex Data" || n == "Vertices" ) && !scene->nifModel->isArray( idx ) )
+				vertexSelected = idx.row();
 		}
 	}
 
