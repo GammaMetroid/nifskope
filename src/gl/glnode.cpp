@@ -961,6 +961,9 @@ void Node::drawHvkShape( const NifModel * nif, const QModelIndex & iShape, HvkSh
 		}
 
 	} else if ( name == "bhkCompressedMeshShape" ) {
+		// bhkCompressedMeshShape overrides the scale from parent nodes
+		scene->multModelViewMatrix( Transform( Vector3(),
+												nif->get<Vector4>( iShape, "Scale Copy" )[0] / worldTrans().scale ) );
 		scene->drawCMS( nif, iShape );
 #if 0
 		if ( Options::getHavokState() == HAVOK_SOLID ) {

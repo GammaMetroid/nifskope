@@ -5,6 +5,7 @@
 * Fixed highlighting the selected vertices of BSDynamicTriShape blocks.
 * Fixed the sort order of bhkBallSocketConstraintChain in the Reorder Blocks spell.
 * Fixed BSBlastNode, BSDamageStage and BSDebrisNode blocks being incorrectly deleted by Remove Bogus Nodes.
+* Fixed rendering the scale of bhkCompressedMeshShape, the Scale Copy field of the block (X only) now overrides the scale from parent nodes.
 
 #### NifSkope-2.0.dev11-20250630
 
