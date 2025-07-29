@@ -4,7 +4,7 @@
 #include "meshoptimizer/src/meshoptimizer.h"
 
 
-QVector<QVector<quint16> > stripify( QVector<Triangle> triangles, bool stitch )
+QVector<QVector<quint16> > stripify( const QVector<Triangle> & triangles, bool stitch )
 {
 	QVector<QVector<quint16>>	strips;
 
@@ -53,7 +53,7 @@ QVector<QVector<quint16> > stripify( QVector<Triangle> triangles, bool stitch )
 	return strips;
 }
 
-QVector<Triangle> triangulate( QVector<quint16> strip )
+QVector<Triangle> triangulate( const QVector<quint16> & strip )
 {
 	QVector<Triangle> tris;
 	quint16 a, b = strip.value( 0 ), c = strip.value( 1 );
@@ -77,7 +77,7 @@ QVector<Triangle> triangulate( QVector<quint16> strip )
 	return tris;
 }
 
-QVector<Triangle> triangulate( QVector<QVector<quint16> > strips )
+QVector<Triangle> triangulate( const QVector< QVector<quint16> > & strips )
 {
 	QVector<Triangle> tris;
 	for ( const QVector<quint16>& strip : strips ) {
