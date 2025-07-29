@@ -3,6 +3,7 @@
 #include "blocks.h"
 #include "gl/gltools.h"
 
+#include "lib/meshoptimizer/src/meshoptimizer.h"
 #include "lib/nvtristripwrapper.h"
 
 #include <climits>
@@ -397,44 +398,89 @@ public:
 		return iData.isValid() && nif->get<int>( iData, "Num Strips" ) > 1;
 	}
 
+	static void stitchStrips( NifModel * nif, const QModelIndex & index, bool unstitchMode = false );
+
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
 	{
-		QModelIndex iData = getStripsData( nif, index );
-		QModelIndex iLength = nif->getIndex( iData, "Strip Lengths" );
-		QModelIndex iPoints = nif->getIndex( iData, "Points" );
-
-		if ( !( iLength.isValid() && iPoints.isValid() ) )
-			return index;
-
-		QList<QVector<quint16> > strips;
-
-		for ( int r = 0; r < nif->rowCount( iPoints ); r++ )
-			strips += nif->getArray<quint16>( nif->getIndex( iPoints, r ) );
-
-		if ( strips.isEmpty() )
-			return index;
-
-		QVector<quint16> strip = strips.first();
-		strips.pop_front();
-
-		for ( const QVector<quint16>& s : strips ) {
-			// TODO: optimize this
-			if ( strip.count() & 1 )
-				strip << strip.last() << s.first() << s.first() << s;
-			else
-				strip << strip.last() << s.first() << s;
-		}
-
-		nif->set<int>( iData, "Num Strips", 1 );
-		nif->updateArraySize( iLength );
-		nif->set<int>( nif->getIndex( iLength, 0 ), strip.size() );
-		nif->updateArraySize( iPoints );
-		nif->updateArraySize( nif->getIndex( iPoints, 0 ) );
-		nif->setArray<quint16>( nif->getIndex( iPoints, 0 ), strip );
-
+		stitchStrips( nif, index );
 		return index;
 	}
 };
+
+void spStitchStrips::stitchStrips( NifModel * nif, const QModelIndex & index, bool unstitchMode )
+{
+	QModelIndex iData = getStripsData( nif, index );
+	QModelIndex iLength = nif->getIndex( iData, "Strip Lengths" );
+	QModelIndex iPoints = nif->getIndex( iData, "Points" );
+
+	if ( !( iLength.isValid() && iPoints.isValid() ) )
+		return;
+
+	QVector< QVector<quint16> > strips;
+
+	for ( int r = 0; r < nif->rowCount( iPoints ); r++ )
+		strips += nif->getArray<quint16>( nif->getIndex( iPoints, r ) );
+
+	if ( strips.isEmpty() )
+		return;
+
+	QVector<quint16> stripLengths;
+	size_t numTriangles = 0;
+	{
+		std::vector< unsigned int > triangleIndices;
+		size_t maxVertex = 0;
+		{
+			QVector<Triangle> triangles = triangulate( strips );
+			strips.clear();
+			triangleIndices.resize( size_t( triangles.size() ) * 3 );
+			unsigned int * p = triangleIndices.data();
+			for ( const Triangle & t : triangles ) {
+				maxVertex = std::max< size_t >( maxVertex, std::max( std::max( t[0], t[1] ), t[2] ) );
+				p[0] = t[0];
+				p[1] = t[1];
+				p[2] = t[2];
+				p = p + 3;
+			}
+		}
+		std::vector< unsigned int > stripIndices( meshopt_stripifyBound( triangleIndices.size() ) );
+		stripIndices.resize( meshopt_stripify( stripIndices.data(), triangleIndices.data(), triangleIndices.size(),
+												maxVertex + 1, 0u - (unsigned int) unstitchMode ) );
+		size_t startPos = 0;
+		for ( const unsigned int & v : stripIndices ) {
+			if ( v == ( 0u - 1u ) || &v == &( stripIndices.back() ) ) {
+				size_t i = size_t( &v - stripIndices.data() );
+				size_t n = i + size_t( v != ( 0u - 1u ) ) - startPos;
+				if ( n > 65535 ) {
+					n = 65535;
+					Message::append( nullptr, "Stitch/Unstitch error",
+										"Strip length is out of range", QMessageBox::Critical );
+				}
+				if ( n > 0 ) {
+					if ( n >= 3 )
+						numTriangles += n - 2;
+					stripLengths.append( quint16( n ) );
+					strips.append( QVector<quint16>() );
+					strips.last().resize( qsizetype( n ) );
+					quint16 * p = strips.last().data();
+					for ( ; n > 0; n--, p++, startPos++ )
+						*p = quint16( stripIndices[startPos] );
+				}
+				startPos = i + 1;
+			}
+		}
+	}
+
+	nif->set<quint16>( iData, "Num Triangles", quint16( numTriangles ) );
+	nif->set<quint16>( iData, "Num Strips", quint16( stripLengths.size() ) );
+	nif->updateArraySize( iLength );
+	nif->setArray<quint16>( iLength, stripLengths );
+	nif->updateArraySize( iPoints );
+	for ( const auto & s : strips ) {
+		int i = int( &s - strips.constData() );
+		nif->updateArraySize( nif->getIndex( iPoints, i ) );
+		nif->setArray<quint16>( nif->getIndex( iPoints, i ), s );
+	}
+}
 
 REGISTER_SPELL( spStitchStrips )
 
@@ -453,60 +499,7 @@ public:
 
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
 	{
-		QModelIndex iData = spStitchStrips::getStripsData( nif, index );
-		QModelIndex iLength = nif->getIndex( iData, "Strip Lengths" );
-		QModelIndex iPoints = nif->getIndex( iData, "Points" );
-
-		if ( !( iLength.isValid() && iPoints.isValid() ) )
-			return index;
-
-		QVector<quint16> strip = nif->getArray<quint16>( nif->getIndex( iPoints, 0 ) );
-
-		if ( strip.size() <= 3 )
-			return index;
-
-		QList<QVector<quint16> > strips;
-		QVector<quint16> scratch;
-
-		quint16 a = strip[0];
-		quint16 b = strip[1];
-		bool flip = false;
-
-		for ( int s = 2; s < strip.size(); s++ ) {
-			quint16 c = strip[s];
-
-			if ( a != b && b != c && c != a ) {
-				if ( scratch.isEmpty() ) {
-					if ( flip )
-						scratch << a << a << b;
-					else
-						scratch << a << b;
-				}
-
-				scratch << c;
-			} else if ( !scratch.isEmpty() ) {
-				strips << scratch;
-				scratch.clear();
-			}
-
-			a = b;
-			b = c;
-			flip = !flip;
-		}
-
-		if ( !scratch.isEmpty() )
-			strips << scratch;
-
-		nif->set<int>( iData, "Num Strips", strips.size() );
-		nif->updateArraySize( iLength );
-		nif->updateArraySize( iPoints );
-
-		for ( int r = 0; r < strips.count(); r++ ) {
-			nif->set<int>( nif->getIndex( iLength, r ), strips[r].size() );
-			nif->updateArraySize( nif->getIndex( iPoints, r ) );
-			nif->setArray<quint16>( nif->getIndex( iPoints, r ), strips[r] );
-		}
-
+		spStitchStrips::stitchStrips( nif, index, true );
 		return index;
 	}
 };
