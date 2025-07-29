@@ -6,6 +6,7 @@
 * Fixed the sort order of bhkBallSocketConstraintChain in the Reorder Blocks spell.
 * Fixed BSBlastNode, BSDamageStage and BSDebrisNode blocks being incorrectly deleted by Remove Bogus Nodes.
 * Fixed rendering the scale of bhkCompressedMeshShape, the Scale Copy field of the block (X only) now overrides the scale from parent nodes.
+* Fixed Consistency Flags not being copied by Stripify and Triangulate. Reordering blocks is still needed after using these mesh spells.
 * The texture clamp mode in BSEffectShaderProperty is shown as an enumeration instead of a byte value.
 
 #### NifSkope-2.0.dev11-20250630

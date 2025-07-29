@@ -119,6 +119,9 @@ class spStrippify final : public Spell
 				}
 			}
 
+			if ( nif->getVersionNumber() >= 0x0A000100 )
+				copyValue<quint16>( nif, iStripData, iData, "Consistency Flags" );
+
 			auto bound = BoundSphere( nif, iStripData );
 			bound.update( nif, iData );
 
@@ -311,6 +314,9 @@ class spTriangulate final : public Spell
 					copyArray<Vector2>( nif, nif->getIndex( iDstUV, r ), nif->getIndex( iSrcUV, r ) );
 				}
 			}
+
+			if ( nif->getVersionNumber() >= 0x0A000100 )
+				copyValue<quint16>( nif, iTriData, iStripData, "Consistency Flags" );
 
 			auto bound = BoundSphere( nif, iTriData );
 			bound.update( nif, iStripData );
