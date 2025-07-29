@@ -1442,7 +1442,7 @@ void Scene::drawNiTSS( const NifModel * nif, const QModelIndex & iShape, bool so
 		qsizetype k = 0;
 		for ( int s = 0; s < numStrips; s++ ) {
 			// draw the strips like they appear in the tescs
-			// (use the unstich strips spell to avoid the spider web effect)
+			// (use the unstitch strips spell to avoid the spider web effect)
 			QModelIndex iStrip = nif->getIndex( iPoints, s );
 			const NifItem * i;
 			int stripLen;

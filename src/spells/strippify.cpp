@@ -371,10 +371,10 @@ public:
 REGISTER_SPELL( spTriangulateAll )
 
 
-class spStichStrips final : public Spell
+class spStitchStrips final : public Spell
 {
 public:
-	QString name() const override final { return Spell::tr( "Stich Strips" ); }
+	QString name() const override final { return Spell::tr( "Stitch Strips" ); }
 	QString page() const override final { return Spell::tr( "Mesh" ); }
 
 	static QModelIndex getStripsData( const NifModel * nif, const QModelIndex & index )
@@ -430,24 +430,24 @@ public:
 	}
 };
 
-REGISTER_SPELL( spStichStrips )
+REGISTER_SPELL( spStitchStrips )
 
 
-class spUnstichStrips final : public Spell
+class spUnstitchStrips final : public Spell
 {
 public:
-	QString name() const override final { return Spell::tr( "Unstich Strips" ); }
+	QString name() const override final { return Spell::tr( "Unstitch Strips" ); }
 	QString page() const override final { return Spell::tr( "Mesh" ); }
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
-		QModelIndex iData = spStichStrips::getStripsData( nif, index );
+		QModelIndex iData = spStitchStrips::getStripsData( nif, index );
 		return iData.isValid() && nif->get<int>( iData, "Num Strips" ) == 1;
 	}
 
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
 	{
-		QModelIndex iData = spStichStrips::getStripsData( nif, index );
+		QModelIndex iData = spStitchStrips::getStripsData( nif, index );
 		QModelIndex iLength = nif->getIndex( iData, "Strip Lengths" );
 		QModelIndex iPoints = nif->getIndex( iData, "Points" );
 
@@ -505,5 +505,5 @@ public:
 	}
 };
 
-REGISTER_SPELL( spUnstichStrips )
+REGISTER_SPELL( spUnstitchStrips )
 
