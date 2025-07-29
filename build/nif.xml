@@ -1487,6 +1487,14 @@
         <option value="3" name="WRAP_S_WRAP_T">Wrap in both directions.</option>
     </enum>
 
+    <enum name="TexClampModeB" storage="byte">
+        Describes the availiable texture clamp modes, i.e. the behavior of UV mapping outside the [0,1] range.
+        <option value="0" name="CLAMP_S_CLAMP_T">Clamp in both directions.</option>
+        <option value="1" name="CLAMP_S_WRAP_T">Clamp in the S(U) direction but wrap in the T(V) direction.</option>
+        <option value="2" name="WRAP_S_CLAMP_T">Wrap in the S(U) direction but clamp in the T(V) direction.</option>
+        <option value="3" name="WRAP_S_WRAP_T">Wrap in both directions.</option>
+    </enum>
+
     <enum name="TexFilterMode" storage="uint">
         Describes the availiable texture filter modes, i.e. the way the pixels in a texture are displayed on screen.
         <option value="0" name="FILTER_NEAREST">Nearest neighbor. Uses nearest texel with no mipmapping.</option>
@@ -7807,7 +7815,7 @@
         <field name="Unk Float" type="float" vercond="#BS_GTE_STF#" />
         <field name="Unk Float 2" type="float" vercond="#BS_GTE_STF#" />
         <!-- TODO: Next 4 bytes requires bitfield, read as single int -->
-        <field name="Texture Clamp Mode" type="byte" default="3" vercond="#NI_BS_LT_STF#">How to handle texture borders.</field>
+        <field name="Texture Clamp Mode" type="TexClampModeB" default="WRAP_S_WRAP_T" vercond="#NI_BS_LT_STF#">How to handle texture borders.</field>
         <field name="Lighting Influence" type="byte" default="255" vercond="#NI_BS_LT_STF#" />
         <field name="Env Map Min LOD" type="byte" range="0:16" vercond="#NI_BS_LT_STF#" />
         <field name="Unused Byte" type="byte" vercond="#NI_BS_LT_STF#" />
@@ -7893,7 +7901,7 @@
         <field name="UV Scale" type="TexCoord" default="#VEC2_ONE#" vercond="#NI_BS_LTE_FO4#">Offset UV Scale to repeat tiling textures</field>
         <field name="Source Texture"  type="SizedString" vercond="#NI_BS_LTE_FO4#">points to an external texture.</field>
         <!-- TODO: Next 4 bytes requires bitfield, read as single int -->
-        <field name="Texture Clamp Mode" type="byte" default="3" vercond="#NI_BS_LTE_FO4#">How to handle texture borders.</field>
+        <field name="Texture Clamp Mode" type="TexClampModeB" default="WRAP_S_WRAP_T" vercond="#NI_BS_LTE_FO4#">How to handle texture borders.</field>
         <field name="Lighting Influence" type="byte" default="255" vercond="#NI_BS_LTE_FO4#" />
         <field name="Env Map Min LOD" type="byte" range="0:16" vercond="#NI_BS_LTE_FO4#" />
         <field name="Unused Byte" type="byte" vercond="#NI_BS_LTE_FO4#" />
