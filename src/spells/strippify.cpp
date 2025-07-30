@@ -9,26 +9,6 @@
 #include <climits>
 
 
-// TODO: Move these to blocks.h / misc.h / wherever
-template <typename T> void copyArray( NifModel * nif, const QModelIndex & iDst, const QModelIndex & iSrc )
-{
-	if ( iDst.isValid() && iSrc.isValid() ) {
-		nif->updateArraySize( iDst );
-		nif->setArray<T>( iDst, nif->getArray<T>( iSrc ) );
-	}
-}
-
-template <typename T> void copyArray( NifModel * nif, const QModelIndex & iDst, const QModelIndex & iSrc, const QString & name )
-{
-	copyArray<T>( nif, nif->getIndex( iDst, name ), nif->getIndex( iSrc, name ) );
-}
-
-template <typename T> void copyValue( NifModel * nif, const QModelIndex & iDst, const QModelIndex & iSrc, const QString & name )
-{
-	nif->set<T>( iDst, name, nif->get<T>( iSrc, name ) );
-}
-
-
 class spStrippify final : public Spell
 {
 	QString name() const override final { return Spell::tr( "Stripify" ); }
@@ -64,137 +44,97 @@ class spStrippify final : public Spell
 				skip++;
 		}
 
-		//qDebug() << "num triangles" << triangles.count() << "skipped" << skip;
+		//qDebug() << "num triangles" << triangles.size() << "skipped" << skip;
 
 
-		QVector<QVector<quint16> > strips = stripify( triangles, true );
+		QVector< QVector<quint16> > strips = stripify( triangles, true );
 
-		if ( strips.count() <= 0 )
+		if ( strips.size() <= 0 )
 			return idx;
 
 		uint numTriangles = 0;
 		for ( const QVector<quint16>& strip : strips ) {
-			numTriangles += strip.count() - 2;
+			numTriangles += strip.size() - 2;
 		}
 
-		if ( numTriangles > USHRT_MAX * 2 ) {
-			Message::append( tr( "Strippify failed on one or more blocks." ),
-				tr( "Block %1: Too many triangles (%2) to strippify this shape." )
-				.arg( nif->getBlockNumber( idx ) )
-				.arg( numTriangles )
-			);
-			return idx;
-		}
+		nif->convertNiBlock( "NiTriBasedGeomData", iData );
+		nif->convertNiBlock( "NiTriStripsData", iData );
 
-		QModelIndex iStripData = nif->insertNiBlock( "NiTriStripsData", nif->getBlockNumber( idx ) + 1 );
+#if 0
+		auto bound = BoundSphere( nif, iData );
+		bound.update( nif, iData );
+#endif
 
-		if ( iStripData.isValid() ) {
-			copyValue<int>( nif, iStripData, iData, "Num Vertices" );
+		nif->set<int>( iData, "Num Strips", strips.size() );
+		nif->set<int>( iData, "Has Points", 1 );
 
-			nif->set<int>( iStripData, "Has Vertices", 1 );
-			copyArray<Vector3>( nif, iStripData, iData, "Vertices" );
+		QModelIndex iLengths = nif->getIndex( iData, "Strip Lengths" );
+		QModelIndex iPoints  = nif->getIndex( iData, "Points" );
 
-			copyValue<int>( nif, iStripData, iData, "Has Normals" );
-			copyArray<Vector3>( nif, iStripData, iData, "Normals" );
-
-			if ( nif->getVersionNumber() <= 0x04000002 )
-				copyValue<int>( nif, iStripData, iData, "Has UV" );
-			if ( !( nif->getVersionNumber() == 0x14020007 && nif->getBSVersion() > 0 ) )
-				copyValue<int>( nif, iStripData, iData, "Data Flags" );
-			else
-				copyValue<int>( nif, iStripData, iData, "BS Data Flags" );
-			copyArray<Vector3>( nif, iStripData, iData, "Bitangents" );
-			copyArray<Vector3>( nif, iStripData, iData, "Tangents" );
-
-			copyValue<int>( nif, iStripData, iData, "Has Vertex Colors" );
-			copyArray<Color4>( nif, iStripData, iData, "Vertex Colors" );
-
-			QModelIndex iDstUV = nif->getIndex( iStripData, "UV Sets" );
-			QModelIndex iSrcUV = nif->getIndex( iData, "UV Sets" );
-
-			if ( iDstUV.isValid() && iSrcUV.isValid() ) {
-				nif->updateArraySize( iDstUV );
-
-				for ( int r = 0; r < nif->rowCount( iDstUV ); r++ ) {
-					copyArray<Vector2>( nif, nif->getIndex( iDstUV, r ), nif->getIndex( iSrcUV, r ) );
-				}
-			}
-
-			if ( nif->getVersionNumber() >= 0x0A000100 )
-				copyValue<quint16>( nif, iStripData, iData, "Consistency Flags" );
-
-			auto bound = BoundSphere( nif, iStripData );
-			bound.update( nif, iData );
-
-			nif->set<int>( iStripData, "Num Strips", strips.count() );
-			nif->set<int>( iStripData, "Has Points", 1 );
-
-			QModelIndex iLengths = nif->getIndex( iStripData, "Strip Lengths" );
-			QModelIndex iPoints  = nif->getIndex( iStripData, "Points" );
-
-			if ( iLengths.isValid() && iPoints.isValid() ) {
-				nif->updateArraySize( iLengths );
-				nif->updateArraySize( iPoints );
-				int x = 0;
-				for ( const QVector<quint16>& strip : strips ) {
-					nif->set<int>( nif->getIndex( iLengths, x ), strip.count() );
-					QModelIndex iStrip = nif->getIndex( iPoints, x );
-					nif->updateArraySize( iStrip );
-					nif->setArray<quint16>( iStrip, strip );
-					x++;
-				}
-				nif->set<int>( iStripData, "Num Triangles", numTriangles );
-
-				nif->setData( idx.sibling( idx.row(), NifModel::NameCol ), "NiTriStrips" );
-				int lnk = nif->getLink( idx, "Data" );
-				nif->setLink( idx, "Data", nif->getBlockNumber( iStripData ) );
-				nif->removeNiBlock( lnk );
+		if ( iLengths.isValid() && iPoints.isValid() ) {
+			nif->updateArraySize( iLengths );
+			nif->updateArraySize( iPoints );
+			int x = 0;
+			for ( const QVector<quint16>& strip : strips ) {
+				nif->set<int>( nif->getIndex( iLengths, x ), strip.size() );
+				QModelIndex iStrip = nif->getIndex( iPoints, x );
+				nif->updateArraySize( iStrip );
+				nif->setArray<quint16>( iStrip, strip );
+				x++;
 			}
 		}
+		nif->set<int>( iData, "Num Triangles", numTriangles );
 
-		// Move the triangles over 65535 into their own shape by
-		// splitting the two strips between two NiTriStrips
-		if ( numTriangles > USHRT_MAX ) {
+		nif->convertNiBlock( "NiTriBasedGeom", idx );
+		nif->convertNiBlock( "NiTriStrips", idx );
+
+		// Move the triangles over 65533 into their own shape by
+		// splitting the strip between two or more NiTriStrips
+		for ( ; numTriangles > 65533; numTriangles = numTriangles - 65532 ) {
+			if ( strips.size() != 1 )	// should always be 1 with stitching
+				break;
+
 			spDuplicateBranch dupe;
 
 			// Copy the entire NiTriStrips branch
 			auto iStrip2 = dupe.cast( nif, idx );
 			auto iStrip2Data = nif->getBlockIndex( nif->getLink( iStrip2, "Data" ), "NiTriStripsData" );
-			if ( !iStrip2Data.isValid() || strips.count() != 2 )
-				return QModelIndex();
+			if ( !iStrip2Data.isValid() )
+				break;
+			idx = iStrip2;
 
 			// Update Original Shape
-			nif->set<int>( iStripData, "Num Strips", 1 );
-			nif->set<int>( iStripData, "Has Points", 1 );
+			nif->set<int>( iData, "Num Strips", 1 );
+			nif->set<int>( iData, "Has Points", 1 );
 
-			QModelIndex iLengths = nif->getIndex( iStripData, "Strip Lengths" );
-			QModelIndex iPoints = nif->getIndex( iStripData, "Points" );
+			QModelIndex iLengths = nif->getIndex( iData, "Strip Lengths" );
+			QModelIndex iPoints = nif->getIndex( iData, "Points" );
 
-			auto stripsA = strips.at(0);
 			if ( iLengths.isValid() && iPoints.isValid() ) {
 				nif->updateArraySize( iLengths );
-				nif->set<quint16>( nif->getIndex( iLengths, 0 ), stripsA.count() );
+				nif->set<quint16>( nif->getIndex( iLengths, 0 ), 65534 );
 				nif->updateArraySize( iPoints );
 				nif->updateArraySize( nif->getIndex( iPoints, 0 ) );
-				nif->setArray<quint16>( nif->getIndex( iPoints, 0 ), stripsA );
-				nif->set<quint16>( iStripData, "Num Triangles", stripsA.count() - 2 );
+				nif->setArray<quint16>( nif->getIndex( iPoints, 0 ), strips.constFirst().mid( 0, 65534 ) );
+				nif->set<quint16>( iData, "Num Triangles", 65532 );
 			}
+			strips.first().remove( 0, 65532 );
+			iData = iStrip2Data;
 
 			// Update New Shape
-			nif->set<int>( iStrip2Data, "Num Strips", 1 );
-			nif->set<int>( iStrip2Data, "Has Points", 1 );
+			nif->set<int>( iData, "Num Strips", 1 );
+			nif->set<int>( iData, "Has Points", 1 );
 
-			iLengths = nif->getIndex( iStrip2Data, "Strip Lengths" );
-			iPoints = nif->getIndex( iStrip2Data, "Points" );
+			iLengths = nif->getIndex( iData, "Strip Lengths" );
+			iPoints = nif->getIndex( iData, "Points" );
 
-			auto stripsB = strips.at(1);
 			if ( iLengths.isValid() && iPoints.isValid() ) {
 				nif->updateArraySize( iLengths );
-				nif->set<quint16>( nif->getIndex( iLengths, 0 ), stripsB.count() );
+				nif->set<quint16>( nif->getIndex( iLengths, 0 ), strips.constFirst().size() );
 				nif->updateArraySize( iPoints );
 				nif->updateArraySize( nif->getIndex( iPoints, 0 ) );
-				nif->setArray<quint16>( nif->getIndex( iPoints, 0 ), stripsB );
-				nif->set<quint16>( iStrip2Data, "Num Triangles", stripsB.count() - 2 );
+				nif->setArray<quint16>( nif->getIndex( iPoints, 0 ), strips.constFirst() );
+				nif->set<quint16>( iData, "Num Triangles", strips.constFirst().size() - 2 );
 			}
 		}
 
@@ -253,14 +193,14 @@ class spTriangulate final : public Spell
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
 	{
 		QPersistentModelIndex idx = index;
-		QPersistentModelIndex iStripData = nif->getBlockIndex( nif->getLink( idx, "Data" ), "NiTriStripsData" );
+		QPersistentModelIndex iData = nif->getBlockIndex( nif->getLink( idx, "Data" ), "NiTriStripsData" );
 
-		if ( !iStripData.isValid() )
+		if ( !iData.isValid() )
 			return idx;
 
 		QVector<QVector<quint16> > strips;
 
-		QModelIndex iPoints = nif->getIndex( iStripData, "Points" );
+		QModelIndex iPoints = nif->getIndex( iData, "Points" );
 
 		if ( !iPoints.isValid() )
 			return idx;
@@ -277,67 +217,27 @@ class spTriangulate final : public Spell
 
 		QVector<Triangle> triangles = triangulate( strips );
 
-		nif->insertNiBlock( "NiTriShapeData", nif->getBlockNumber( idx ) + 1 );
-		QModelIndex iTriData = nif->getBlockIndex( nif->getBlockNumber( idx ) + 1, "NiTriShapeData" );
-
-		if ( iTriData.isValid() ) {
-			copyValue<int>( nif, iTriData, iStripData, "Num Vertices" );
-
-			nif->set<int>( iTriData, "Has Vertices", 1 );
-			copyArray<Vector3>( nif, iTriData, iStripData, "Vertices" );
-
-			copyValue<int>( nif, iTriData, iStripData, "Has Normals" );
-			copyArray<Vector3>( nif, iTriData, iStripData, "Normals" );
+		nif->convertNiBlock( "NiTriBasedGeomData", iData );
+		nif->convertNiBlock( "NiTriShapeData", iData );
 
 #if 0
-			copyValue<int>( nif, iTriData, iStripData, "TSpace Flag" );
+		auto bound = BoundSphere( nif, iData );
+		bound.update( nif, iData );
 #endif
 
-			copyValue<int>( nif, iTriData, iStripData, "Has Vertex Colors" );
-			copyArray<Color4>( nif, iTriData, iStripData, "Vertex Colors" );
+		nif->set<int>( iData, "Num Triangles", triangles.size() );
+		nif->set<int>( iData, "Num Triangle Points", triangles.size() * 3 );
+		nif->set<int>( iData, "Has Triangles", 1 );
 
-			if ( nif->getVersionNumber() <= 0x04000002 )
-				copyValue<int>( nif, iTriData, iStripData, "Has UV" );
-			if ( !( nif->getVersionNumber() == 0x14020007 && nif->getBSVersion() > 0 ) )
-				copyValue<int>( nif, iTriData, iStripData, "Data Flags" );
-			else
-				copyValue<int>( nif, iTriData, iStripData, "BS Data Flags" );
-			copyArray<Vector3>( nif, iTriData, iStripData, "Bitangents" );
-			copyArray<Vector3>( nif, iTriData, iStripData, "Tangents" );
+		QModelIndex iTriangles = nif->getIndex( iData, "Triangles" );
 
-			QModelIndex iDstUV = nif->getIndex( iTriData, "UV Sets" );
-			QModelIndex iSrcUV = nif->getIndex( iStripData, "UV Sets" );
-
-			if ( iDstUV.isValid() && iSrcUV.isValid() ) {
-				nif->updateArraySize( iDstUV );
-
-				for ( int r = 0; r < nif->rowCount( iDstUV ); r++ ) {
-					copyArray<Vector2>( nif, nif->getIndex( iDstUV, r ), nif->getIndex( iSrcUV, r ) );
-				}
-			}
-
-			if ( nif->getVersionNumber() >= 0x0A000100 )
-				copyValue<quint16>( nif, iTriData, iStripData, "Consistency Flags" );
-
-			auto bound = BoundSphere( nif, iTriData );
-			bound.update( nif, iStripData );
-
-			nif->set<int>( iTriData, "Num Triangles", triangles.count() );
-			nif->set<int>( iTriData, "Num Triangle Points", triangles.count() * 3 );
-			nif->set<int>( iTriData, "Has Triangles", 1 );
-
-			QModelIndex iTriangles = nif->getIndex( iTriData, "Triangles" );
-
-			if ( iTriangles.isValid() ) {
-				nif->updateArraySize( iTriangles );
-				nif->setArray<Triangle>( iTriangles, triangles );
-			}
-
-			nif->setData( idx.sibling( idx.row(), NifModel::NameCol ), "NiTriShape" );
-			int lnk = nif->getLink( idx, "Data" );
-			nif->setLink( idx, "Data", nif->getBlockNumber( iTriData ) );
-			nif->removeNiBlock( lnk );
+		if ( iTriangles.isValid() ) {
+			nif->updateArraySize( iTriangles );
+			nif->setArray<Triangle>( iTriangles, triangles );
 		}
+
+		nif->convertNiBlock( "NiTriBasedGeom", idx );
+		nif->convertNiBlock( "NiTriShape", idx );
 
 		return idx;
 	}
