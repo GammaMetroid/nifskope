@@ -2438,12 +2438,16 @@ static bool dummyImageLoadFunction(
 
 void importGltf( NifModel * nif, const QModelIndex & index )
 {
-	if ( nif->getBSVersion() < 100 || ( index.isValid() && !nif->blockInherits( index, "NiNode" ) ) ) {
+	if ( nif->getBSVersion() < 100 ) {
+		QMessageBox::critical( nullptr, "NifSkope error", tr( "glTF import: unsupported NIF version" ) );
+		return;
+	}
+	if ( index.isValid() && !nif->blockInherits( index, "NiNode" ) ) {
 		QMessageBox::critical( nullptr, "NifSkope error", tr( "glTF import requires selecting a NiNode" ) );
 		return;
 	}
 
-	QString filename = QFileDialog::getOpenFileName( qApp->activeWindow(), tr("Choose a .glTF file for import"), getGltfFolder(nif), "glTF (*.gltf)" );
+	QString filename = QFileDialog::getOpenFileName( qApp->activeWindow(), tr("Choose a .glTF file for import"), getGltfFolder(nif), "glTF (*.glb *.gltf)" );
 	if ( filename.isEmpty() ) {
 		return;
 	} else if ( nif->getBSVersion() < 170 ) {
@@ -2458,7 +2462,12 @@ void importGltf( NifModel * nif, const QModelIndex & index )
 	std::string	gltfErr;
 	std::string	gltfWarn;
 	reader.SetImageLoader( dummyImageLoadFunction, nullptr );
-	if ( !reader.LoadASCIIFromFile( &model, &gltfErr, &gltfWarn, filename.toStdString() ) ) {
+	bool	fileImported;
+	if ( filename.endsWith( QLatin1StringView(".glb"), Qt::CaseInsensitive ) )
+		fileImported = reader.LoadBinaryFromFile( &model, &gltfErr, &gltfWarn, filename.toStdString() );
+	else
+		fileImported = reader.LoadASCIIFromFile( &model, &gltfErr, &gltfWarn, filename.toStdString() );
+	if ( !fileImported ) {
 		QMessageBox::critical( nullptr, "NifSkope error", QString("Error importing glTF file: %1").arg(gltfErr.c_str()) );
 		return;
 	}
