@@ -2,6 +2,7 @@
 
 * Added new general settings for the Havok layer and material when importing OBJ as collision. The material can be specified as the CRC32 hash (decimal or hexadecimal with a 0x prefix), or as the string name (e.g. Broken Stone), empty defaults to None. Note that some existing settings previously under NIF have been reset because they were moved to a new Import/Export tab.
 * Resource file choosers can now default to the path of the last file of the same type (texture, material or mesh) selected, instead of the original path in the NIF or material, if the last selected file exists. This can be enabled in the general settings.
+* glTF export improvements: support for exporting Skyrim Legendary Edition models and NiTriShape blocks, and for exporting only a selection (node or shape) instead of the entire scene.
 * Fixed bugs in stitching and unstitching triangle strips, and the output is better optimized by re-stripifying the data.
 * Stripify and Triangulate convert the original geometry and data blocks instead of creating new blocks. This change allows for preserving the block order and all data fields other than the strips/triangles being converted.
 * Fixed highlighting the selected vertices of BSDynamicTriShape blocks.

@@ -79,7 +79,7 @@ public:
 	void createInverseBoneMatrices( QByteArray & bin, const Shape * bsmesh, int gltfSkinID ) const;
 	std::string getMaterialName( const QModelIndex & index ) const;
 	std::string getMaterialPath( const QModelIndex & index ) const;
-	bool createNodes( const Scene * scene, QByteArray & bin );
+	bool createNodes( const Scene * scene, QByteArray & bin, const QModelIndex & rootNode );
 	void createPrimitive( QByteArray & bin, const MeshFile * mesh, tinygltf::Primitive & prim,
 							std::string attr, int count, int componentType, int type, quint32 & attributeIndex );
 	static void meshFileFromShape( MeshFile & mesh, const Shape * shape );
@@ -210,7 +210,7 @@ std::string GltfStore::getMaterialPath( const QModelIndex & index ) const
 	return getMaterialName( index );
 }
 
-bool GltfStore::createNodes( const Scene * scene, QByteArray & bin )
+bool GltfStore::createNodes( const Scene * scene, QByteArray & bin, const QModelIndex & rootNode )
 {
 	int gltfNodeID = 0;
 	int gltfSkinID = -1;
@@ -224,8 +224,22 @@ bool GltfStore::createNodes( const Scene * scene, QByteArray & bin )
 
 		auto nodeId = node->id();
 		auto iBlock = nif->getBlockIndex(nodeId);
-		if ( !nif->blockInherits(iBlock, { "NiNode", "BSGeometry", "BSTriShape" }) )
+		if ( !nif->blockInherits(iBlock, { "NiNode", "BSGeometry", "BSTriShape", "NiTriShape" }) )
 			continue;
+		bool isRootNode = bool( node->parentNode() );
+		if ( rootNode.isValid() ) {
+			int	rootNodeNum = nif->getBlockNumber( rootNode );
+			bool	foundParent = false;
+			for ( auto i = node; i; i = i->parentNode() ) {
+				if ( i->id() == rootNodeNum ) {
+					foundParent = true;
+					break;
+				}
+			}
+			if ( !foundParent )
+				continue;
+			isRootNode = ( nodeId == rootNodeNum );
+		}
 
 		auto gltfNode = tinygltf::Node();
 		auto mesh = dynamic_cast<Shape *>(node);
@@ -314,6 +328,8 @@ bool GltfStore::createNodes( const Scene * scene, QByteArray & bin )
 		auto iBlock = nif->getBlockIndex(i);
 
 		if ( nif->blockInherits(iBlock, "NiNode") ) {
+			if ( !nodes.contains( i ) )
+				continue;
 			auto children = nif->getChildLinks(i);
 			for ( const auto& child : children ) {
 				auto nodeList = nodes.value(child, {});
@@ -1301,8 +1317,13 @@ static QString getGltfFolder( const NifModel * nif )
 	return settings.value( "Spells//Extract File/Last File Path", QString() ).toString();
 }
 
-void exportGltf( const NifModel * nif, const Scene * scene, [[maybe_unused]] const QModelIndex & index )
+void exportGltf( const NifModel * nif, const Scene * scene, const QModelIndex & index )
 {
+	if ( index.isValid() && !nif->blockInherits(index, { "NiNode", "BSGeometry", "BSTriShape", "NiTriShape" }) ) {
+		QMessageBox::critical( nullptr, "NifSkope error", tr( "glTF export requires selecting a node or shape" ) );
+		return;
+	}
+
 	QString	filename = getGltfFolder( nif );
 	if ( auto w = qobject_cast< const NifSkope * >( nif->getWindow() ); w ) {
 		if ( auto nifPath = w->getCurrentFile(); !nifPath.isEmpty() ) {
@@ -1350,7 +1371,7 @@ void exportGltf( const NifModel * nif, const Scene * scene, [[maybe_unused]] con
 	GltfStore gltf( const_cast< NifModel * >( nif ), model, textureMipLevel );
 	gltf.materials.emplace( std::string(), std::pair< int, const Shape * >( 0, nullptr ) );
 	QByteArray buffer;
-	bool success = gltf.createNodes( scene, buffer );
+	bool success = gltf.createNodes( scene, buffer, index );
 	if ( success )
 		success = gltf.createMeshes( scene, buffer );
 	if ( success ) {
