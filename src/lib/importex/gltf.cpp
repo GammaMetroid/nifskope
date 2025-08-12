@@ -240,6 +240,13 @@ bool GltfStore::createNodes( const Scene * scene, QByteArray & bin, const QModel
 				continue;
 			isRootNode = ( nodeId == rootNodeNum );
 		}
+		if ( isRootNode ) {
+			if ( model.scenes.empty() ) {
+				model.scenes.resize( 1 );
+				model.scenes.front().name = "ExportScene";
+			}
+			model.scenes.front().nodes.push_back( int(model.nodes.size()) );
+		}
 
 		auto gltfNode = tinygltf::Node();
 		auto mesh = dynamic_cast<Shape *>(node);
@@ -1609,12 +1616,7 @@ void ImportGltf::applyXYZScale( Transform & t, const Vector3 & scale )
 	FloatVector4	tmp = FloatVector4( scale ) / avgScale;
 	if ( ( ( ( tmp - 1.0f ).absValues() - 0.000001f ).getSignMask() & 0x07 ) == 0x07 )
 		return;
-	if ( !scaleWarningFlag ) {
-		scaleWarningFlag = true;
-		QMessageBox::warning( nullptr, "NifSkope warning",
-								tr( "glTF model uses anisotropic scaling, use Transform/Apply to fix transforms, "
-									"and recalculate normals and tangents" ) );
-	}
+	scaleWarningFlag = true;
 	t.rotation( 0, 0 ) *= tmp[0];
 	t.rotation( 1, 0 ) *= tmp[0];
 	t.rotation( 2, 0 ) *= tmp[0];
@@ -2428,6 +2430,12 @@ void ImportGltf::importModel( const QPersistentModelIndex & iBlock )
 	}
 	nif->restoreState();
 	nif->updateModel();
+
+	if ( scaleWarningFlag ) {
+		QMessageBox::warning( nullptr, "NifSkope warning",
+								tr( "glTF model uses anisotropic scaling, use Transform/Apply to fix transforms, "
+									"and recalculate normals and tangents" ) );
+	}
 }
 
 static bool dummyImageLoadFunction(
