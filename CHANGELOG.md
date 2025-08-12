@@ -4,6 +4,7 @@
 * Resource file choosers can now default to the path of the last file of the same type (texture, material or mesh) selected, instead of the original path in the NIF or material, if the last selected file exists. This can be enabled in the general settings.
 * glTF export improvements: support for exporting Skyrim Legendary Edition models and NiTriShape blocks, and for exporting only a selection (node or shape) instead of the entire scene.
 * Added support for importing glTF binary (.glb) files.
+* When importing a skinned glTF mesh, the "Flat" property is inherited by child nodes, and is limited to Starfield only.
 * Fixed bugs in stitching and unstitching triangle strips, and the output is better optimized by re-stripifying the data.
 * Stripify and Triangulate convert the original geometry and data blocks instead of creating new blocks. This change allows for preserving the block order and all data fields other than the strips/triangles being converted.
 * Fixed highlighting the selected vertices of BSDynamicTriShape blocks.

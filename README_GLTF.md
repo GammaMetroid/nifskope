@@ -1,12 +1,14 @@
 # NifSkope glTF 2.0 Import and Export v1.2
 
-glTF 2.0 export and import are currently supported on static and skinned Skyrim: Special Edition, Fallout 4, Fallout 76 and Starfield meshes. Collision data, controllers and particle systems cannot be exported or imported, and there are a number of other limitations described below.
+glTF 2.0 export and import are currently supported on static and skinned Skyrim (import is limited to Special Edition), Fallout 4, Fallout 76 and Starfield meshes. Collision data, controllers and particle systems cannot be exported or imported, and there are a number of other limitations described below.
 
 # glTF Import
 
 ## Skinned meshes
 
-Importing skeleton data is not implemented for Starfield, and skin partitions (used by Skyrim) are not supported. Weights and bone transforms are imported for all games.
+Skin partitions (used by Skyrim) are currently not supported, the mesh is always imported as BSTriShape for games before Starfield. Weights and bone transforms are imported for all games.
+
+For Starfield only, setting the "Flat" custom boolean property on a skeleton node disables importing that node and all of its children. This is useful when the model needs to use an external skeleton file, with the bone nodes referenced by name in a SkinAttach block instead of being imported to the NIF.
 
 ## Materials
 
@@ -18,6 +20,8 @@ To view and export Starfield meshes, you must first:
 
 1. Enable and add the path to your Starfield installation in Settings > Resources.
 2. Add the Meshes archives or extracted folders containing `geometries` to Paths in Settings > Resources, under Starfield.
+
+If no item is selected, then the entire scene is exported. Otherwise, either a node or a shape must be selected, and only that item and its children are exported.
 
 ## Skinned meshes
 

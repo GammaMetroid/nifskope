@@ -1442,7 +1442,7 @@ protected:
 	bool	haveSkins;
 	std::vector< int >	nodeMap;
 	static inline Vector3 fromMeters( const Vector3 & v );
-	bool nodeHasMeshes( const tinygltf::Node & node, int d = 0 ) const;
+	bool nodeHasMeshes( const tinygltf::Node & node, int d = 0, bool isFlat = false ) const;
 	static void normalizeFloats( float * p, size_t n, int dataType );
 	template< typename T > bool loadBuffer( std::vector< T > & outBuf, int accessor, int typeRequired );
 	void applyXYZScale( Transform & t, const Vector3 & scale );
@@ -1472,17 +1472,19 @@ inline Vector3 ImportGltf::fromMeters( const Vector3 & v )
 					float( double( v[2] ) * ( 64.0 / 0.9144 ) ) );
 }
 
-bool ImportGltf::nodeHasMeshes( const tinygltf::Node & node, int d ) const
+bool ImportGltf::nodeHasMeshes( const tinygltf::Node & node, int d, bool isFlat ) const
 {
 	if ( node.mesh >= 0 && size_t(node.mesh) < model.meshes.size() )
 		return secondPass;
 	if ( d >= 1024 )
 		return false;
+	if ( !( isFlat || secondPass ) && nif->getBSVersion() >= 170 )
+		isFlat = ( node.extras.Has( "Flat" ) && node.extras.Get( "Flat" ).Get< bool >() );
 	for ( int i : node.children ) {
-		if ( i >= 0 && size_t(i) < model.nodes.size() && nodeHasMeshes( model.nodes[i], d + 1 ) )
+		if ( i >= 0 && size_t(i) < model.nodes.size() && nodeHasMeshes( model.nodes[i], d + 1, isFlat ) )
 			return true;
 	}
-	if ( secondPass || ( node.extras.Has( "Flat" ) && node.extras.Get( "Flat" ).Get< bool >() ) )
+	if ( isFlat || secondPass )
 		return false;
 	qsizetype	k = qsizetype( &node - model.nodes.data() );
 	for ( const auto & i : model.skins ) {
