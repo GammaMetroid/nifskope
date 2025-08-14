@@ -553,26 +553,30 @@ void blockFilter( NifModel * nif, std::list<QString>& blocks, const QString & ty
 	blocks.erase( std::remove_if( blocks.begin(), blocks.end(),
 		[nif, type] ( const QString& s ) { return !nif->inherits( s, type )
 			// Obsolete/Undecoded
-			|| s.startsWith( "NiClod" ) || s.startsWith( "NiArk" ) || s.startsWith( "NiBez" )
-			|| s.startsWith( "Ni3ds" ) || s.startsWith( "NiBinaryVox" )
+			|| s.startsWith( QLatin1StringView("NiClod") )
+			|| s.startsWith( QLatin1StringView("NiArk") )
+			|| s.startsWith( QLatin1StringView("NiBez") )
+			|| s.startsWith( QLatin1StringView("Ni3ds") )
+			|| s.startsWith( QLatin1StringView("NiBinaryVox") )
 			// Legacy
 			|| ( ( (nif->inherits( s, "NiParticles" ) && !nif->inherits( s, "NiParticleSystem" ))
-				   || (nif->inherits( s, "NiParticlesData" ) && !s.startsWith( "NiP" )) // NiRotating, NiAutoNormal, etc.
+				   || (nif->inherits( s, "NiParticlesData" ) && !s.startsWith( QLatin1StringView("NiP") )) // NiRotating, NiAutoNormal, etc.
 				   || nif->inherits( s, legacyOnlyBlocks ) )
 				 && nif->getVersionNumber() > 0x0a010000 )
 			// Bethesda
-			|| ( (s.startsWith( "bhk" ) || s.startsWith( "hk" ) || s.startsWith( "BS" )
-				 || s.endsWith( "ShaderProperty" )) && nif->getBSVersion() == 0 )
+			|| ( (s.startsWith( QLatin1StringView("bhk") ) || s.startsWith( QLatin1StringView("hk") )
+					|| s.startsWith( QLatin1StringView("BS") )
+					|| s.endsWith( QLatin1StringView("ShaderProperty") )) && nif->getBSVersion() == 0 )
 			// Introduced in 20.2.0.8
-			|| (( s.startsWith( "NiPhysX" ) && nif->getVersionNumber() < 0x14020008 ))
+			|| (( s.startsWith( QLatin1StringView("NiPhysX") ) && nif->getVersionNumber() < 0x14020008 ))
 			// Introduced in 20.5
-			|| ( ((s.startsWith( "NiPS" ) && !s.contains( "PSys" ))
-					|| (s.startsWith( "NiMesh" ) && !s.startsWith( "NiMeshP" ))
-					|| s.contains( "Evaluator" )
+			|| ( ((s.startsWith( QLatin1StringView("NiPS") ) && !s.contains( QLatin1StringView("PSys") ))
+					|| (s.startsWith( QLatin1StringView("NiMesh") ) && !s.startsWith( QLatin1StringView("NiMeshP") ))
+					|| s.contains( QLatin1StringView("Evaluator") )
 				   ) && nif->getVersionNumber() < 0x14050000 )
 			// Deprecated in 20.5
-			|| ( (s.startsWith( "NiParticle" ) || s.contains( "PSys" ) || s.startsWith( "NiTri" )
-				   || s.contains( "Interpolator" )
+			|| ( (s.startsWith( QLatin1StringView("NiParticle") ) || s.contains( QLatin1StringView("PSys") )
+					|| s.startsWith( QLatin1StringView("NiTri") ) || s.contains( QLatin1StringView("Interpolator") )
 				   ) && nif->getVersionNumber() >= 0x14050000 );
 		} ),
 		blocks.end()
