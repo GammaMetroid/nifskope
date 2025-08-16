@@ -259,11 +259,11 @@ REGISTER_SPELL( spImportBinary )
 // definitions for spCollapseArray moved to misc.h
 bool spCollapseArray::isApplicable( const NifModel * nif, const QModelIndex & index )
 {
-	if ( nif->isArray( index ) && index.isValid()
-	     && ( nif->itemStrType( index ) == "Ref" || nif->itemStrType( index ) == "Ptr" ) )
-	{
-		// copy from spUpdateArray when that changes
-		return true;
+	if ( nif->isArray( index ) && index.isValid() ) {
+		if ( auto i = nif->getItem( index ); i && ( i->hasStrType( "Ref" ) || i->hasStrType( "Ptr" ) ) ) {
+			// copy from spUpdateArray when that changes
+			return true;
+		}
 	}
 
 	return false;
@@ -281,20 +281,24 @@ QModelIndex spCollapseArray::cast( NifModel * nif, const QModelIndex & index )
 
 QModelIndex spCollapseArray::numCollapser( NifModel * nif, QModelIndex & iNumElem, QModelIndex & iArray )
 {
-	if ( iNumElem.isValid() && iArray.isValid() ) {
-		QVector<qint32> links;
+	if ( iNumElem.isValid() && iArray.isValid() && isApplicable( nif, iArray ) ) {
+		QVector<qint32> links = nif->getLinkArray( iArray );
 
-		for ( int r = 0; r < nif->rowCount( iArray ); r++ ) {
-			qint32 l = nif->getLink( nif->getIndex( iArray, r ) );
-
-			if ( l >= 0 )
-				links.append( l );
+		qsizetype r = 0;
+		for ( qsizetype i = 0; i < links.size(); i++ ) {
+			if ( qint32 l = links.at( i ); l >= 0 ) {
+				links[r] = l;
+				r++;
+			}
 		}
 
-		if ( links.count() < nif->rowCount( iArray ) ) {
-			nif->set<int>( iNumElem, links.count() );
+		if ( r < nif->rowCount( iArray ) ) {
+			nif->set<int>( iNumElem, int( r ) );
 			nif->updateArraySize( iArray );
-			nif->setLinkArray( iArray, links );
+			if ( r > 0 ) {
+				links.resize( r );
+				nif->setLinkArray( iArray, links );
+			}
 		}
 	}
 
