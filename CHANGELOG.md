@@ -12,7 +12,7 @@
 * Fixed BSBlastNode, BSDamageStage and BSDebrisNode blocks being incorrectly deleted by Remove Bogus Nodes.
 * Fixed rendering the scale of bhkCompressedMeshShape, the Scale Copy field of the block (X only) now overrides the scale from parent nodes.
 * Fixed glTF export not creating a scene, which causes an error in Blender 4.5.
-* Fixed the sort order of the child links of NiParticleSystem in Skyrim Special Edition and newer, Data is moved to before the Skin Instance and property links.
+* Fixed the sort order of the child links of NiParticleSystem in Skyrim Special Edition and newer, Data is moved to before the Skin Instance and property links. The Reorder Blocks spell also moves the data block before the parent.
 * The texture clamp mode in BSEffectShaderProperty is shown as an enumeration instead of a byte value.
 
 #### NifSkope-2.0.dev11-20250630
