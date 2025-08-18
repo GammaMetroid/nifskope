@@ -9,7 +9,7 @@
 * Stripify and Triangulate convert the original geometry and data blocks instead of creating new blocks. This change allows for preserving the block order and all data fields other than the strips/triangles being converted.
 * Fixed highlighting the selected vertices of BSDynamicTriShape blocks.
 * Fixed the sort order of bhkBallSocketConstraintChain in the Reorder Blocks spell.
-* Fixed BSBlastNode, BSDamageStage and BSDebrisNode blocks being incorrectly deleted by Remove Bogus Nodes.
+* Fixed BSBlastNode, BSDamageStage, BSDebrisNode and Fallout 3/New Vegas projectile, shell casing and sighting node blocks being incorrectly deleted by Remove Bogus Nodes.
 * Fixed rendering the scale of bhkCompressedMeshShape, the Scale Copy field of the block (X only) now overrides the scale from parent nodes.
 * Fixed glTF export not creating a scene, which causes an error in Blender 4.5.
 * Fixed the sort order of the child links of NiParticleSystem in Skyrim Special Edition and newer, Data is moved to before the Skin Instance and property links. The Reorder Blocks spell also moves the data block before the parent.

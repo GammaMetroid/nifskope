@@ -224,8 +224,17 @@ public:
 
 				if ( iNode.isValid() ) {
 					if ( nif->getChildLinks( b ).isEmpty() && nif->getParentLinks( b ).isEmpty() ) {
-						int x = int( nif->isNiBlock( nif->getBlockIndex( b ), { "BSBlastNode", "BSDamageStage",
-																				"BSDebrisNode", "BSValueNode" } ) );
+						int x = int( nif->isNiBlock( iNode, { "BSBlastNode", "BSDamageStage", "BSDebrisNode",
+																"BSValueNode" } ) );
+						if ( !x ) {
+							if ( nif->getBSVersion() >= 14 && nif->getBSVersion() < 83 ) {
+								if ( auto blkName = nif->get<QString>( iNode, "Name" );
+										blkName == "ProjectileNode" || blkName == "ShellCasingNode"
+										|| blkName == "##SightingNode" ) {
+									x = 1;
+								}
+							}
+						}
 
 						for ( int c = 0; c < nif->getBlockCount(); c++ ) {
 							if ( c != b ) {
