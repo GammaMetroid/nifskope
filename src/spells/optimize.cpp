@@ -226,13 +226,13 @@ public:
 					if ( nif->getChildLinks( b ).isEmpty() && nif->getParentLinks( b ).isEmpty() ) {
 						int x = int( nif->isNiBlock( iNode, { "BSBlastNode", "BSDamageStage", "BSDebrisNode",
 																"BSValueNode" } ) );
-						if ( !x ) {
-							if ( nif->getBSVersion() >= 14 && nif->getBSVersion() < 83 ) {
-								if ( auto blkName = nif->get<QString>( iNode, "Name" );
-										blkName == "ProjectileNode" || blkName == "ShellCasingNode"
-										|| blkName == "##SightingNode" ) {
-									x = 1;
-								}
+						if ( !x && nif->getBSVersion() >= 14 ) {
+							if ( auto blkName = nif->get<QString>( iNode, "Name" );
+									blkName == "ProjectileNode"
+									|| ( nif->getBSVersion() < 83
+										&& ( blkName == "ShellCasingNode" || blkName == "##SightingNode" ) )
+									|| ( nif->getBSVersion() >= 130 && blkName == "WorkshopConnectPoints" ) ) {
+								x = 1;
 							}
 						}
 
