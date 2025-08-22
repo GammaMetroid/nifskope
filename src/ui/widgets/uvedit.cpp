@@ -677,15 +677,18 @@ void UVWidget::mouseMoveEvent( QMouseEvent * e )
 		} else if ( !selectPoly.isEmpty() ) {
 			selectPoly << pixelPos;
 		} else {
-			auto dPosX = glUnit * zoom * dPos.x();
-			auto dPosY = glUnit * zoom * dPos.y();
+			auto dPosX = dPos.x();
+			auto dPosY = dPos.y();
 
 			if ( kbd[Qt::Key_X] )
 				dPosY = 0.0;
 			if ( kbd[Qt::Key_Y] )
 				dPosX = 0.0;
 
-			moveSelection( dPosX, dPosY );
+			if ( e->modifiers().testFlag( Qt::ControlModifier ) )
+				rotate_Selection( ( dPosX + dPosY ) * 0.5f / float( p ) );
+			else
+				moveSelection( dPosX * glUnit * zoom, dPosY * glUnit * zoom );
 		}
 		break;
 
@@ -1788,6 +1791,11 @@ void UVWidget::rotateSelection()
 	if ( ok ) {
 		undoStack->push( new UVWRotateCommand( this, rotateFactor ) );
 	}
+}
+
+void UVWidget::rotate_Selection( float r )
+{
+	undoStack->push( new UVWRotateCommand( this, r ) );
 }
 
 void UVWidget::exportSFMesh()

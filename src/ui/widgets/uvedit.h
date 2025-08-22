@@ -138,6 +138,7 @@ public slots:
 	void scaleSelection();
 	//! Rotate the selection
 	void rotateSelection();
+	void rotate_Selection( float r );
 	//! Export Starfield .mesh file
 	void exportSFMesh();
 	//! Copy selected vertices to the clipboard in text format
