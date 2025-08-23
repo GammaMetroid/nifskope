@@ -6,6 +6,7 @@
 * Added support for importing glTF binary (.glb) files.
 * When importing a skinned glTF mesh, the "Flat" property is inherited by child nodes, and is limited to Starfield only.
 * In the UV editor, the selection can be rotated with the mouse by Control-clicking on a selected vertex.
+* New general setting for the UV editor window to stay on top.
 * Fixed bugs in stitching and unstitching triangle strips, and the output is better optimized by re-stripifying the data.
 * Stripify and Triangulate convert the original geometry and data blocks instead of creating new blocks. This change allows for preserving the block order and all data fields other than the strips/triangles being converted.
 * Fixed highlighting the selected vertices of BSDynamicTriShape blocks.

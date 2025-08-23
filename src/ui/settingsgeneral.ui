@@ -197,6 +197,16 @@
            </widget>
           </item>
           <item row="3" column="0" colspan="2">
+           <widget class="QCheckBox" name="chkUVWidgetStaysOnTop">
+            <property name="text">
+             <string>UV Editor Window Stays on Top</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0" colspan="2">
            <spacer name="verticalSpacer">
             <property name="orientation">
              <enum>Qt::Vertical</enum>

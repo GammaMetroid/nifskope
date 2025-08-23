@@ -103,7 +103,9 @@ QStringList UVWidget::texnames = {
 
 
 UVWidget::UVWidget( QWidget * parent )
-	: QOpenGLWidget( parent, Qt::Window ), undoStack( new QUndoStack( this ) )
+	: QOpenGLWidget( parent, ( QSettings().value( "Settings/UI/UV Editor Window Stays on Top", false ).toBool() ?
+								Qt::Window | Qt::WindowStaysOnTopHint : Qt::Window ) ),
+		undoStack( new QUndoStack( this ) )
 {
 	cx = nullptr;
 	{
