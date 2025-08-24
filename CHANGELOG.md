@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20250824
+
 * Added new general settings for the Havok layer and material when importing OBJ as collision. The material can be specified as the CRC32 hash (decimal or hexadecimal with a 0x prefix), or as the string name (e.g. Broken Stone), empty defaults to None. Note that some existing settings previously under NIF have been reset because they were moved to a new Import/Export tab.
 * Resource file choosers can now default to the path of the last file of the same type (texture, material or mesh) selected, instead of the original path in the NIF or material, if the last selected file exists. This can be enabled in the general settings.
 * glTF export improvements: support for exporting Skyrim Legendary Edition models and NiTriShape blocks, and for exporting only a selection (node or shape) instead of the entire scene.

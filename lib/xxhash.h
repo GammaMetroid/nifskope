@@ -792,17 +792,8 @@ XXH_PUBLIC_API XXH_PUREF XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canoni
 /*! @endcond */
 
 /*! @cond Doxygen ignores this part */
-/*
- * C23 __STDC_VERSION__ number hasn't been specified yet. For now
- * leave as `201711L` (C17 + 1).
- * TODO: Update to correct value when its been specified.
- */
-#define XXH_C23_VN 201711L
-/*! @endcond */
-
-/*! @cond Doxygen ignores this part */
 /* C-language Attributes are added in C23. */
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= XXH_C23_VN) && defined(__has_c_attribute)
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L) && defined(__has_c_attribute)
 # define XXH_HAS_C_ATTRIBUTE(x) __has_c_attribute(x)
 #else
 # define XXH_HAS_C_ATTRIBUTE(x) 0
@@ -2753,7 +2744,7 @@ static int XXH_isLittleEndian(void)
  * additional case:
  *
  * ```
- * #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= XXH_C23_VN)
+ * #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
  * #  include <stddef.h>
  * #  ifdef unreachable
  * #    define XXH_UNREACHABLE() unreachable()
@@ -5953,7 +5944,7 @@ XXH3_initCustomSecret_rvv(void* XXH_RESTRICT customSecret, xxh_u64 seed64)
                                     seed64, (uint64_t)(-(int64_t)seed64), \
                                     seed64, (uint64_t)(-(int64_t)seed64)};
             // Cast the default secret to a signed 64-bit pointer for vectorized access
-            const int64_t* const xXXH3_kSecret = (const int64_t*)XXH3_kSecret;
+            const int64_t* const xXXH3_kSecret = (const int64_t*)((const void*)XXH3_kSecret);
             size_t vl = 0;
             for (size_t i=0; i < XXH3_kSecret_64b_len; i += vl) {
 
