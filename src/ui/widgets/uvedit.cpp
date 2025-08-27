@@ -220,9 +220,18 @@ UVWidget::UVWidget( QWidget * parent )
 
 UVWidget::~UVWidget()
 {
+	QOpenGLContext *	prvContext = QOpenGLContext::currentContext();
+	if ( context() != prvContext )
+		makeCurrent();
+
 	delete textures;
 	nif = nullptr;
 	delete cx;
+
+	if ( !prvContext )
+		doneCurrent();
+	else if ( prvContext != context() )
+		prvContext->makeCurrent( prvContext->surface() );
 }
 
 void UVWidget::updateSettings()
