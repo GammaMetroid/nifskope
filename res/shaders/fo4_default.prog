@@ -1,7 +1,8 @@
 # default shader
 
 # Fallout 4
-check BSVersion == 130
+check BSVersion >= 130
+check BSVersion <= 139
 check BSLightingShaderProperty
 #check BSLightingShaderProperty/Shader Type != 1
 #check BSLightingShaderProperty/Shader Type != 16
