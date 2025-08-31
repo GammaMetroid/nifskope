@@ -381,59 +381,44 @@ GameMode GameManager::get_game( const NifModel * nif )
 	if ( !nif ) [[unlikely]]
 		return OTHER;
 
-	quint32	bsver = nif->getBSVersion();
+	quint32	bsver = nif->getBSVersion() - 1u;
 
-	switch ( bsver ) {
-	case 0:
-		break;
-	case BSSTREAM_1:
-	case BSSTREAM_3:
-	case BSSTREAM_4:
-	case BSSTREAM_5:
-	case BSSTREAM_6:
-	case BSSTREAM_7:
-	case BSSTREAM_8:
-	case BSSTREAM_9:
-		return OBLIVION;
-	case BSSTREAM_11:
-		{
-			quint32	user = nif->getUserVersion();
-			if ( user == 10 || nif->getVersionNumber() <= 0x14000005 )	// TODO: Enumeration
-				return OBLIVION;
-			else if ( user == 11 )
-				return FALLOUT_3NV;
-		}
-		return OTHER;
-	case BSSTREAM_14:
-	case BSSTREAM_16:
-	case BSSTREAM_21:
-	case BSSTREAM_24:
-	case BSSTREAM_25:
-	case BSSTREAM_26:
-	case BSSTREAM_27:
-	case BSSTREAM_28:
-	case BSSTREAM_30:
-	case BSSTREAM_31:
-	case BSSTREAM_32:
-	case BSSTREAM_33:
-	case BSSTREAM_34:
-		return FALLOUT_3NV;
-	case BSSTREAM_83:
-		return SKYRIM;
-	case BSSTREAM_100:
-		return SKYRIM_SE;
-	case BSSTREAM_130:
-		return FALLOUT_4;
-	case BSSTREAM_155:
-		return FALLOUT_76;
-	case BSSTREAM_170:
-	case BSSTREAM_172:
-	case BSSTREAM_173:
-	case BSSTREAM_175:
-		return STARFIELD;
-	default:
-		break;
+	// 0 = OTHER
+	// 1 = MORROWIND
+	// 2 = OBLIVION
+	// 3 = FALLOUT_3NV
+	// 4 = SKYRIM
+	// 5 = SKYRIM_SE
+	// 6 = FALLOUT_4
+	// 7 = FALLOUT_76
+	// 8 = STARFIELD
+	static const unsigned char bsverToGame[176] = {
+		   2, 0, 2, 2,  2, 2, 2, 2, 2,  0, 0, 0, 0, 3,  0, 3, 0, 0, 0,	//   1 -  19
+		0, 3, 0, 0, 3,  3, 3, 3, 3, 0,  3, 3, 3, 3, 3,  0, 0, 0, 0, 0,	//  20 -  39
+		0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,	//  40 -  59
+		0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,	//  60 -  79
+		0, 0, 0, 4, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,	//  80 -  99
+		5, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 0, 0, 0, 0,	// 100 - 119
+		0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  6, 6, 6, 6, 6,  6, 6, 6, 6, 6,	// 120 - 139
+		0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  0, 7, 7, 7, 7,  7, 0, 0, 0, 0,	// 140 - 159
+		0, 0, 0, 0, 0,  0, 0, 0, 0, 0,  8, 8, 8, 8, 8,  8, 8			// 160 - 176
 	};
+
+	GameMode game = OTHER;
+	if ( bsver < 176u )
+		game = GameMode( bsverToGame[bsver] );
+
+	if ( game != OTHER )
+		return game;
+
+	if ( bsver == 10u ) {	// BSSTREAM_11
+		quint32	user = nif->getUserVersion();
+		if ( user == 10 || nif->getVersionNumber() <= 0x14000005 )	// TODO: Enumeration
+			return OBLIVION;
+		else if ( user == 11 )
+			return FALLOUT_3NV;
+		return OTHER;
+	}
 
 	// NOTE: Morrowind shares a version with other games (Freedom Force, etc.)
 	if ( nif->getVersionNumber() == 0x04000002 )

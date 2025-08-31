@@ -1,5 +1,8 @@
  == CHANGELOG ==
 
+* Fixed issues with closing the UV editor window due to the OpenGL context not being set correctly.
+* Fixed errors on opening Fallout 4 models with a BS version greater than 130.
+
 #### NifSkope-2.0.dev11-20250824
 
 * Added new general settings for the Havok layer and material when importing OBJ as collision. The material can be specified as the CRC32 hash (decimal or hexadecimal with a 0x prefix), or as the string name (e.g. Broken Stone), empty defaults to None. Note that some existing settings previously under NIF have been reset because they were moved to a new Import/Export tab.

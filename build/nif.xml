@@ -7117,6 +7117,15 @@
         <field name="Unknown 2" type="float" default="-1.0" vercond="#BS_GTE_F76#" />
     </struct>
 
+    <struct name="BGSMWetnessParams" abstract="true" module="BSMain" versions="#FO4# #F76#">
+        <field name="Spec Scale" type="float" default="-1.0" />
+        <field name="Spec Power" type="float" default="-1.0" />
+        <field name="Min Var" type="float" default="-1.0" />
+        <field name="Env Map Scale" type="float" default="-1.0" cond="#ARG# #LT# 10" />
+        <field name="Fresnel Power" type="float" default="-1.0" />
+        <field name="Metalness" type="float" default="-1.0" />
+    </struct>
+
     <struct name="BSSPLuminanceParams" module="BSMain" versions="#F76#">
         <field name="Lum Emittance" type="float" default="100.0" range="#F_POS#" />
         <field name="Exposure Offset" type="float" default="13.5" range="#F_POS#" />
@@ -7734,7 +7743,7 @@
         <field name="Specular Strength" type="float" default="1.0" range="#F0_10#">Brightness of specular highlight. (0=not visible)</field>
         <field name="Smoothness" type="float" default="1.0" range="#F0_10#">The base roughness, multiplied by the smoothness map.</field>
         <field name="Fresnel Power" type="float" default="5.0" range="#F_PNZ#" />
-        <field name="Wetness" type="BSSPWetnessParams" />
+        <field name="Wetness" type="BGSMWetnessParams" arg="Version" />
         <field name="Porosity Value" type="float" cond="Version #GTE# 9" />
         <field name="Root Material" type="SizedString" />
         <field name="Emissive Color" type="Color3" default="#VEC3_ZERO#" cond="Shader Flags 2 #BITAND# 0x0100">Glow color</field>

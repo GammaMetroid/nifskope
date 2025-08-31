@@ -718,16 +718,16 @@ bool Renderer::setupProgramCE1( const NifModel * nif, Program * prog, Shape * me
 		// Specular params
 		float s = ( scene->hasOption(Scene::DoSpecular) && scene->hasOption(Scene::DoLighting) ) ? lsp->specularStrength : 0.0;
 		prog->uni1f( "specStrength", s );
-
-		if ( nifVersion >= 151 )
-			prog->uni1i( "hasSpecular", int(scene->hasOption(Scene::DoSpecular)) );
-		else		// Assure specular power does not break the shaders
-			prog->uni1f( "specGlossiness", lsp->specularGloss);
 		prog->uni3f( "specColor", lsp->specularColor.red(), lsp->specularColor.green(), lsp->specularColor.blue() );
 		prog->uni1i( "hasSpecularMap", lsp->hasSpecularMap );
 
-		if ( nifVersion <= 130 ) {
-			if ( nifVersion == 130 || (lsp->hasSpecularMap && !lsp->hasBacklight) )
+		if ( nifVersion >= 151 ) {
+			prog->uni1i( "hasSpecular", int(scene->hasOption(Scene::DoSpecular)) );
+		} else {
+			// Assure specular power does not break the shaders
+			prog->uni1f( "specGlossiness", lsp->specularGloss);
+
+			if ( nifVersion >= 130 || (lsp->hasSpecularMap && !lsp->hasBacklight) )
 				prog->uniSampler( bsprop, "SpecularMap", 7, texunit, white, clamp );
 			else
 				prog->uniSampler( bsprop, "SpecularMap", 7, texunit, black, clamp );
