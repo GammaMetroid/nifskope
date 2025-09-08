@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* The bone list in NiSkinData and BSSkin::BoneData now shows the bone names. The block should have one parent, and the bone nodes should exist in the NIF.
 * Fixed issues with closing the UV editor window due to the OpenGL context not being set correctly.
 * Fixed errors on opening Fallout 4 models with a BS version greater than 130.
 

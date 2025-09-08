@@ -1367,6 +1367,17 @@ QVariant NifModel::data( const QModelIndex & index, int role ) const
 							return item->getValueAsString();
 
 						return optId;
+					} else if ( item->isCompound() && !item->isArray() && item->hasName( "Bone List" ) ) {
+						if ( int p = getParent( getBlockNumber( item ) ); p >= 0 ) {
+							if ( auto i = getBlockIndex( p );
+									i.isValid() && ( i = getIndex( i, "Bones" ) ).isValid() ) {
+								if ( isArray( i ) && rowCount( i ) > index.row() ) {
+									// TODO: Starfield SkinAttach support
+									if ( auto j = getBlockIndex( getLink( i, index.row() ) ); j.isValid() )
+										return get<QString>( j, "Name" );
+								}
+							}
+						}
 					}
 
 					return item->getValueAsString().replace( "\n", SPACE_QSTRING ).replace( "\r", SPACE_QSTRING );
