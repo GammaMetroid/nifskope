@@ -10,6 +10,10 @@ By default, Starfield models are automatically converted to use internal geometr
 
 This problem is usually related to the OpenGL driver or settings. On systems with more than one GPU, make sure that NifSkope is using the correct one, setting it for the application on the control panel of the driver if necessary. In some cases, an empty viewport can also be caused by using a higher MSAA setting than the maximum supported by the hardware or driver.
 
+### Errors launching NifSkope on Windows 7 or 8
+
+Only the builds using Qt 5 run on Windows versions older than 10, and the [Universal C Runtime](https://support.microsoft.com/en-us/topic/update-for-universal-c-runtime-in-windows-c0514201-7fe6-95a3-b0a5-287930f3560c) should be installed.
+
 ### Very long load times
 
 Initializing the asset database can potentially take a long time if the number of loose resource files is unusually large. On Windows, performance is impacted much more by the number of resource folders than the number of files, so the problem is most often caused by having all Starfield geometry data (over 350,000 folders, each containing one .mesh file) added as loose resources. In this case, if the geometries are under the main game data path, it is recommended to add archives manually under Options/Settings.../Resources/Paths, and additional data folders only when they are really needed, instead of the simple configuration that recursively loads all data. Note that the 'Add Archive or File' button allows selecting multiple files at once, and that it is allowed to add sub-folders like K:/SteamLibrary/steamapps/common/Starfield/Data/geometries/MyMod as data paths.
