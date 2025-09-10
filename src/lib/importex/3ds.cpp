@@ -9,12 +9,14 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QFile>
-#include <QFileDialog>
 #include <QMessageBox>
 #include <QSettings>
 #include <QString>
 
 #define tr( x ) QCoreApplication::tr( "3dsImport", x )
+
+// defined in importex.cpp
+QString getImportexFileName( const NifModel * nif, const char * fileType, bool isImport );
 
 struct objPoint
 {
@@ -238,11 +240,7 @@ void import3ds( NifModel * nif, const QModelIndex & index )
 	QMap<QString, objMaterial> ObjMaterials;
 	QMultiMap<QString, objKfSequence> ObjKeyframes;
 
-	QSettings settings;
-	settings.beginGroup( "Import-Export" );
-	settings.beginGroup( "3DS" );
-
-	QString fname = QFileDialog::getOpenFileName( qApp->activeWindow(), tr( "Choose a .3ds file to import" ), settings.value( tr( "File Name" ) ).toString(), "3DS (*.3ds)" );
+	QString fname = getImportexFileName( nif, "3DS", true );
 
 	if ( fname.isEmpty() ) {
 		return;
@@ -735,11 +733,6 @@ void import3ds( NifModel * nif, const QModelIndex & index )
 
 		// set up a controller for animated objects
 	}
-
-	settings.setValue( "File Name", fname );
-
-	settings.endGroup(); // 3DS
-	settings.endGroup(); // Import-Export
 
 	nif->reset();
 	return;

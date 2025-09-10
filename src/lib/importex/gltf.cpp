@@ -18,7 +18,6 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QDir>
-#include <QFileDialog>
 #include <QFileInfo>
 #include <QIODevice>
 #include <QImage>
@@ -26,6 +25,9 @@
 #include <QMessageBox>
 
 #define tr( x ) QApplication::tr( x )
+
+// defined in importex.cpp
+QString getImportexFileName( const NifModel * nif, const char * fileType, bool isImport );
 
 static bool	gltfEnableLOD = false;
 
@@ -1315,15 +1317,6 @@ void GltfStore::exportMaterial( tinygltf::Material & mat, const std::string & ma
 }
 
 
-static QString getGltfFolder( const NifModel * nif )
-{
-	QString	dirName = nif->getFolder();
-	if ( !( dirName.isEmpty() || dirName.contains( ".ba2/", Qt::CaseInsensitive ) || dirName.contains( ".bsa/", Qt::CaseInsensitive ) ) )
-		return dirName;
-	QSettings	settings;
-	return settings.value( "Spells//Extract File/Last File Path", QString() ).toString();
-}
-
 void exportGltf( const NifModel * nif, const Scene * scene, const QModelIndex & index )
 {
 	if ( index.isValid() && !nif->blockInherits(index, { "NiNode", "BSGeometry", "BSTriShape", "NiTriShape" }) ) {
@@ -1331,27 +1324,7 @@ void exportGltf( const NifModel * nif, const Scene * scene, const QModelIndex & 
 		return;
 	}
 
-	QString	filename = getGltfFolder( nif );
-	if ( auto w = qobject_cast< const NifSkope * >( nif->getWindow() ); w ) {
-		if ( auto nifPath = w->getCurrentFile(); !nifPath.isEmpty() ) {
-			if ( nifPath.endsWith( QLatin1StringView(".nif"), Qt::CaseInsensitive )
-				|| nifPath.endsWith( QLatin1StringView(".bto"), Qt::CaseInsensitive )
-				|| nifPath.endsWith( QLatin1StringView(".btr"), Qt::CaseInsensitive ) ) {
-				nifPath.chop( 4 );
-			}
-#ifdef Q_OS_WIN32
-			nifPath.replace( QChar('\\'), QChar('/') );
-#endif
-			nifPath.remove( 0, nifPath.lastIndexOf( QChar('/') ) + 1 );
-			if ( !nifPath.isEmpty() ) {
-				if ( !filename.isEmpty() && !filename.endsWith( QChar('/') ) )
-					filename.append( QChar('/') );
-				filename.append( nifPath );
-				filename.append( QLatin1StringView(".gltf") );
-			}
-		}
-	}
-	filename = QFileDialog::getSaveFileName(qApp->activeWindow(), tr("Choose a .glTF file for export"), filename, "glTF (*.gltf)");
+	QString filename = getImportexFileName( nif, "glTF", false );
 	bool	useFullMatPaths;
 	int	textureMipLevel;
 	if ( filename.isEmpty() ) {
@@ -2457,7 +2430,7 @@ void importGltf( NifModel * nif, const QModelIndex & index )
 		return;
 	}
 
-	QString filename = QFileDialog::getOpenFileName( qApp->activeWindow(), tr("Choose a .glTF file for import"), getGltfFolder(nif), "glTF (*.glb *.gltf)" );
+	QString filename = getImportexFileName( nif, "glTF", true );
 	if ( filename.isEmpty() ) {
 		return;
 	} else if ( nif->getBSVersion() < 170 ) {

@@ -42,7 +42,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <QApplication>
 #include <QDebug>
 #include <QFile>
-#include <QFileDialog>
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QSettings>
@@ -50,11 +49,14 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define tr( x ) QApplication::tr( x )
 
+// defined in importex.cpp
+QString getImportexFileName( const NifModel * nif, const char * fileType, bool isImport );
+
 
 // "globals"
-bool objCulling;
-QRegularExpression objCullRegExp;
-QStringList expSknMeshWarnings; // Used when notifying user of skinned meshes that were exported statically without weights
+static bool objCulling;
+static QRegularExpression objCullRegExp;
+static QStringList expSknMeshWarnings; // Used when notifying user of skinned meshes that were exported statically without weights
 
 
 /*
@@ -507,11 +509,7 @@ void exportObj( const NifModel * nif, const Scene* scene, const QModelIndex & in
 
 	//--Allow the user to select the file--//
 
-	QSettings settings;
-	settings.beginGroup( "Import-Export" );
-	settings.beginGroup( "OBJ" );
-
-	QString fname = QFileDialog::getSaveFileName( qApp->activeWindow(), tr( "Choose a .OBJ file for export" ), settings.value( "File Name" ).toString(), "OBJ (*.obj)" );
+	QString fname = getImportexFileName( nif, "OBJ", false );
 
 	if ( fname.isEmpty() )
 		return;
@@ -557,11 +555,6 @@ void exportObj( const NifModel * nif, const Scene* scene, const QModelIndex & in
 		else if ( nif->isNiBlock( iBlock, { "NiTriShape", "NiTriStrips", "BSTriShape", "BSSubIndexTriShape" } ) )
 			writeShape( nif, iBlock, sobj, smtl, ofs, Transform() );
 	}
-
-	settings.setValue( "File Name", fobj.fileName() );
-
-	settings.endGroup(); // OBJ
-	settings.endGroup(); // Import-Export
 
 	if ( !expSknMeshWarnings.isEmpty() ) {
 		if ( expSknMeshWarnings.size() > 1 ) {
@@ -832,11 +825,7 @@ void importObjMain( NifModel * nif, const QModelIndex & index, bool collision )
 
 	//--Read the file--//
 
-	QSettings settings;
-	settings.beginGroup( "Import-Export" );
-	settings.beginGroup( "OBJ" );
-
-	QString fname = QFileDialog::getOpenFileName( qApp->activeWindow(), tr( "Choose a .OBJ file to import" ), settings.value( "File Name" ).toString(), "OBJ (*.obj)" );
+	QString fname = getImportexFileName( nif, "OBJ", true );
 
 	if ( fname.isEmpty() )
 		return;
@@ -1345,11 +1334,6 @@ void importObjMain( NifModel * nif, const QModelIndex & index, bool collision )
 	nif->holdUpdates( false );
 
 	qDeleteAll( ofaces );
-
-	settings.setValue( "File Name", fname );
-
-	settings.endGroup(); // OBJ
-	settings.endGroup(); // Import-Export
 
 	nif->reset();
 
