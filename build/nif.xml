@@ -4437,7 +4437,7 @@
         <field name="Vertices" type="Vector3" length="Num Vertices" cond="Has Vertices">The mesh vertices.</field>
         <field name="Data Flags" type="NiGeometryDataFlags" since="10.0.1.0" vercond="!#BS202#" />
         <field name="BS Data Flags" type="BSGeometryDataFlags" vercond="#BS202#" />
-        <field name="Material CRC" type="uint" since="20.2.0.7" until="20.2.0.7" vercond="#BS_GT_FO3#" />
+        <field name="Material CRC" type="SkyrimHavokMaterial" since="20.2.0.7" until="20.2.0.7" vercond="#BS_GT_FO3#" />
         <field name="Has Normals" type="bool">Do we have lighting normals? These are essential for proper lighting: if not present, the model will only be influenced by ambient light.</field>
         <field name="Normals" type="Vector3" length="Num Vertices" cond="Has Normals">The lighting normals.</field>
         <field name="Tangents" type="Vector3" length="Num Vertices" cond="(Has Normals) #AND# (((Data Flags #BITOR# BS Data Flags) #BITAND# 4096) != 0)" since="10.1.0.0">Tangent vectors.</field>
