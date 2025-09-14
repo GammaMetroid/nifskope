@@ -5,6 +5,7 @@
 * The material CRC in NiTriShapeData and NiTriStripsData is shown as Skyrim Havok material, and is set on importing OBJ as collision.
 * Fixed issues with closing the UV editor window due to the OpenGL context not being set correctly.
 * Fixed errors on opening Fallout 4 models with a BS version greater than 130.
+* Fixed warning on importing OBJ as collision to Oblivion and Fallout 3/New Vegas.
 
 #### NifSkope-2.0.dev11-20250824
 

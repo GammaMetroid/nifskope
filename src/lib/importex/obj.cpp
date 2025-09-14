@@ -718,7 +718,10 @@ static void setCollisionLayerAndMat( NifModel * nif, const QModelIndex & iBody, 
 
 	nif->set<quint32>( iBody, "Layer", havokLayer );
 	if ( QModelIndex iRigidBodyInfo = nif->getIndex( iBody, "Rigid Body Info" ); iRigidBodyInfo.isValid() ) {
-		nif->set<quint32>( iRigidBodyInfo, "Layer", havokLayer );
+		if ( nif->getBSVersion() < 83 )
+			nif->set<quint32>( nif->getIndex( iRigidBodyInfo, "Havok Filter" ), "Layer", havokLayer );
+		else
+			nif->set<quint32>( iRigidBodyInfo, "Layer", havokLayer );
 		if ( !havokMass ) {
 			if ( QModelIndex i = nif->getIndex( iRigidBodyInfo, "Inertia Tensor" ); i.isValid() ) {
 				nif->set<float>( i, "m11", 0.0f );
