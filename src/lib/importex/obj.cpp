@@ -734,6 +734,10 @@ static void setCollisionLayerAndMat( NifModel * nif, const QModelIndex & iBody, 
 	}
 
 	nif->set<quint32>( iShape, "Material", havokMat );
+	if ( nif->getBSVersion() >= 83 ) {
+		if ( auto iData = nif->getBlockIndex( nif->getLink( iShape, "Strips Data" ) ); iData.isValid() )
+			nif->set<quint32>( iData, "Material CRC", havokMat );
+	}
 }
 
 void importObjMain( NifModel * nif, const QModelIndex & index, bool collision )
