@@ -825,7 +825,8 @@ void Mesh::drawSelection() const
 	auto blk = scene->currentBlock;
 
 	if ( !blk.isValid()
-		|| !( blk == iBlock || blk == iData || blk == iSkinPart || blk == iSkinData || blk == iTangentData ) ) {
+		|| !( blk == iBlock || blk == iData || blk == iTangentData
+				|| ( iSkin.isValid() && ( blk == iSkin || blk == iSkinPart || blk == iSkinData ) ) ) ) {
 		if ( !scene->isSelModeVertex() )
 			return;
 	}
@@ -858,7 +859,7 @@ void Mesh::drawSelection() const
 
 	if ( blk == iBlock || idx == iData ) {
 		n = "Faces";
-	} else if ( blk == iData || blk == iSkinPart ) {
+	} else if ( blk == iData || blk == iSkin || blk == iSkinPart ) {
 		n = idx.data( NifSkopeDisplayRole ).toString();
 
 		QModelIndex iParent = idx.parent();

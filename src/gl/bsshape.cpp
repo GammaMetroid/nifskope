@@ -130,12 +130,16 @@ void BSShape::updateData( const NifModel * nif )
 	numVerts = int( verts.size() );
 
 	// Fill triangle data
+	resetSkeletonData();
 	if ( isSkinned && iSkinPart.isValid() ) {
 		auto iPartitions = nif->getIndex( iSkinPart, "Partitions" );
 		if ( iPartitions.isValid() ) {
 			int n = nif->rowCount( iPartitions );
-			for ( int i = 0; i < n; i++ )
-				triangles << nif->getArray<Triangle>( nif->getIndex( iPartitions, i ), "Triangles" );
+			for ( int i = 0; i < n; i++ ) {
+				auto iPart = nif->getIndex( iPartitions, i );
+				partitions.append( SkinPartition( nif, iPart ) );
+				triangles << partitions.constLast().triangles;
+			}
 		}
 	} else {
 		auto iTriData = nif->getIndex( iBlock, "Triangles" );
@@ -146,7 +150,6 @@ void BSShape::updateData( const NifModel * nif )
 	updateLodLevel();
 
 	// Fill skeleton data
-	resetSkeletonData();
 	if ( isSkinned && iSkin.isValid() ) {
 		bones = nif->getLinkArray( iSkin, "Bones" );
 		auto nTotalBones = bones.size();
@@ -207,20 +210,13 @@ QModelIndex BSShape::triangleAt( int idx ) const
 	auto blk = iBlock;
 	if ( iSkinPart.isValid() ) {
 		// Triangles are on NiSkinPartition in version 100
-		auto iPartitions = nif->getIndex( iSkinPart, "Partitions" );
-		if ( iPartitions.isValid() && nif->isArray( iPartitions ) ) {
-			for ( int i = 0; i < nif->rowCount( iPartitions ); i++ ) {
-				auto iPart = nif->getIndex( iPartitions, i );
-				if ( !iPart.isValid() )
-					continue;
-				auto iTriangles = nif->getIndex( iPart, "Triangles" );
-				if ( !( iTriangles.isValid() && nif->isArray( iTriangles ) ) )
-					continue;
-				int n = nif->rowCount( iTriangles );
-				if ( idx < n )
-					return nif->getIndex( iTriangles, idx );
-				idx -= n;
+		for ( int i = 0; i < partitions.size(); i++ ) {
+			int n = int( partitions.at( i ).triangles.size() );
+			if ( idx < n ) {
+				auto iPart = nif->getIndex( nif->getIndex( iSkinPart, "Partitions" ), i );
+				return nif->getIndex( nif->getIndex( iPart, "Triangles" ), idx );
 			}
+			idx -= n;
 		}
 		return QModelIndex();
 	}
@@ -502,8 +498,8 @@ void BSShape::drawSelection() const
 			if ( iSkinPart.isValid() ) {
 				int i = idx.parent().parent().row();
 				while ( i-- > 0 ) {
-					if ( auto j = nif->getIndex( nif->getIndex( iSkinPart, "Partitions" ), i ); j.isValid() )
-						s += int( nif->get<quint32>( j, "Num Triangles" ) );
+					if ( i < partitions.size() )
+						s += int( partitions.at( i ).triangles.size() );
 				}
 			}
 		}
@@ -617,6 +613,27 @@ void BSShape::drawSelection() const
 			for ( int i = 0; i < ct; i++ ) {
 				auto b = nif->getIndex( iBones, i );
 				boneSphere( nif, b );
+			}
+		}
+
+	} else if ( n == "Partitions" && n == p && !( partitions.isEmpty() || verts.isEmpty() ) ) {
+		// Draw selected skin partition
+		auto i = idx.row();
+		qsizetype	k = 0;
+
+		for ( int c = 0; c < partitions.size() && k < triangles.size(); c++ ) {
+			scene->setGLColor( c != i ? scene->wireframeColor : scene->highlightColor );
+			scene->setGLLineWidth( GLView::Settings::lineWidthWireframe );
+			setUniforms( scene->setupProgram( "wireframe.prog", GL_TRIANGLES ) );
+
+			const auto &	part = partitions.at( c );
+
+			qsizetype	triCnt = part.triangles.size();
+			triCnt = std::min< qsizetype >( triCnt, triangles.size() - k );
+			if ( triCnt > 0 ) {
+				context->fn->glDrawElements( GL_TRIANGLES, GLsizei( triCnt * 3 ),
+												GL_UNSIGNED_SHORT, (void *) ( k * 6 ) );
+				k = k + triCnt;
 			}
 		}
 
