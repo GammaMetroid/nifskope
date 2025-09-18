@@ -596,7 +596,8 @@
         <option value="493553910" name="SKY_HAV_MAT_BOTTLE">Bottle</option>
         <option value="500811281" name="SKY_HAV_MAT_WOOD">Wood</option>
         <option value="534864873" name="SKY_HAV_MAT_MATERIAL_ASH">Material Ash</option>
-        <option value="591247106" name="SKY_HAV_MAT_SKIN">Skin</option>
+        <option value="551270354" name="SKY_HAV_MAT_STAIRS_HEAVY_METAL">Stairs Heavy Metal</option>
+		<option value="591247106" name="SKY_HAV_MAT_SKIN">Skin</option>
         <option value="593401068" name="SKY_HAV_MAT_MATERIAL_BLOCK_BLUNT">Material Block Blunt</option>
         <option value="617099282" name="SKY_HAV_MAT_MATERIAL_CLOTH">Material Cloth</option>
         <option value="668408902" name="SKY_HAV_MAT_INSECT">Insect</option>
