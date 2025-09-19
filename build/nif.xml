@@ -8048,7 +8048,7 @@
 
     <niobject name="BSOrderedNode" inherit="NiNode" module="BSMain" versions="#FO3_AND_LATER#">
         Bethesda-Specific node.
-        <field name="Alpha Sort Bound" type="Vector4" />
+        <field name="Alpha Sort Bound" type="NiBound" />
         <field name="Static Bound" type="bool" default="true" />
     </niobject>
 
