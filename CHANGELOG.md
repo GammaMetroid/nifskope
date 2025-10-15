@@ -4,6 +4,7 @@
 * File dialogs for OBJ and 3DS import and export set the default file name from the NIF path, similarly to glTF.
 * The material CRC in NiTriShapeData and NiTriStripsData is shown as Skyrim Havok material, and is set on importing OBJ as collision.
 * Implemented rendering the selected skin partition in BSDismemberSkinInstance and for Skyrim Special Edition.
+* Havok material enumerations are sorted by name instead of numeric value.
 * Fixed issues with closing the UV editor window due to the OpenGL context not being set correctly.
 * Fixed errors on opening Fallout 4 models with a BS version greater than 130.
 * Fixed warning on importing OBJ as collision to Oblivion and Fallout 3/New Vegas.

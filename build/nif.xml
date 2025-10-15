@@ -583,7 +583,7 @@
 
     <enum name="SkyrimHavokMaterial" storage="uint" versions="V20_2_0_7_SKY V20_2_0_7_SSE">
         Bethesda Havok. Material descriptor for a Havok shape in Skyrim. CRC32 of the lowercase of the Creation Kit Material Name.
-        <option value="0" name="SKY_HAV_MAT_NONE">None</option>
+        <option value="0" name="&lt;None&gt;">None</option>
         <option value="131151687" name="SKY_HAV_MAT_STONE_BROKEN">Stone Broken</option>
         <option value="165778930" name="SKY_HAV_MAT_WEAPON_BLADE_1HAND_BLOCK">Weapon Blade 1 Hand Block</option>
         <option value="220124585" name="SKY_HAV_MAT_MEAT">Meat</option>
@@ -668,7 +668,7 @@
 
     <enum name="Fallout4HavokMaterial" storage="uint" versions="V20_2_0_7_FO4 V20_2_0_7_FO4_2">
         Bethesda Havok. Material descriptor for a Havok shape in Fallout 4.
-        <option value="0" name="FO4_MAT_NONE">Invalid Material</option>
+        <option value="0" name="&lt;None&gt;">Invalid Material</option>
         <option value="26782757" name="MaterialMetalSolidAxe1Hand">Axe1Hand</option>
         <option value="69730436" name="MaterialPlasticBin">MaterialPlasticBin</option>
         <option value="71178380" name="MaterialMetalVertibirdChassisSmall">MaterialMetalVertibirdChassisSmall</option>
@@ -829,7 +829,7 @@
 
     <enum name="Fallout76HavokMaterial" storage="uint" versions="V20_2_0_7_F76 V20_2_0_7_STF">
         Bethesda Havok. Material descriptor for a Havok shape in Fallout 76.
-        <option value="0" name="FO76_MAT_NONE">Invalid</option>
+        <option value="0" name="&lt;None&gt;">Invalid</option>
         <option value="26782757" name="MaterialMetalSolidAxe1Hand">MaterialMetalSolidAxe1Hand</option>
         <option value="69730436" name="MaterialPlasticBin">MaterialPlasticBin</option>
         <option value="71178380" name="MaterialMetalVertibirdChassisSmall">MaterialMetalVertibirdChassisSmall</option>
