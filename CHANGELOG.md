@@ -7,6 +7,7 @@
 * Havok material enumerations are sorted by name instead of numeric value.
 * Fixed issues with closing the UV editor window due to the OpenGL context not being set correctly.
 * Fixed errors on opening Fallout 4 models with a BS version greater than 130.
+* Fixed the vertex position data being lost on converting a BSDynamicTriShape block to BSTriShape.
 * Fixed warning on importing OBJ as collision to Oblivion and Fallout 3/New Vegas.
 
 #### NifSkope-2.0.dev11-20250824
