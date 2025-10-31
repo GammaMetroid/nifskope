@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20251031
+
 * The bone list in NiSkinData and BSSkin::BoneData now shows the bone names. The block should have one parent, and the bone nodes should exist in the NIF.
 * File dialogs for OBJ and 3DS import and export set the default file name from the NIF path, similarly to glTF.
 * The material CRC in NiTriShapeData and NiTriStripsData is shown as Skyrim Havok material, and is set on importing OBJ as collision.
