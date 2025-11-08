@@ -647,10 +647,19 @@ QModelIndex Mesh::vertexAt( int idx ) const
 	if ( !nif )
 		return QModelIndex();
 
-	auto iVertexData = nif->getIndex( iData, "Vertices" );
-	auto iVertex = nif->getIndex( iVertexData, idx );
-
-	return iVertex;
+	// Preserve attribute selection, or default to selecting vertex position
+	if ( scene->currentIndex.isValid() ) {
+		auto p = scene->currentIndex.parent();
+		auto pp = p.parent();
+		auto n = scene->currentIndex.data( NifSkopeDisplayRole ).toString();
+		if ( ( pp == iData
+				&& ( n == "Vertices" || n == "Normals" || n == "Tangents" || n == "Bitangents"
+					|| n == "Vertex Colors" ) )
+			|| ( pp.parent() == iData && n == "UV Sets" ) ) {
+			return nif->getIndex( nif->getIndex( pp, p.row() ), idx );
+		}
+	}
+	return nif->getIndex( nif->getIndex( iData, "Vertices" ), idx );
 }
 
 QModelIndex Mesh::triangleAt( int idx ) const
@@ -801,8 +810,14 @@ void Mesh::drawVerts() const
 	// Highlight selected vertex
 	if ( !scene->selecting && iData == scene->currentBlock ) {
 		auto idx = scene->currentIndex;
-		if ( idx.data( NifSkopeDisplayRole ).toString() == "Vertices" )
+		auto n = idx.data( NifSkopeDisplayRole ).toString();
+		auto p = idx.parent().parent();
+		if ( ( p == iData
+				&& ( n == "Vertices" || n == "Normals" || n == "Tangents" || n == "Bitangents"
+					|| n == "Vertex Colors" ) )
+			|| ( p.parent() == iData && n == "UV Sets" ) ) {
 			vertexSelected = idx.row();
+		}
 	}
 
 	Shape::drawVerts( GLView::Settings::vertexSelectPointSize, vertexSelected );

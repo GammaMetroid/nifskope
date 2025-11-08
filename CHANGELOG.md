@@ -1,5 +1,9 @@
  == CHANGELOG ==
 
+* Selecting vertices within a single shape now preserves the attribute selection.
+* Fixed vertices not being highlighted in vertex selection mode when a vertex attribute other than the position is selected.
+* Renamed some of the fields of bhkCMSChunk to be more consistent with Havok documentation.
+
 #### NifSkope-2.0.dev11-20251031
 
 * The bone list in NiSkinData and BSSkin::BoneData now shows the bone names. The block should have one parent, and the bone nodes should exist in the NIF.
