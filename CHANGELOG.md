@@ -2,6 +2,7 @@
 
 * Selecting vertices within a single shape now preserves the attribute selection.
 * Fixed vertices not being highlighted in vertex selection mode when a vertex attribute other than the position is selected.
+* Fixed highlighting sub-shapes of hkPackedNiTriStripsData.
 * Renamed some of the fields of bhkCMSChunk to be more consistent with Havok documentation.
 
 #### NifSkope-2.0.dev11-20251031
