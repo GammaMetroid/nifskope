@@ -716,15 +716,16 @@ public:
 		spellFlagRemoveUnusedStrings = 2,
 		spellFlagRemoveDuplicateVerts = 4,
 		spellFlagRemoveUnusedVerts = 8,
-		spellFlagLODGen = 16,
-		spellFlagOptimizeIndices = 32,
-		spellFlagTangentSpace = 64,
-		spellFlagMeshlets = 128,
-		spellFlagUpdateBounds = 256,
-		spellFlagCombineProperties = 512,
-		spellFlagRemoveBogusNodes = 1024,
-		spellFlagExternalGeom = 2048,
-		spellFlagSanitize = 4096
+		spellFlagSimplify = 16,
+		spellFlagLODGen = 32,
+		spellFlagOptimizeIndices = 64,
+		spellFlagTangentSpace = 128,
+		spellFlagMeshlets = 256,
+		spellFlagUpdateBounds = 512,
+		spellFlagCombineProperties = 1024,
+		spellFlagRemoveBogusNodes = 2048,
+		spellFlagExternalGeom = 4096,
+		spellFlagSanitize = 8192
 	};
 	static bool processFile( NifModel * nif, void * p );
 	static void findNIFFiles( QStringList & fileList, const QStringList & folderList );
@@ -739,6 +740,7 @@ public:
 	};
 
 DECLARE_SPELL_CAST_STATIC( spRemoveUnusedStrings )
+DECLARE_SPELL_CAST_STATIC( spSimplifyAllBSTriShapes )
 DECLARE_SPELL_CAST_STATIC( spSimplifySFMesh )
 DECLARE_SPELL_CAST_STATIC( spRemoveAllDuplicateVertices )
 DECLARE_SPELL_CAST_STATIC( spRemoveAllWasteVertices )
@@ -771,6 +773,11 @@ bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 
 	if ( spellMask & spellFlagRemoveUnusedVerts ) {
 		spRemoveAllWasteVertices::cast_Static( nif, QModelIndex() );
+		fileChanged = true;
+	}
+
+	if ( ( spellMask & spellFlagSimplify ) && nif->getBSVersion() >= 100 && nif->getBSVersion() < 170 ) {
+		spSimplifyAllBSTriShapes::cast_Static( nif, QModelIndex() );
 		fileChanged = true;
 	}
 
@@ -857,7 +864,8 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		QCheckBox *	checkRemoveUnusedStrings = new QCheckBox( "Remove Unused Strings", &dlg );
 		QCheckBox *	checkRemoveDuplicateVertices = new QCheckBox( "Remove Duplicate Vertices", &dlg );
 		QCheckBox *	checkRemoveUnusedVertices = new QCheckBox( "Remove Unused Vertices", &dlg );
-		QCheckBox *	checkLODGen = new QCheckBox( "Generate LODs", &dlg );
+		QCheckBox *	checkSimplify = new QCheckBox( "Simplify All BSTriShapes", &dlg );
+		QCheckBox *	checkLODGen = new QCheckBox( "Generate Starfield LODs", &dlg );
 		QCheckBox *	checkOptimizeIndices = new QCheckBox( "Optimize Indices", &dlg );
 		QCheckBox *	checkTangentSpace = new QCheckBox( "Add Tangent Spaces and Update", &dlg );
 		QCheckBox *	checkMeshlets = new QCheckBox( "Generate Meshlets and Update Bounds", &dlg );
@@ -879,20 +887,21 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		grid->addWidget( checkRemoveUnusedStrings, 4, 0, 1, 5 );
 		grid->addWidget( checkRemoveDuplicateVertices, 5, 0, 1, 5 );
 		grid->addWidget( checkRemoveUnusedVertices, 6, 0, 1, 5 );
-		grid->addWidget( checkLODGen, 7, 0, 1, 5 );
-		grid->addWidget( checkOptimizeIndices, 8, 0, 1, 5 );
-		grid->addWidget( checkTangentSpace, 9, 0, 1, 5 );
-		grid->addWidget( checkMeshlets, 10, 0, 1, 5 );
-		grid->addWidget( checkUpdateBounds, 11, 0, 1, 5 );
-		grid->addWidget( checkCombineProperties, 12, 0, 1, 5 );
-		grid->addWidget( checkRemoveBogusNodes, 13, 0, 1, 5 );
-		grid->addWidget( checkExternalGeom, 14, 0, 1, 5 );
-		grid->addWidget( checkSanitize, 15, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 16, 0, 1, 5 );
-		grid->addWidget( checkSelectFolder, 17, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 18, 0, 1, 5 );
-		grid->addWidget( okButton, 19, 1, 1, 1 );
-		grid->addWidget( cancelButton, 19, 3, 1, 1 );
+		grid->addWidget( checkSimplify, 7, 0, 1, 5 );
+		grid->addWidget( checkLODGen, 8, 0, 1, 5 );
+		grid->addWidget( checkOptimizeIndices, 9, 0, 1, 5 );
+		grid->addWidget( checkTangentSpace, 10, 0, 1, 5 );
+		grid->addWidget( checkMeshlets, 11, 0, 1, 5 );
+		grid->addWidget( checkUpdateBounds, 12, 0, 1, 5 );
+		grid->addWidget( checkCombineProperties, 13, 0, 1, 5 );
+		grid->addWidget( checkRemoveBogusNodes, 14, 0, 1, 5 );
+		grid->addWidget( checkExternalGeom, 15, 0, 1, 5 );
+		grid->addWidget( checkSanitize, 16, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 17, 0, 1, 5 );
+		grid->addWidget( checkSelectFolder, 18, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 19, 0, 1, 5 );
+		grid->addWidget( okButton, 20, 1, 1, 1 );
+		grid->addWidget( cancelButton, 20, 3, 1, 1 );
 
 		QObject::connect( okButton, &QPushButton::clicked, &dlg, &QDialog::accept );
 		QObject::connect( cancelButton, &QPushButton::clicked, &dlg, &QDialog::reject );
@@ -908,6 +917,8 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 			spellMask = spellMask | spellFlagRemoveDuplicateVerts;
 		if ( checkRemoveUnusedVertices->isChecked() )
 			spellMask = spellMask | spellFlagRemoveUnusedVerts;
+		if ( checkSimplify->isChecked() )
+			spellMask = spellMask | spellFlagSimplify;
 		if ( checkLODGen->isChecked() )
 			spellMask = spellMask | spellFlagLODGen;
 		if ( checkOptimizeIndices->isChecked() )

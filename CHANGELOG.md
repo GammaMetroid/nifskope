@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Simplify All Shapes has been added as a new option for processing multiple NIF files.
 * Selecting vertices within a single shape now preserves the attribute selection.
 * Fixed vertices not being highlighted in vertex selection mode when a vertex attribute other than the position is selected.
 * Fixed highlighting sub-shapes of hkPackedNiTriStripsData.
