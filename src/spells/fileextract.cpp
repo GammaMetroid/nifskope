@@ -725,7 +725,8 @@ public:
 		spellFlagCombineProperties = 1024,
 		spellFlagRemoveBogusNodes = 2048,
 		spellFlagExternalGeom = 4096,
-		spellFlagSanitize = 8192
+		spellFlagReorderBlocks = 8192,
+		spellFlagSanitize = 16384
 	};
 	static bool processFile( NifModel * nif, void * p );
 	static void findNIFFiles( QStringList & fileList, const QStringList & folderList );
@@ -750,6 +751,7 @@ DECLARE_SPELL_CAST_STATIC( spGenerateMeshlets )
 DECLARE_SPELL_CAST_STATIC( spUpdateAllBounds )
 DECLARE_SPELL_CAST_STATIC( spCombiProps )
 DECLARE_SPELL_CAST_STATIC( spRemoveBogusNodes )
+DECLARE_SPELL_CAST_STATIC( spSanitizeBlockOrder )
 
 bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 {
@@ -822,6 +824,11 @@ bool spBatchProcessFiles::processFile( NifModel * nif, void * p )
 		fileChanged = true;
 	}
 
+	if ( spellMask & spellFlagReorderBlocks ) {
+		spSanitizeBlockOrder::cast_Static( nif, QModelIndex() );
+		fileChanged = true;
+	}
+
 	if ( spellMask & spellFlagSanitize ) {
 		SpellBook::sanitize( nif );
 		fileChanged = true;
@@ -873,6 +880,7 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		QCheckBox *	checkCombineProperties = new QCheckBox( "Combine Properties", &dlg );
 		QCheckBox *	checkRemoveBogusNodes = new QCheckBox( "Remove Bogus Nodes", &dlg );
 		QCheckBox *	checkExternalGeom = new QCheckBox( "Convert to External Geometry", &dlg );
+		QCheckBox *	checkReorderBlocks = new QCheckBox( "Reorder Blocks", &dlg );
 		QCheckBox *	checkSanitize = new QCheckBox( "Sanitize before Save", &dlg );
 		QCheckBox *	checkSelectFolder = new QCheckBox( "Select and Process Folder", &dlg );
 		QPushButton *	okButton = new QPushButton( "OK", &dlg );
@@ -896,12 +904,13 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 		grid->addWidget( checkCombineProperties, 13, 0, 1, 5 );
 		grid->addWidget( checkRemoveBogusNodes, 14, 0, 1, 5 );
 		grid->addWidget( checkExternalGeom, 15, 0, 1, 5 );
-		grid->addWidget( checkSanitize, 16, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 17, 0, 1, 5 );
-		grid->addWidget( checkSelectFolder, 18, 0, 1, 5 );
-		grid->addWidget( new QLabel( "", &dlg ), 19, 0, 1, 5 );
-		grid->addWidget( okButton, 20, 1, 1, 1 );
-		grid->addWidget( cancelButton, 20, 3, 1, 1 );
+		grid->addWidget( checkReorderBlocks, 16, 0, 1, 5 );
+		grid->addWidget( checkSanitize, 17, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 18, 0, 1, 5 );
+		grid->addWidget( checkSelectFolder, 19, 0, 1, 5 );
+		grid->addWidget( new QLabel( "", &dlg ), 20, 0, 1, 5 );
+		grid->addWidget( okButton, 21, 1, 1, 1 );
+		grid->addWidget( cancelButton, 21, 3, 1, 1 );
 
 		QObject::connect( okButton, &QPushButton::clicked, &dlg, &QDialog::accept );
 		QObject::connect( cancelButton, &QPushButton::clicked, &dlg, &QDialog::reject );
@@ -935,6 +944,8 @@ QModelIndex spBatchProcessFiles::cast( [[maybe_unused]] NifModel * nif, const QM
 			spellMask = spellMask | spellFlagRemoveBogusNodes;
 		if ( checkExternalGeom->isChecked() )
 			spellMask = spellMask | spellFlagExternalGeom;
+		if ( checkReorderBlocks->isChecked() )
+			spellMask = spellMask | spellFlagReorderBlocks;
 		if ( checkSanitize->isChecked() )
 			spellMask = spellMask | spellFlagSanitize;
 		if ( !spellMask )
