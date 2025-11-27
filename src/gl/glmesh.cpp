@@ -666,8 +666,20 @@ QModelIndex Mesh::triangleAt( int idx ) const
 {
 	auto nif = scene->nifModel;
 	if ( nif && iData.isValid() && idx >= 0 && idx < triangles.size() ) {
-		// TODO: implement support for skin partitions
-		if ( !tristripOffsets.isEmpty() ) {
+		if ( iSkinPart.isValid() && !partitions.isEmpty() && !partitions.at( 0 ).triangles.isEmpty() ) {
+			// Triangles are on NiSkinPartition
+			for ( int i = 0; i < partitions.size(); i++ ) {
+				int n = int( partitions.at( i ).triangles.size() );
+				if ( idx < n ) {
+					auto iPart = nif->getIndex( nif->getIndex( iSkinPart, "Partitions" ), i );
+					return nif->getIndex( nif->getIndex( iPart, "Triangles" ), idx );
+				}
+				idx -= n;
+			}
+		} else if ( auto iTriangleData = nif->getIndex( iData, "Triangles" );
+					iTriangleData.isValid() && idx < nif->rowCount( iTriangleData ) ) {
+			return nif->getIndex( iTriangleData, idx );
+		} else if ( !tristripOffsets.isEmpty() ) {
 			for ( qsizetype i = 0; i < tristripOffsets.size(); i++ ) {
 				qsizetype	j = idx - tristripOffsets.at( i ).first;
 				if ( j >= 0 && j < tristripOffsets.at( i ).second ) {
@@ -693,10 +705,6 @@ QModelIndex Mesh::triangleAt( int idx ) const
 					break;
 				}
 			}
-		} else {
-			auto iTriangleData = nif->getIndex( iData, "Triangles" );
-			if ( iTriangleData.isValid() && nif->isArray( iTriangleData ) )
-				return nif->getIndex( iTriangleData, idx );
 		}
 	}
 	return QModelIndex();

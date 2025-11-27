@@ -1,6 +1,7 @@
  == CHANGELOG ==
 
 * Simplify All Shapes and Reorder Blocks have been added as new options for processing multiple NIF files.
+* Implemented triangle selection (Shift-clicking on faces) for skinned meshes in older games that use NiTriShape with skin partitions.
 * Added a new spell for selecting a different attribute of the same vertex in geometry data that uses separate arrays for each attribute.
 * Selecting vertices within a single shape now preserves the attribute selection.
 * Fixed vertices not being highlighted in vertex selection mode when a vertex attribute other than the position is selected.
