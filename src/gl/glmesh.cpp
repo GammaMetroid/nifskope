@@ -881,6 +881,8 @@ void Mesh::drawSelection() const
 		if ( iParent.isValid() && iParent != iData ) {
 			n = iParent.data( NifSkopeDisplayRole ).toString();
 			i = idx.row();
+			if ( blk == iSkinPart && n == "Strips" && !nif->isArray( idx ) )
+				n = "Points";
 		}
 	} else if ( blk == iTangentData ) {
 		n = "TSpace";
@@ -903,9 +905,8 @@ void Mesh::drawSelection() const
 	}
 
 	if ( n == "Points" ) {
-		QModelIndex points = nif->getIndex( iData, "Points" );
-
-		if ( points.isValid() ) {
+		if ( QModelIndex points = ( blk == iSkinPart ? idx.parent().parent() : nif->getIndex( iData, "Points" ) );
+				points.isValid() ) {
 			scene->setGLColor( scene->wireframeColor );
 			scene->setGLPointSize( GLView::Settings::vertexPointSize );
 			setUniforms( scene->setupProgram( "selection.prog", GL_POINTS ) );
@@ -934,6 +935,15 @@ void Mesh::drawSelection() const
 					setGLColor( scene->highlightColor );
 
 					qsizetype	k = nif->get<quint16>( iPoints, i );
+					if ( blk == iSkinPart ) {
+						if ( auto iPart = idx.parent().parent().parent();
+								iPart.isValid() && nif->get<bool>( iPart, "Has Vertex Map" ) ) {
+							auto iVertMap = nif->getIndex( iPart, "Vertex Map" );
+							if ( !( iVertMap.isValid() && k < nif->rowCount( iVertMap ) ) )
+								continue;
+							k = nif->get<quint16>( iVertMap, k );
+						}
+					}
 					if ( k < verts.size() )
 						context->fn->glDrawArrays( GL_POINTS, GLint( k ), 1 );
 				}
