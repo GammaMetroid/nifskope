@@ -226,6 +226,7 @@ HEADERS += \
 	src/qt5compat.hpp \
 	src/spellbook.h \
 	src/version.h \
+	lib/coacd.h \
 	lib/dds.h \
 	lib/dxgiformat.h \
 	lib/json.hpp \
@@ -338,7 +339,8 @@ SOURCES += \
 	lib/meshoptimizer/src/simplifier.cpp \
 	lib/meshoptimizer/src/spatialorder.cpp \
 	lib/meshoptimizer/src/stripifier.cpp \
-	lib/meshoptimizer/src/vcacheoptimizer.cpp
+	lib/meshoptimizer/src/vcacheoptimizer.cpp \
+	lib/coacd.cpp
 
 RESOURCES += \
 	res/nifskope.qrc
