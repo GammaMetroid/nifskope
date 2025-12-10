@@ -10,14 +10,17 @@
 #include "lib/nvtristripwrapper.h"
 #include "lib/qhull.h"
 
+#include <QBoxLayout>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialog>
 #include <QDoubleSpinBox>
 #include <QLabel>
-#include <QLayout>
 #include <QMap>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSettings>
+#include <QSpinBox>
 
 #include <algorithm> // std::sort
 
@@ -79,6 +82,13 @@ public:
 	static float getHavokScale( const NifModel * nif );
 	static void getShapeData( QVector<MeshData> & meshes, NifModel * nif, const Node * node, int rootNode );
 	static void createConvexShapes( QVector<MeshData> & meshes, CoACD & coacd );
+	static void addLabel( QBoxLayout * parent, const QString & l );
+	static QDoubleSpinBox * addSpinBox( QBoxLayout * parent, const QString & l,
+										double v, double minVal, double maxVal, int nDigits );
+	static QSpinBox * addSpinBox( QBoxLayout * parent, const QString & l, int v, int minVal, int maxVal );
+	static QCheckBox * addCheckBox( QBoxLayout * parent, const QString & l, bool v );
+	static QComboBox * addComboBox( QBoxLayout * parent, const QString & l, int v, const QStringList & itemList );
+	static bool settingsDialog( CoACD & coacd, float & precision, float & radius, bool & enableCoACD );
 
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
 	{
@@ -105,54 +115,13 @@ public:
 			return index;
 
 		CoACD	coacd;
-
-		// ask for precision
-		QDialog dlg;
-		QVBoxLayout * vbox = new QVBoxLayout;
-		dlg.setLayout( vbox );
-
-		vbox->addWidget( new QLabel( Spell::tr( "Enter the maximum roundoff error to use" ) ) );
-		vbox->addWidget( new QLabel( Spell::tr( "Larger values will give a less precise but better performing hull" ) ) );
-
-		QDoubleSpinBox * precSpin = new QDoubleSpinBox;
-		precSpin->setRange( 0, 5 );
-		precSpin->setDecimals( 3 );
-		precSpin->setSingleStep( 0.01 );
-		precSpin->setValue( 0.25 );
-		vbox->addWidget( precSpin );
-
-		vbox->addWidget( new QLabel( Spell::tr( "Collision Radius" ) ) );
-
-		QDoubleSpinBox * spnRadius = new QDoubleSpinBox;
-		spnRadius->setRange( 0, 0.5 );
-		spnRadius->setDecimals( 4 );
-		spnRadius->setSingleStep( 0.001 );
-		spnRadius->setValue( 0.05 );
-		vbox->addWidget( spnRadius );
-
-		// TODO: CoACD settings dialog
-		QCheckBox * chkEnableCoACD = new QCheckBox( Spell::tr( "Enable CoACD" ) );
-		vbox->addWidget( chkEnableCoACD );
-
-		QHBoxLayout * hbox = new QHBoxLayout;
-		vbox->addLayout( hbox );
-
-		QPushButton * ok = new QPushButton;
-		ok->setText( Spell::tr( "Ok" ) );
-		hbox->addWidget( ok );
-
-		QPushButton * cancel = new QPushButton;
-		cancel->setText( Spell::tr( "Cancel" ) );
-		hbox->addWidget( cancel );
-
-		QObject::connect( ok, &QPushButton::clicked, &dlg, &QDialog::accept );
-		QObject::connect( cancel, &QPushButton::clicked, &dlg, &QDialog::reject );
-
-		if ( dlg.exec() != QDialog::Accepted ) {
+		float	precision = 0.25f;
+		float	radius = 0.05f;
+		bool	enableCoACD = false;
+		if ( !settingsDialog( coacd, precision, radius, enableCoACD ) )
 			return index;
-		}
 
-		if ( chkEnableCoACD->isChecked() )
+		if ( enableCoACD )
 			createConvexShapes( meshes, coacd );
 
 		// For each shape:
@@ -165,7 +134,7 @@ public:
 			QVector<Vector4> hullVerts, hullNorms;
 
 			/* make a convex hull from it */
-			compute_convex_hull( m.verts, hullVerts, hullNorms, float( precSpin->value() ) / getHavokScale( nif ) );
+			compute_convex_hull( m.verts, hullVerts, hullNorms, precision / getHavokScale( nif ) );
 
 			// sort and remove duplicate vertices
 			QList<Vector4> sortedVerts;
@@ -216,7 +185,7 @@ public:
 
 			// radius is always 0.1?
 			// TODO: Figure out if radius is not arbitrarily set in vanilla NIFs
-			nif->set<float>( iCVS, "Radius", spnRadius->value() );
+			nif->set<float>( iCVS, "Radius", radius );
 
 			QModelIndex collisionLink = nif->getIndex( iParent, "Collision Object" );
 			QModelIndex collisionObject = nif->getBlockIndex( nif->getLink( collisionLink ) );
@@ -288,11 +257,9 @@ public:
 				rm.castIfApplicable( nif, shape );
 			}
 
-			Message::info( nullptr,
-						   Spell::tr( "Created hull with %1 vertices, %2 normals" )
-							.arg( convex_verts.count() )
-							.arg( convex_norms.count() )
-			);
+			Message::append( nullptr, Spell::tr( "Create Convex Shapes" ),
+								Spell::tr( "Created hull with %1 vertices, %2 normals" )
+								.arg( convex_verts.count() ).arg( convex_norms.count() ), QMessageBox::Information );
 		}
 
 		return rigidBody;
@@ -398,6 +365,154 @@ void spCreateCVS::createConvexShapes( QVector<MeshData> & meshes, CoACD & coacd 
 			tp = tp + 3;
 		}
 	}
+}
+
+void spCreateCVS::addLabel( QBoxLayout * parent, const QString & l )
+{
+	parent->addWidget( new QLabel( l ) );
+}
+
+QDoubleSpinBox * spCreateCVS::addSpinBox( QBoxLayout * parent, const QString & l,
+											double v, double minVal, double maxVal, int nDigits )
+{
+	QDoubleSpinBox *	o = new QDoubleSpinBox;
+	o->setRange( minVal, maxVal );
+	o->setDecimals( nDigits );
+	o->setSingleStep( std::pow( 10.0, double( 1 - nDigits ) ) );
+	o->setValue( v );
+	parent->addWidget( new QLabel( l ) );
+	parent->addWidget( o );
+	return o;
+}
+
+QSpinBox * spCreateCVS::addSpinBox( QBoxLayout * parent, const QString & l, int v, int minVal, int maxVal )
+{
+	QHBoxLayout *	hbox = new QHBoxLayout;
+	parent->addLayout( hbox );
+	QSpinBox *	o = new QSpinBox;
+	o->setRange( minVal, maxVal );
+	o->setSingleStep( 1 );
+	o->setValue( v );
+	hbox->addWidget( new QLabel( l ) );
+	hbox->addWidget( o );
+	return o;
+}
+
+QCheckBox * spCreateCVS::addCheckBox( QBoxLayout * parent, const QString & l, bool v )
+{
+	QCheckBox *	o = new QCheckBox( l );
+	o->setChecked( v );
+	parent->addWidget( o );
+	return o;
+}
+
+QComboBox * spCreateCVS::addComboBox( QBoxLayout * parent, const QString & l, int v, const QStringList & itemList )
+{
+	QHBoxLayout *	hbox = new QHBoxLayout;
+	parent->addLayout( hbox );
+	QComboBox *	o = new QComboBox;
+	o->addItems( itemList );
+	o->setCurrentIndex( v );
+	hbox->addWidget( new QLabel( l ) );
+	hbox->addWidget( o );
+	return o;
+}
+
+bool spCreateCVS::settingsDialog( CoACD & coacd, float & precision, float & radius, bool & enableCoACD )
+{
+	{
+		QSettings	settings;
+		settings.beginGroup( "Spells/Havok/Create Convex Shapes" );
+		precision = settings.value( "Precision", 0.25f ).toFloat();
+		radius = settings.value( "Radius", 0.05f ).toFloat();
+		enableCoACD = settings.value( "Enable CoACD", false ).toBool();
+		coacd.loadSettings( settings );
+		settings.endGroup();
+	}
+
+	// ask for precision
+	QDialog dlg;
+	QVBoxLayout * vbox = new QVBoxLayout;
+	dlg.setLayout( vbox );
+
+	addLabel( vbox, Spell::tr( "Enter the maximum roundoff error to use (in NIF units)" ) );
+	auto precSpin = addSpinBox( vbox, Spell::tr( "Larger values will give a less precise but better performing hull" ),
+								precision, 0.0, 5.0, 3 );
+
+	auto spnRadius = addSpinBox( vbox, Spell::tr( "Collision Radius (in Havok units)" ), radius, 0.0, 0.5, 4 );
+
+	addLabel( vbox, QString() );
+
+	auto chkEnableCoACD = addCheckBox( vbox, Spell::tr( "Enable CoACD" ), enableCoACD );
+
+	auto spnThreshold = addSpinBox( vbox, Spell::tr( "Threshold" ), coacd.threshold, 0.01, 1.0, 3 );
+	auto spnMaxConvexHull = addSpinBox( vbox, Spell::tr( "Max Convex Hull" ), coacd.maxConvexHull, -1, 256 );
+	auto chkPreprocessMode = addComboBox( vbox, Spell::tr( "Preprocess Mode" ), coacd.preprocessMode,
+											{ Spell::tr( "Auto" ), Spell::tr( "On" ), Spell::tr( "Off" ) } );
+	auto spnPrepResolution = addSpinBox( vbox, Spell::tr( "Preprocess Resolution" ), coacd.prepResolution, 10, 1000 );
+	auto spnSampleResolution = addSpinBox( vbox, Spell::tr( "Sample Resolution" ), coacd.sampleResolution, 100, 20000 );
+	auto spnMCTSNodes = addSpinBox( vbox, Spell::tr( "MCTS Nodes" ), coacd.mctsNodes, 5, 100 );
+	auto spnMCTSIteration = addSpinBox( vbox, Spell::tr( "MCTS Iteration" ), coacd.mctsIteration, 10, 1000 );
+	auto spnMCTSMaxDepth = addSpinBox( vbox, Spell::tr( "MCTS Max Depth" ), coacd.mctsMaxDepth, 1, 5 );
+	auto chkPCA = addCheckBox( vbox, Spell::tr( "Use PCA" ), coacd.pca );
+	auto spnMaxCHVertex = addSpinBox( vbox, Spell::tr( "Max Convex Hull Vertex" ), coacd.maxCHVertex, -1, 4096 );
+	auto spnExtrudeMargin = addSpinBox( vbox, Spell::tr( "Extrude Margin (in Havok units)" ), coacd.extrudeMargin,
+										0.0, 1.0, 4 );
+	auto chkApxMode = addComboBox( vbox, Spell::tr( "Approximation Mode" ), coacd.apxMode,
+									{ Spell::tr( "Convex Hull" ), Spell::tr( "Box" ) } );
+	auto spnSeed = addSpinBox( vbox, Spell::tr( "Random Seed" ), coacd.seed, 0, 0x7FFFFFFF );
+
+	addLabel( vbox, QString() );
+
+	QHBoxLayout * hbox = new QHBoxLayout;
+	vbox->addLayout( hbox );
+
+	QPushButton * ok = new QPushButton;
+	ok->setText( Spell::tr( "Ok" ) );
+	hbox->addWidget( ok );
+
+	QPushButton * cancel = new QPushButton;
+	cancel->setText( Spell::tr( "Cancel" ) );
+	hbox->addWidget( cancel );
+
+	QObject::connect( ok, &QPushButton::clicked, &dlg, &QDialog::accept );
+	QObject::connect( cancel, &QPushButton::clicked, &dlg, &QDialog::reject );
+
+	if ( dlg.exec() != QDialog::Accepted ) {
+		return false;
+	}
+
+	precision = float( precSpin->value() );
+	radius = float( spnRadius->value() );
+	enableCoACD = chkEnableCoACD->isChecked();
+
+	QSettings	settings;
+	settings.beginGroup( "Spells/Havok/Create Convex Shapes" );
+	settings.setValue( "Precision", QVariant( precision ) );
+	settings.setValue( "Radius", QVariant( radius ) );
+	settings.setValue( "Enable CoACD", QVariant( enableCoACD ) );
+	if ( enableCoACD ) {
+		coacd.threshold = float( spnThreshold->value() );
+		coacd.maxConvexHull = spnMaxConvexHull->value();
+		coacd.preprocessMode = chkPreprocessMode->currentIndex();
+		coacd.prepResolution = spnPrepResolution->value();
+		coacd.sampleResolution = spnSampleResolution->value();
+		coacd.mctsNodes = spnMCTSNodes->value();
+		coacd.mctsIteration = spnMCTSIteration->value();
+		coacd.mctsMaxDepth = spnMCTSMaxDepth->value();
+		coacd.pca = chkPCA->isChecked();
+		coacd.merge = ( coacd.maxConvexHull > 0 );
+		coacd.maxCHVertex = spnMaxCHVertex->value();
+		coacd.decimate = ( coacd.maxCHVertex > 0 );
+		coacd.extrudeMargin = float( spnExtrudeMargin->value() );
+		coacd.extrude = ( coacd.extrudeMargin >= 0.00005f );
+		coacd.apxMode = chkApxMode->currentIndex();
+		coacd.seed = spnSeed->value();
+		coacd.saveSettings( settings );
+	}
+	settings.endGroup();
+
+	return true;
 }
 
 REGISTER_SPELL( spCreateCVS )

@@ -5,6 +5,8 @@
 #include <vector>
 #include <array>
 
+class QSettings;
+
 class CoACD
 {
 public:
@@ -17,11 +19,11 @@ public:
 	int		mctsIteration = 150;
 	int		mctsMaxDepth = 3;
 	bool	pca = false;
-	bool	merge = true;
-	bool	decimate = false;
+	bool	merge = false;
+	bool	decimate = true;
 	int		maxCHVertex = 256;
 	bool	extrude = false;
-	float	extrudeMargin = 0.01f;
+	float	extrudeMargin = 0.0f;
 	int		apxMode = 0;			// 0 = ch, 1 = box
 	int		seed = 0;
 
@@ -31,8 +33,8 @@ public:
 	};
 
 	std::vector< Mesh > processMesh( const Mesh & m );
-	void loadSettings();
-	void saveSettings();
+	void loadSettings( QSettings & settings );
+	void saveSettings( QSettings & settings );
 
 	// CoACD C library interface
 
