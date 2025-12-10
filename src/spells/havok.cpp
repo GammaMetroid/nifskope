@@ -1,11 +1,16 @@
 #include "spellbook.h"
 
+#include "gl/glshape.h"
 #include "gl/gltools.h"
+#include "glview.h"
+#include "nifskope.h"
 #include "spells/blocks.h"
 
+#include "lib/coacd.h"
 #include "lib/nvtristripwrapper.h"
 #include "lib/qhull.h"
 
+#include <QCheckBox>
 #include <QDialog>
 #include <QDoubleSpinBox>
 #include <QLabel>
@@ -24,72 +29,82 @@
  */
 
 //! For Havok coordinate transforms
-static const float havokConst = 7.0;
+static const float havokConst = 7.0f;
 
 //! Creates a convex hull using Qhull
 class spCreateCVS final : public Spell
 {
 public:
-	QString name() const override final { return Spell::tr( "Create Convex Shape" ); }
+	QString name() const override final { return Spell::tr( "Create Convex Shapes" ); }
 	QString page() const override final { return Spell::tr( "Havok" ); }
+
+	static bool hasGeometryData( const Node * node )
+	{
+		if ( !node )
+			return false;
+		if ( const Shape * s = dynamic_cast< const Shape * >( node ); s )
+			return !( s->verts.isEmpty() || s->triangles.isEmpty() );
+		const auto &	c = node->getChildren().list();
+		for ( auto n : c ) {
+			if ( hasGeometryData( n ) )
+				return true;
+		}
+		return false;
+	}
 
 	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
 	{
-		if ( !(nif->blockInherits( index, "NiTriBasedGeom" ) || nif->blockInherits( index, "BSTriShape" ))
-			 || !nif->getBSVersion() )
+		if ( !( nif && nif->getBSVersion() > 0 && index.isValid() ) )
 			return false;
-
-		QModelIndex iData = nif->getBlockIndex( nif->getLink( index, "Data" ) );
-		if ( !iData.isValid() && nif->getIndex( index, "Vertex Data" ).isValid() )
-			iData = index;
-
-		return iData.isValid() && nif->get<int>( iData, "Num Vertices" ) > 0;
+		if ( !nif->blockInherits( index, { "BSGeometry", "BSTriShape", "NiNode", "NiTriBasedGeom" } ) )
+			return false;
+		Scene * scene = nullptr;
+		if ( NifSkope * w = dynamic_cast< NifSkope * >( const_cast< NifModel * >( nif )->getWindow() ); w ) {
+			if ( GLView * ogl = w->getGLView(); ogl )
+				scene = ogl->getScene();
+		}
+		if ( !scene && scene->renderer )
+			return false;
+		QModelIndex iBlock = nif->getBlockIndex( index );
+		if ( auto node = scene->getNode( nif, iBlock ); node )
+			return hasGeometryData( node );
+		return false;
 	}
+
+	struct MeshData {
+		QVector<Vector3> verts;
+		QVector<quint32> indices;
+	};
+
+	static float getHavokScale( const NifModel * nif );
+	static void getShapeData( QVector<MeshData> & meshes, NifModel * nif, const Node * node, int rootNode );
+	static void createConvexShapes( QVector<MeshData> & meshes, CoACD & coacd );
 
 	QModelIndex cast( NifModel * nif, const QModelIndex & index ) override final
 	{
-		QModelIndex iData = nif->getBlockIndex( nif->getLink( index, "Data" ) );
-		if ( !iData.isValid() )
-			iData = nif->getIndex( index, "Vertex Data" );
-
-		if ( !iData.isValid() )
+		QModelIndex	iBlock = nif->getBlockIndex( index );
+		QModelIndex	iParent = iBlock;
+		if ( !nif->blockInherits( iParent, "NiNode" ) ) {
+			iParent = iBlock.parent();
+			if ( !( iParent.isValid() && nif->blockInherits( iParent, "NiNode" ) ) )
+				return index;
+		}
+		QVector<MeshData>	meshes;
+		{
+			Scene * scene = nullptr;
+			if ( NifSkope * w = dynamic_cast< NifSkope * >( nif->getWindow() ); w ) {
+				if ( GLView * ogl = w->getGLView(); ogl )
+					scene = ogl->getScene();
+			}
+			if ( !scene && scene->renderer )
+				return index;
+			if ( auto node = scene->getNode( nif, iBlock ); node )
+				getShapeData( meshes, nif, node, nif->getBlockNumber( iParent ) );
+		}
+		if ( meshes.isEmpty() || ( meshes.constFirst().verts.isEmpty() || meshes.constFirst().indices.isEmpty() ) )
 			return index;
 
-		float havokScale = (nif->checkVersion( 0x14020007, 0x14020007 ) && nif->getUserVersion() >= 12) ? 10.0f : 1.0f;
-
-		havokScale *= havokConst;
-
-		/* those will be filled with the CVS data */
-		QVector<Vector4> convex_verts, convex_norms;
-
-		/* get the verts of our mesh */
-		QVector<Vector3> verts = nif->getArray<Vector3>( iData, "Vertices" );
-		QVector<Vector3> vertsTrans;
-
-		if ( nif->getBSVersion() < 100 ) {
-			verts = nif->getArray<Vector3>( iData, "Vertices" );
-		} else {
-			int numVerts = nif->get<int>( index, "Num Vertices" );
-			verts.reserve( numVerts );
-			for ( int i = 0; i < numVerts; i++ )
-				verts += nif->get<Vector3>( nif->index( i, 0, iData ), "Vertex" );
-		}
-
-		// Offset by translation of NiTriShape
-		Vector3 trans = nif->get<Vector3>( index, "Translation" );
-		Matrix rot = nif->get<Matrix>( index, "Rotation" );
-		float scale = nif->get<float>( index, "Scale" );
-		Transform transform;
-		transform.translation = trans;
-		transform.rotation = rot;
-		transform.scale = scale;
-
-		for ( auto v : verts ) {
-			vertsTrans.append( transform * v );
-		}
-
-		// to store results
-		QVector<Vector4> hullVerts, hullNorms;
+		CoACD	coacd;
 
 		// ask for precision
 		QDialog dlg;
@@ -115,6 +130,10 @@ public:
 		spnRadius->setValue( 0.05 );
 		vbox->addWidget( spnRadius );
 
+		// TODO: CoACD settings dialog
+		QCheckBox * chkEnableCoACD = new QCheckBox( Spell::tr( "Enable CoACD" ) );
+		vbox->addWidget( chkEnableCoACD );
+
 		QHBoxLayout * hbox = new QHBoxLayout;
 		vbox->addLayout( hbox );
 
@@ -133,138 +152,256 @@ public:
 			return index;
 		}
 
-		/* make a convex hull from it */
-		compute_convex_hull( vertsTrans, hullVerts, hullNorms, (float)precSpin->value() );
+		if ( chkEnableCoACD->isChecked() )
+			createConvexShapes( meshes, coacd );
 
-		// sort and remove duplicate vertices
-		QList<Vector4> sortedVerts;
-		for ( Vector4 vert : hullVerts ) {
-			vert /= havokScale;
+		// For each shape:
+		QModelIndex	rigidBody = index;
+		for ( const MeshData & m : meshes ) {
+			/* those will be filled with the CVS data */
+			QVector<Vector4> convex_verts, convex_norms;
 
-			if ( !sortedVerts.contains( vert ) ) {
-				sortedVerts.append( vert );
+			// to store results
+			QVector<Vector4> hullVerts, hullNorms;
+
+			/* make a convex hull from it */
+			compute_convex_hull( m.verts, hullVerts, hullNorms, float( precSpin->value() ) / getHavokScale( nif ) );
+
+			// sort and remove duplicate vertices
+			QList<Vector4> sortedVerts;
+			for ( Vector4 vert : hullVerts ) {
+				if ( !sortedVerts.contains( vert ) ) {
+					sortedVerts.append( vert );
+				}
 			}
-		}
-		std::sort( sortedVerts.begin(), sortedVerts.end(), Vector4::lexLessThan );
-		QListIterator<Vector4> vertIter( sortedVerts );
+			if ( sortedVerts.size() < 4 )
+				continue;
+			std::sort( sortedVerts.begin(), sortedVerts.end(), Vector4::lexLessThan );
+			QListIterator<Vector4> vertIter( sortedVerts );
 
-		while ( vertIter.hasNext() ) {
-			Vector4 sorted = vertIter.next();
-			convex_verts.append( sorted );
-		}
-
-		// sort and remove duplicate normals
-		QList<Vector4> sortedNorms;
-		for ( Vector4 norm : hullNorms ) {
-			norm = Vector4( Vector3( norm ), norm[3] / havokScale );
-
-			if ( !sortedNorms.contains( norm ) ) {
-				sortedNorms.append( norm );
-			}
-		}
-		std::sort( sortedNorms.begin(), sortedNorms.end(), Vector4::lexLessThan );
-		QListIterator<Vector4> normIter( sortedNorms );
-
-		while ( normIter.hasNext() ) {
-			Vector4 sorted = normIter.next();
-			convex_norms.append( sorted );
-		}
-
-		/* create the CVS block */
-		QModelIndex iCVS = nif->insertNiBlock( "bhkConvexVerticesShape" );
-
-		/* set CVS verts */
-		nif->set<uint>( iCVS, "Num Vertices", convex_verts.count() );
-		nif->updateArraySize( iCVS, "Vertices" );
-		nif->setArray<Vector4>( iCVS, "Vertices", convex_verts );
-
-		/* set CVS norms */
-		nif->set<uint>( iCVS, "Num Normals", convex_norms.count() );
-		nif->updateArraySize( iCVS, "Normals" );
-		nif->setArray<Vector4>( iCVS, "Normals", convex_norms );
-
-		// radius is always 0.1?
-		// TODO: Figure out if radius is not arbitrarily set in vanilla NIFs
-		nif->set<float>( iCVS, "Radius", spnRadius->value() );
-
-		QModelIndex iParent = nif->getBlockIndex( nif->getParent( nif->getBlockNumber( index ) ) );
-		QModelIndex collisionLink = nif->getIndex( iParent, "Collision Object" );
-		QModelIndex collisionObject = nif->getBlockIndex( nif->getLink( collisionLink ) );
-
-		// create bhkCollisionObject
-		if ( !collisionObject.isValid() ) {
-			collisionObject = nif->insertNiBlock( "bhkCollisionObject" );
-
-			nif->setLink( collisionLink, nif->getBlockNumber( collisionObject ) );
-			nif->setLink( collisionObject, "Target", nif->getBlockNumber( iParent ) );
-		}
-
-		QModelIndex rigidBodyLink = nif->getIndex( collisionObject, "Body" );
-		QModelIndex rigidBody = nif->getBlockIndex( nif->getLink( rigidBodyLink ) );
-
-		// create bhkRigidBody
-		if ( !rigidBody.isValid() ) {
-			rigidBody = nif->insertNiBlock( "bhkRigidBody" );
-
-			nif->setLink( rigidBodyLink, nif->getBlockNumber( rigidBody ) );
-		}
-
-		QPersistentModelIndex shapeLink = nif->getIndex( rigidBody, "Shape" );
-		QPersistentModelIndex shape = nif->getBlockIndex( nif->getLink( shapeLink ) );
-
-		QVector<qint32> shapeLinks;
-		bool replace = true;
-		if ( shape.isValid() ) {
-			shapeLinks = { nif->getBlockNumber( shape ) };
-
-			QString questionTitle = tr( "Create List Shape" );
-			QString questionBody = tr( "This collision object already has a shape. Combine into a list shape? 'No' will replace the shape." );
-
-			bool isListShape = false;
-			if ( nif->blockInherits( shape, "bhkListShape" ) ) {
-				isListShape = true;
-				questionTitle = tr( "Add to List Shape" );
-				questionBody = tr( "This collision object already has a list shape. Add to list shape? 'No' will replace the list shape." );
-				shapeLinks = nif->getLinkArray( shape, "Sub Shapes" );
+			while ( vertIter.hasNext() ) {
+				Vector4 sorted = vertIter.next();
+				convex_verts.append( sorted );
 			}
 
-			int response = QMessageBox::question( nullptr, questionTitle, questionBody,	QMessageBox::Yes, QMessageBox::No );
-			if ( response == QMessageBox::Yes ) {
-				QModelIndex iListShape = shape;
-				if ( !isListShape ) {
-					iListShape = nif->insertNiBlock( "bhkListShape" );
-					nif->setLink( shapeLink, nif->getBlockNumber( iListShape ) );
+			// sort and remove duplicate normals
+			QList<Vector4> sortedNorms;
+			for ( Vector4 norm : hullNorms ) {
+				norm = Vector4( Vector3( norm ), norm[3] );
+
+				if ( !sortedNorms.contains( norm ) ) {
+					sortedNorms.append( norm );
+				}
+			}
+			std::sort( sortedNorms.begin(), sortedNorms.end(), Vector4::lexLessThan );
+			QListIterator<Vector4> normIter( sortedNorms );
+
+			while ( normIter.hasNext() ) {
+				Vector4 sorted = normIter.next();
+				convex_norms.append( sorted );
+			}
+
+			/* create the CVS block */
+			QModelIndex iCVS = nif->insertNiBlock( "bhkConvexVerticesShape" );
+
+			/* set CVS verts */
+			nif->set<uint>( iCVS, "Num Vertices", convex_verts.count() );
+			nif->updateArraySize( iCVS, "Vertices" );
+			nif->setArray<Vector4>( iCVS, "Vertices", convex_verts );
+
+			/* set CVS norms */
+			nif->set<uint>( iCVS, "Num Normals", convex_norms.count() );
+			nif->updateArraySize( iCVS, "Normals" );
+			nif->setArray<Vector4>( iCVS, "Normals", convex_norms );
+
+			// radius is always 0.1?
+			// TODO: Figure out if radius is not arbitrarily set in vanilla NIFs
+			nif->set<float>( iCVS, "Radius", spnRadius->value() );
+
+			QModelIndex collisionLink = nif->getIndex( iParent, "Collision Object" );
+			QModelIndex collisionObject = nif->getBlockIndex( nif->getLink( collisionLink ) );
+
+			// create bhkCollisionObject
+			if ( !collisionObject.isValid() ) {
+				collisionObject = nif->insertNiBlock( "bhkCollisionObject" );
+
+				nif->setLink( collisionLink, nif->getBlockNumber( collisionObject ) );
+				nif->setLink( collisionObject, "Target", nif->getBlockNumber( iParent ) );
+			}
+
+			QModelIndex rigidBodyLink = nif->getIndex( collisionObject, "Body" );
+			rigidBody = nif->getBlockIndex( nif->getLink( rigidBodyLink ) );
+
+			// create bhkRigidBody
+			if ( !rigidBody.isValid() ) {
+				rigidBody = nif->insertNiBlock( "bhkRigidBody" );
+
+				nif->setLink( rigidBodyLink, nif->getBlockNumber( rigidBody ) );
+			}
+
+			QPersistentModelIndex shapeLink = nif->getIndex( rigidBody, "Shape" );
+			QPersistentModelIndex shape = nif->getBlockIndex( nif->getLink( shapeLink ) );
+
+			QVector<qint32> shapeLinks;
+			bool replace = true;
+			if ( shape.isValid() ) {
+				shapeLinks = { nif->getBlockNumber( shape ) };
+
+				QString questionTitle = tr( "Create List Shape" );
+				QString questionBody = tr( "This collision object already has a shape. Combine into a list shape? 'No' will replace the shape." );
+
+				bool isListShape = false;
+				if ( nif->blockInherits( shape, "bhkListShape" ) ) {
+					isListShape = true;
+					questionTitle = tr( "Add to List Shape" );
+					questionBody = tr( "This collision object already has a list shape. Add to list shape? 'No' will replace the list shape." );
+					shapeLinks = nif->getLinkArray( shape, "Sub Shapes" );
 				}
 
-				shapeLinks << nif->getBlockNumber( iCVS );
-				nif->set<uint>( iListShape, "Num Sub Shapes", shapeLinks.size() );
-				nif->updateArraySize( iListShape, "Sub Shapes" );
-				nif->setLinkArray( iListShape, "Sub Shapes", shapeLinks );
-				nif->set<uint>( iListShape, "Num Filters", shapeLinks.size() );
-				nif->updateArraySize( iListShape, "Filters" );
-				replace = false;
+				int response = QMessageBox::Yes;
+				if ( meshes.size() < 2 ) {
+					response = QMessageBox::question( nullptr, questionTitle, questionBody,
+														QMessageBox::Yes, QMessageBox::No );
+				}
+				if ( response == QMessageBox::Yes ) {
+					QModelIndex iListShape = shape;
+					if ( !isListShape ) {
+						iListShape = nif->insertNiBlock( "bhkListShape" );
+						nif->setLink( shapeLink, nif->getBlockNumber( iListShape ) );
+					}
+
+					shapeLinks << nif->getBlockNumber( iCVS );
+					nif->set<uint>( iListShape, "Num Sub Shapes", shapeLinks.size() );
+					nif->updateArraySize( iListShape, "Sub Shapes" );
+					nif->setLinkArray( iListShape, "Sub Shapes", shapeLinks );
+					nif->set<uint>( iListShape, "Num Filters", shapeLinks.size() );
+					nif->updateArraySize( iListShape, "Filters" );
+					replace = false;
+				}
 			}
+
+			if ( replace ) {
+				// Replace link
+				nif->setLink( shapeLink, nif->getBlockNumber( iCVS ) );
+				// Remove all old shapes
+				spRemoveBranch rm;
+				rm.castIfApplicable( nif, shape );
+			}
+
+			Message::info( nullptr,
+						   Spell::tr( "Created hull with %1 vertices, %2 normals" )
+							.arg( convex_verts.count() )
+							.arg( convex_norms.count() )
+			);
 		}
 
-		if ( replace ) {
-			// Replace link
-			nif->setLink( shapeLink, nif->getBlockNumber( iCVS ) );
-			// Remove all old shapes
-			spRemoveBranch rm;
-			rm.castIfApplicable( nif, shape );
-		}
-
-		Message::info( nullptr,
-					   Spell::tr( "Created hull with %1 vertices, %2 normals" )
-						.arg( convex_verts.count() )
-						.arg( convex_norms.count() )
-		);
-
-		return (iCVS.isValid()) ? iCVS : rigidBody;
+		return rigidBody;
 	}
 };
 
+float spCreateCVS::getHavokScale( const NifModel * nif )
+{
+	if ( nif->getBSVersion() >= 170 )
+		return 1.0f;
+	if ( nif->checkVersion( 0x14020007, 0x14020007 ) && nif->getUserVersion() >= 12 )
+		return havokConst * 10.0f;
+	return havokConst;
+}
+
+void spCreateCVS::getShapeData( QVector<MeshData> & meshes, NifModel * nif, const Node * node, int rootNode )
+{
+	if ( !node )
+		return;
+	const Shape *	s = dynamic_cast< const Shape * >( node );
+	if ( !s ) {
+		const auto &	c = node->getChildren().list();
+		for ( auto n : c )
+			getShapeData( meshes, nif, n, rootNode );
+		return;
+	}
+
+	if ( s->verts.isEmpty() || s->triangles.isEmpty() )
+		return;
+
+	if ( meshes.isEmpty() )
+		meshes.resize( 1 );
+	MeshData &	m = meshes.last();
+	qsizetype	vertexOffs = m.verts.size();
+	qsizetype	indicesOffs = m.indices.size();
+	m.verts.resize( vertexOffs + s->verts.size() );
+	const Transform &	trans = s->localTrans( rootNode );
+	Vector3 *	vp = m.verts.data() + vertexOffs;
+	float	havokScale = getHavokScale( nif );
+	for ( const Vector3 & v : s->verts ) {
+		*vp = trans * v / havokScale;
+		vp++;
+	}
+	m.indices.resize( indicesOffs + ( s->triangles.size() * 3 ) );
+	quint32 *	tp = m.indices.data() + indicesOffs;
+	for ( const Triangle & t : s->triangles ) {
+		tp[0] = quint32( vertexOffs ) + t[0];
+		tp[1] = quint32( vertexOffs ) + t[1];
+		tp[2] = quint32( vertexOffs ) + t[2];
+		tp = tp + 3;
+	}
+}
+
+void spCreateCVS::createConvexShapes( QVector<MeshData> & meshes, CoACD & coacd )
+{
+	if ( meshes.isEmpty() )
+		return;
+	const MeshData &	m = meshes.constFirst();
+	if ( m.verts.isEmpty() || m.indices.isEmpty() )
+		return;
+
+	CoACD::Mesh	coacdInput;
+	qsizetype	numVerts = m.verts.size();
+	qsizetype	numIndices = m.indices.size();
+	qsizetype	numTriangles = numIndices / 3;
+	coacdInput.vertices.resize( size_t( numVerts ) );
+	coacdInput.indices.resize( size_t( numTriangles ) );
+	for ( qsizetype i = 0; i < numVerts; i++ ) {
+		coacdInput.vertices[i][0] = m.verts.at( i )[0];
+		coacdInput.vertices[i][1] = m.verts.at( i )[1];
+		coacdInput.vertices[i][2] = m.verts.at( i )[2];
+	}
+	for ( qsizetype i = 0; i < numTriangles; i++ ) {
+		coacdInput.indices[i][0] = int( m.indices.at( i * 3 ) );
+		coacdInput.indices[i][1] = int( m.indices.at( i * 3 + 1 ) );
+		coacdInput.indices[i][2] = int( m.indices.at( i * 3 + 2 ) );
+	}
+
+	std::vector< CoACD::Mesh >	coacdOutput = coacd.processMesh( coacdInput );
+	if ( coacdOutput.empty() )
+		return;
+
+	meshes.clear();
+	meshes.resize( qsizetype( coacdOutput.size() ) );
+	for ( size_t j = 0; j < coacdOutput.size(); j++ ) {
+		const CoACD::Mesh &	o = coacdOutput[j];
+		MeshData &	p = meshes[j];
+		numVerts = qsizetype( o.vertices.size() );
+		numTriangles = qsizetype( o.indices.size() );
+		numIndices = numTriangles * 3;
+		p.verts.resize( numVerts );
+		p.indices.resize( numIndices );
+		Vector3 *	vp = p.verts.data();
+		for ( qsizetype i = 0; i < numVerts; i++ ) {
+			*vp = Vector3( float( o.vertices[i][0] ), float( o.vertices[i][1] ), float( o.vertices[i][2] ) );
+			vp++;
+		}
+		quint32 *	tp = p.indices.data();
+		for ( qsizetype i = 0; i < numTriangles; i++ ) {
+			tp[0] = quint32( o.indices[i][0] );
+			tp[1] = quint32( o.indices[i][1] );
+			tp[2] = quint32( o.indices[i][2] );
+			tp = tp + 3;
+		}
+	}
+}
+
 REGISTER_SPELL( spCreateCVS )
+
 
 //! Transforms Havok constraints
 class spConstraintHelper final : public Spell
