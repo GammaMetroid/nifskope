@@ -51,6 +51,7 @@ class Shape : public Node
 	friend class UVController;
 	friend class Renderer;
 	friend class GltfStore;
+	friend class spCreateCVS;
 
 public:
 	Shape( Scene * s, const QModelIndex & b );
