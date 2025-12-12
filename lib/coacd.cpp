@@ -1,6 +1,9 @@
 #include "coacd.h"
 
+#include <QCoreApplication>
+#include <QDir>
 #include <QLibrary>
+#include <QMessageBox>
 #include <QSettings>
 #include <QString>
 #include <cstdlib>
@@ -12,10 +15,17 @@ std::vector< CoACD::Mesh > CoACD::processMesh( const Mesh & m )
 
 #ifdef Q_OS_WIN32
 	QLibrary	coacdLib( QLatin1StringView("lib_coacd") );
+	coacdLib.load();
 #else
-	QLibrary	coacdLib( QLatin1StringView("_coacd") );
+	QLibrary	coacdLib( QDir( QCoreApplication::applicationDirPath() ).filePath( QLatin1StringView("lib_coacd") ) );
+	if ( !coacdLib.load() ) {
+		coacdLib.setFileName( QLatin1StringView("_coacd") );
+		coacdLib.load();
+	}
 #endif
-	if ( coacdLib.load() && !( m.vertices.empty() || m.indices.empty() ) ) {
+	if ( !coacdLib.isLoaded() ) {
+		QMessageBox::critical( nullptr, "NifSkope error", QLatin1StringView( "Failed to load CoACD library" ) );
+	} else if ( !( m.vertices.empty() || m.indices.empty() ) ) {
 		fnSetLogLevel	setLogLevel = fnSetLogLevel( coacdLib.resolve( "CoACD_setLogLevel" ) );
 		fnRun	coacdRun = fnRun( coacdLib.resolve( "CoACD_run" ) );
 		fnFreeMeshArray	freeMeshArray = fnFreeMeshArray( coacdLib.resolve( "CoACD_freeMeshArray" ) );
