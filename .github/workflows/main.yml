@@ -126,13 +126,17 @@ jobs:
         msystem: CLANG64
         update: true
         cache: true
-        install: 'base-devel mingw-w64-clang-x86_64-gcc msys/p7zip mingw-w64-clang-x86_64-qt6-base mingw-w64-clang-x86_64-qt6-imageformats mingw-w64-clang-x86_64-qt6-tools'
+        install: 'base-devel mingw-w64-clang-x86_64-gcc msys/p7zip mingw-w64-clang-x86_64-qt6-base mingw-w64-clang-x86_64-qt6-imageformats mingw-w64-clang-x86_64-qt6-tools wget'
 
     - name: 'Build with qmake'
       shell: msys2 {0}
       run: |
         qmake6 NifSkope.pro
         make -j 8
+        wget https://github.com/SarahWeiii/CoACD/releases/download/1.0.7/coacd-1.0.7-cp39-abi3-win_amd64.whl
+        7za x coacd-1.0.7-cp39-abi3-win_amd64.whl coacd/lib_coacd.dll coacd-1.0.7.dist-info/licenses/LICENSE
+        mv -f coacd/lib_coacd.dll release
+        mv -f coacd-1.0.7.dist-info/licenses/LICENSE release/LICENSE.CoACD
 
     - name: 'Upload Artifacts'
       uses: actions/upload-artifact@v4
