@@ -17,7 +17,7 @@ std::vector< CoACD::Mesh > CoACD::processMesh( const Mesh & m )
 	QLibrary	coacdLib( QLatin1StringView("lib_coacd") );
 	coacdLib.load();
 #else
-	QLibrary	coacdLib( QDir( QCoreApplication::applicationDirPath() ).filePath( QLatin1StringView("lib_coacd") ) );
+	QLibrary	coacdLib( QDir( QCoreApplication::applicationDirPath() ).filePath( QLatin1StringView("coacd/lib_coacd") ) );
 	if ( !coacdLib.load() ) {
 		coacdLib.setFileName( QLatin1StringView("_coacd") );
 		coacdLib.load();
