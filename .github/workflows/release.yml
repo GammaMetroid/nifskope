@@ -83,9 +83,9 @@ jobs:
         qmake6 NifSkope.pro
         make -j 8
         chmod -f 0755 release release/NifSkope release/NifSkope_noavx release/NifSkope_noavx2
-        curl --follow -O https://github.com/SarahWeiii/CoACD/releases/download/1.0.7/coacd-1.0.7-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+        curl --location -O https://github.com/SarahWeiii/CoACD/releases/download/1.0.7/coacd-1.0.7-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
         7za x coacd-1.0.7-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-        curl --follow -O https://github.com/fo76utils/NifMopp/releases/download/1.0/NifMopp.zip
+        curl --location -O https://github.com/fo76utils/NifMopp/releases/download/1.0/NifMopp.zip
         7za x NifMopp.zip
         chmod 0755 NifMopp.exe
         mkdir release/coacd
@@ -127,9 +127,9 @@ jobs:
 
     - name: 'Create DMG image'
       run: |
-        curl --follow -O https://github.com/SarahWeiii/CoACD/releases/download/1.0.7/coacd-1.0.7-cp39-abi3-macosx_11_0_x86_64.whl
+        curl --location -O https://github.com/SarahWeiii/CoACD/releases/download/1.0.7/coacd-1.0.7-cp39-abi3-macosx_11_0_x86_64.whl
         7za x coacd-1.0.7-cp39-abi3-macosx_11_0_x86_64.whl
-        curl --follow -O https://github.com/fo76utils/NifMopp/releases/download/1.0/NifMopp.zip
+        curl --location -O https://github.com/fo76utils/NifMopp/releases/download/1.0/NifMopp.zip
         7za x NifMopp.zip
         mkdir release/coacd
         mv coacd/lib_coacd.dylib coacd-1.0.7.dist-info/licenses/LICENSE release/coacd
