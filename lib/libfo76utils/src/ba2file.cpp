@@ -505,6 +505,7 @@ void BA2File::loadArchivesFromDir(const char *pathName, size_t prefixLen)
 #  else
         fullName.resize(dirName.length());
         fullName += f.baseName;
+        struct stat st;
         if (stat(fullName.c_str(), &st) != 0)
           continue;
         f.fileSize = std::int64_t(st.st_size);
