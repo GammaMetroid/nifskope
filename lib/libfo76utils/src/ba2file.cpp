@@ -472,6 +472,9 @@ void BA2File::loadArchivesFromDir(const char *pathName, size_t prefixLen)
       f.baseName = e.name;
 #else
     struct dirent *e;
+#  ifdef __linux__
+    int     dirFD = dirfd(d);
+#  endif
     while (bool(e = readdir(d)))
     {
       f.baseName = e->d_name;
@@ -479,17 +482,34 @@ void BA2File::loadArchivesFromDir(const char *pathName, size_t prefixLen)
       if (f.baseName.empty() || f.baseName == "." || f.baseName == "..")
         continue;
       {
+        bool    isDir;
 #if defined(_WIN32) || defined(_WIN64)
         f.fileSize = std::int64_t(e.size);
-        bool    isDir = bool(e.attrib & _A_SUBDIR);
+        isDir = bool(e.attrib & _A_SUBDIR);
 #else
+#  ifdef __linux__
+#    ifdef _DIRENT_HAVE_D_TYPE
+        if (e->d_type == DT_DIR)
+        {
+          isDir = true;
+        }
+        else
+#    endif
+        {
+          struct stat st;
+          if (fstatat(dirFD, f.baseName.c_str(), &st, 0) != 0)
+            continue;
+          f.fileSize = std::int64_t(st.st_size);
+          isDir = ((st.st_mode & S_IFMT) == S_IFDIR);
+        }
+#  else
         fullName.resize(dirName.length());
         fullName += f.baseName;
-        struct stat st;
         if (stat(fullName.c_str(), &st) != 0)
           continue;
         f.fileSize = std::int64_t(st.st_size);
-        bool    isDir = ((st.st_mode & S_IFMT) == S_IFDIR);
+        isDir = ((st.st_mode & S_IFMT) == S_IFDIR);
+#  endif
 #endif
         if (isDir)
         {

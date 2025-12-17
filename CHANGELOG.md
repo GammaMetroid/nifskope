@@ -10,6 +10,7 @@
 * Fixed highlighting sub-shapes of hkPackedNiTriStripsData.
 * Fixed warning on importing OBJ as collision to Skyrim and newer games, and setting the material CRC.
 * Fixed rendering point selection from triangle strips on a skin partition.
+* Improved the performance of finding resource files on Linux.
 * Renamed some of the fields of bhkCMSChunk to be more consistent with Havok documentation.
 
 #### NifSkope-2.0.dev11-20251031
