@@ -2,6 +2,7 @@
 
 * Improvements to the Havok/Create Convex Shape spell: it can be used on nodes, and the input can be optionally simplified with [meshoptimizer](https://github.com/zeux/meshoptimizer), and/or decomposed to multiple convex shapes with [CoACD](https://github.com/SarahWeiii/CoACD).
 * Simplify All Shapes and Reorder Blocks have been added as new options for processing multiple NIF files.
+* Nodes and shapes can be moved by mouse dragging while O is held down. Skinned meshes and undo are not supported by this feature.
 * Implemented triangle selection (Shift-clicking on faces) for skinned meshes in older games that use NiTriShape with skin partitions.
 * Added a new spell for selecting a different attribute of the same vertex in geometry data that uses separate arrays for each attribute.
 * The Update MOPP Code spell has been reworked to use an external [NifMopp](https://github.com/fo76utils/NifMopp) tool. This allows for using the spell with 64-bit Windows builds of NifSkope and on Linux (if Wine is installed), but [NifMopp.dll](https://github.com/hexabits/nifskope/blob/develop/dep/NifMopp.dll) needs to be downloaded separately.
@@ -10,7 +11,6 @@
 * Fixed highlighting sub-shapes of hkPackedNiTriStripsData.
 * Fixed warning on importing OBJ as collision to Skyrim and newer games, and setting the material CRC.
 * Fixed rendering point selection from triangle strips on a skin partition.
-* Improved the performance of finding resource files on Linux.
 * Renamed some of the fields of bhkCMSChunk to be more consistent with Havok documentation.
 
 #### NifSkope-2.0.dev11-20251031

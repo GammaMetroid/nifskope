@@ -1868,6 +1868,8 @@ int GLView::convertKeyCode( int n ) const
 		return Key_MoveCam;
 	case Qt::Key_Shift:
 		return Key_Shift;
+	case Qt::Key_O:
+		return Key_TranslateItem;
 	}
 	return -1;
 }
@@ -1956,7 +1958,9 @@ void GLView::mouseMoveEvent( QMouseEvent * event )
 	}
 
 	if ( ( buttonMask & Qt::LeftButton ) && !kbd( Key_MoveCam ) ) {
-		if ( !frontalLight && ( event->modifiers() & Qt::ShiftModifier ) )
+		if ( kbd( Key_RotateItem ) || kbd( Key_TranslateItem ) )
+			transformItem( dx, dy );
+		else if ( !frontalLight && ( event->modifiers() & Qt::ShiftModifier ) )
 			rotateLight( dy * 0.5f, dx * 0.5f );
 		else
 			mouseRot += Vector3( dy * 0.5f, 0.0f, dx * 0.5f );
@@ -2065,6 +2069,47 @@ void GLView::wheelEvent( QWheelEvent * event )
 		else
 			setDistance( Dist * Settings::zoomInScale );
 	}
+}
+
+void GLView::transformItem( float dx, float dy )
+{
+	if ( !( scene->nifModel && scene->renderer && scene->currentBlock.isValid() ) )
+		return;
+	NifModel *	nif = const_cast< NifModel * >( scene->nifModel );
+	QModelIndex	iBlock = scene->currentBlock;
+	if ( !nif->blockInherits( iBlock, { "BSGeometry", "BSTriShape", "NiNode", "NiTriBasedGeom" } ) )
+		return;
+	Node *	node = scene->getNode( nif, iBlock );
+	if ( !node )
+		return;
+	Shape *	shape = dynamic_cast< Shape * >( node );
+	if ( shape && shape->iSkin.isValid() )
+		return;
+	glProjection( 0, 0 );
+	Matrix4	m( &( scene->renderer->globalUniforms->projectionMatrix[0][0] ) );
+	m = m * node->viewTrans();
+	FloatVector4	v0( 0.0f );
+	if ( shape && !shape->verts.isEmpty() ) {
+		const Vector3 *	vp = shape->verts.constData();
+		int	n = int( shape->verts.size() );
+		for ( int i = 0; i < n; i++, vp++ )
+			v0 += FloatVector4::convertVector3( vp->data() );
+		v0 = v0 / float( n );
+	}
+	v0[3] = 1.0f;
+	FloatVector4	v( v0 );
+	v = m * v;
+	float	w = v[3];
+	if ( !( w > 0.000001f ) )
+		return;
+	v = v / w;
+	if ( !( v[2] >= -1.0f && v[2] <= 1.0f ) )
+		return;
+	v[0] = v[0] + ( dx * 2.0f / float( width() ) );
+	v[1] = v[1] - ( dy * 2.0f / float( height() ) );
+	v = m.inverted() * ( v * w );
+	if ( auto i = nif->getIndex( iBlock, "Translation" ); i.isValid() )
+		nif->set<Vector3>( i, nif->get<Vector3>( i ) + Vector3( v - v0 ) );
 }
 
 const char * GLView::getGLErrorString( int err )

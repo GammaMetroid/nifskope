@@ -281,11 +281,14 @@ private:
 		Key_TopView = 18,
 		Key_Update = 19,
 		Key_ZoomIn = 20,
-		Key_ZoomOut = 21
+		Key_ZoomOut = 21,
+		Key_RotateItem = 22,
+		Key_TranslateItem = 23
 	};
 
 	int convertKeyCode( int n ) const;
 	inline bool kbd( int n ) const;
+	void transformItem( float dx, float dy );
 
 public:
 	struct Settings
