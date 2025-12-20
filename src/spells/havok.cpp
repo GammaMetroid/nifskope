@@ -98,7 +98,7 @@ public:
 		QModelIndex	iBlock = nif->getBlockIndex( index );
 		QModelIndex	iParent = iBlock;
 		if ( !nif->blockInherits( iParent, "NiNode" ) ) {
-			iParent = iBlock.parent();
+			iParent = nif->getBlockIndex( nif->getParent( iBlock ) );
 			if ( !( iParent.isValid() && nif->blockInherits( iParent, "NiNode" ) ) )
 				return index;
 		}
