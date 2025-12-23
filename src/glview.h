@@ -282,8 +282,10 @@ private:
 		Key_Update = 19,
 		Key_ZoomIn = 20,
 		Key_ZoomOut = 21,
-		Key_RotateItem = 22,
-		Key_TranslateItem = 23
+		Key_RotateXY = 22,
+		Key_RotateZ = 23,
+		Key_Scale = 24,
+		Key_TranslateXY = 25
 	};
 
 	int convertKeyCode( int n ) const;

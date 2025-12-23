@@ -1868,8 +1868,14 @@ int GLView::convertKeyCode( int n ) const
 		return Key_MoveCam;
 	case Qt::Key_Shift:
 		return Key_Shift;
+	case Qt::Key_J:
+		return Key_RotateXY;
+	case Qt::Key_K:
+		return Key_RotateZ;
+	case Qt::Key_I:
+		return Key_Scale;
 	case Qt::Key_O:
-		return Key_TranslateItem;
+		return Key_TranslateXY;
 	}
 	return -1;
 }
@@ -1958,7 +1964,7 @@ void GLView::mouseMoveEvent( QMouseEvent * event )
 	}
 
 	if ( ( buttonMask & Qt::LeftButton ) && !kbd( Key_MoveCam ) ) {
-		if ( kbd( Key_RotateItem ) || kbd( Key_TranslateItem ) )
+		if ( kbd( Key_RotateXY ) || kbd( Key_RotateZ ) || kbd( Key_Scale ) || kbd( Key_TranslateXY ) )
 			transformItem( dx, dy );
 		else if ( !frontalLight && ( event->modifiers() & Qt::ShiftModifier ) )
 			rotateLight( dy * 0.5f, dx * 0.5f );
@@ -2073,6 +2079,8 @@ void GLView::wheelEvent( QWheelEvent * event )
 
 void GLView::transformItem( float dx, float dy )
 {
+	if ( !( std::max( std::fabs( dx ), std::fabs( dy ) ) > 0.01f ) )
+		return;
 	if ( !( scene->nifModel && scene->renderer && scene->currentBlock.isValid() ) )
 		return;
 	NifModel *	nif = const_cast< NifModel * >( scene->nifModel );
@@ -2085,31 +2093,59 @@ void GLView::transformItem( float dx, float dy )
 	Shape *	shape = dynamic_cast< Shape * >( node );
 	if ( shape && shape->iSkin.isValid() )
 		return;
-	glProjection( 0, 0 );
-	Matrix4	m( &( scene->renderer->globalUniforms->projectionMatrix[0][0] ) );
-	m = m * node->viewTrans();
-	FloatVector4	v0( 0.0f );
-	if ( shape && !shape->verts.isEmpty() ) {
-		const Vector3 *	vp = shape->verts.constData();
-		int	n = int( shape->verts.size() );
-		for ( int i = 0; i < n; i++, vp++ )
-			v0 += FloatVector4::convertVector3( vp->data() );
-		v0 = v0 / float( n );
+	dx = dx * 2.0f / float( width() );
+	dy = dy * -2.0f / float( height() );
+	if ( kbd( Key_TranslateXY ) ) {
+		glProjection( 0, 0 );
+		Matrix4	m( &( scene->renderer->globalUniforms->projectionMatrix[0][0] ) );
+		m = m * scene->view;
+		if ( auto p = node->parentNode(); p )
+			m = m * p->worldTrans();
+		FloatVector4	v0( 0.0f );
+		if ( shape && !shape->verts.isEmpty() ) {
+			const Vector3 *	vp = shape->verts.constData();
+			int	n = int( shape->verts.size() );
+			for ( int i = 0; i < n; i++, vp++ )
+				v0 += FloatVector4::convertVector3( vp->data() );
+			v0 = v0 / float( n );
+		}
+		v0[3] = 1.0f;
+		v0 = node->localTrans().toMatrix4() * v0;
+		FloatVector4	v( v0 );
+		v = m * v;
+		float	w = v[3];
+		if ( w > 0.000001f ) {
+			v = v / w;
+			if ( v[2] >= -1.0f && v[2] <= 1.0f ) {
+				v += FloatVector4( dx, dy, 0.0f, 0.0f );
+				v = m.inverted() * ( v * w );
+				if ( auto i = nif->getIndex( iBlock, "Translation" ); i.isValid() )
+					nif->set<Vector3>( i, nif->get<Vector3>( i ) + Vector3( v - v0 ) );
+			}
+		}
 	}
-	v0[3] = 1.0f;
-	FloatVector4	v( v0 );
-	v = m * v;
-	float	w = v[3];
-	if ( !( w > 0.000001f ) )
-		return;
-	v = v / w;
-	if ( !( v[2] >= -1.0f && v[2] <= 1.0f ) )
-		return;
-	v[0] = v[0] + ( dx * 2.0f / float( width() ) );
-	v[1] = v[1] - ( dy * 2.0f / float( height() ) );
-	v = m.inverted() * ( v * w );
-	if ( auto i = nif->getIndex( iBlock, "Translation" ); i.isValid() )
-		nif->set<Vector3>( i, nif->get<Vector3>( i ) + Vector3( v - v0 ) );
+	if ( kbd( Key_Scale ) ) {
+		if ( auto i = nif->getIndex( iBlock, "Scale" ); i.isValid() )
+			nif->set<float>( i, nif->get<float>( i ) * float( std::exp2( dx + dy ) ) );
+	}
+	if ( kbd( Key_RotateXY ) || kbd( Key_RotateZ ) ) {
+		if ( auto i = nif->getIndex( iBlock, "Rotation" ); i.isValid() ) {
+			Matrix	m0 = scene->view.rotation;
+			if ( auto p = node->parentNode(); p )
+				m0 = m0 * p->worldTrans().rotation;
+			Matrix	m = m0 * nif->get<Matrix>( i );
+			Matrix	r;
+			float	x = ( kbd( Key_RotateXY ) ? dy * -3.14159265f : 0.0f );
+			float	y = ( kbd( Key_RotateXY ) ? dx * 3.14159265f : 0.0f );
+			float	z = ( kbd( Key_RotateZ ) ? ( dx + dy ) * -3.14159265f : 0.0f );
+			r.fromEuler( x, y, z );
+			m = r * m;
+			m = m0.inverted() * m;
+			m.toEuler( x, y, z );
+			m.fromEuler( x, y, z );
+			nif->set<Matrix>( i, m );
+		}
+	}
 }
 
 const char * GLView::getGLErrorString( int err )
