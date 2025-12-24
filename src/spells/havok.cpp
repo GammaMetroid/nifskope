@@ -680,13 +680,17 @@ public:
 		if ( !iConstraintData.isValid() )
 			return index;
 
+		Matrix r1 = transA.rotation;
+		Matrix r2 = transB.rotation.inverted();
+
 		Vector3 pivot = Vector3( nif->get<Vector4>( iConstraintData, "Pivot A" ) );
 		pivot = transA * pivot;
-		pivot = transB.rotation.inverted() * ( pivot - transB.translation ) / transB.scale;
-		nif->set<Vector4>( iConstraintData, "Pivot B", { pivot[0], pivot[1], pivot[2], 0 } );
+		pivot = r2 * ( pivot - transB.translation ) / transB.scale;
+		nif->set<Vector4>( iConstraintData, "Pivot B", Vector4( pivot ) );
 
-		QString axisA, axisB, twistA, twistB, twistA2, twistB2;
-		if ( name.endsWith( "HingeConstraint" ) ) {
+		const char * axisA = nullptr, * axisB = nullptr, * twistA = nullptr, * twistB = nullptr;
+		const char * twistA2 = nullptr, * twistB2 = nullptr, * motorA = nullptr, * motorB = nullptr;
+		if ( name.endsWith( QLatin1StringView("HingeConstraint") ) ) {
 			axisA = "Axis A";
 			axisB = "Axis B";
 			twistA = "Perp Axis In A1";
@@ -698,26 +702,31 @@ public:
 			axisB = "Plane B";
 			twistA = "Twist A";
 			twistB = "Twist B";
+			motorA = "Motor A";
+			motorB = "Motor B";
 		}
 
-		if ( axisA.isEmpty() || axisB.isEmpty() || twistA.isEmpty() || twistB.isEmpty() )
+		if ( !( axisA && axisB && twistA && twistB ) )
 			return index;
 
-		Vector3 axis = Vector3( nif->get<Vector4>( iConstraintData, axisA ) );
-		axis = transA.rotation * axis;
-		axis = transB.rotation.inverted() * axis;
-		nif->set<Vector4>( iConstraintData, axisB, { axis[0], axis[1], axis[2], 0 } );
+		auto axis = FloatVector4( nif->get<Vector4>( iConstraintData, axisA ) );
+		auto twist = FloatVector4( nif->get<Vector4>( iConstraintData, twistA ) );
 
-		axis = Vector3( nif->get<Vector4>( iConstraintData, twistA ) );
-		axis = transA.rotation * axis;
-		axis = transB.rotation.inverted() * axis;
-		nif->set<Vector4>( iConstraintData, twistB, { axis[0], axis[1], axis[2], 0 } );
+		if ( motorA )
+			nif->set<Vector4>( iConstraintData, motorA, Vector4( twist.crossProduct3( axis ) ) );
 
-		if ( !twistA2.isEmpty() && !twistB2.isEmpty() ) {
-			axis = Vector3( nif->get<Vector4>( iConstraintData, twistA2 ) );
-			axis = transA.rotation * axis;
-			axis = transB.rotation.inverted() * axis;
-			nif->set<Vector4>( iConstraintData, twistB2, { axis[0], axis[1], axis[2], 0 } );
+		axis = FloatVector4( r2 * ( r1 * Vector3( axis ) ) );
+		nif->set<Vector4>( iConstraintData, axisB, Vector4( axis ) );
+
+		twist = FloatVector4( r2 * ( r1 * Vector3( twist ) ) );
+		nif->set<Vector4>( iConstraintData, twistB, Vector4( twist ) );
+
+		if ( motorB )
+			nif->set<Vector4>( iConstraintData, motorB, Vector4( twist.crossProduct3( axis ) ) );
+
+		if ( twistA2 && twistB2 ) {
+			twist = FloatVector4( r2 * ( r1 * Vector3( nif->get<Vector4>( iConstraintData, twistA2 ) ) ) );
+			nif->set<Vector4>( iConstraintData, twistB2, Vector4( twist ) );
 		}
 
 		return index;

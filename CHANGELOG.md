@@ -8,6 +8,7 @@
 * The Update MOPP Code spell has been reworked to use an external [NifMopp](https://github.com/fo76utils/NifMopp) tool. This allows for using the spell with 64-bit Windows builds of NifSkope and on Linux (if Wine is installed), but [NifMopp.dll](https://github.com/hexabits/nifskope/blob/develop/dep/NifMopp.dll) needs to be downloaded separately.
 * Selecting vertices within a single shape now preserves the attribute selection.
 * Fixed vertices not being highlighted in vertex selection mode when a vertex attribute other than the position is selected.
+* Fixed the Motor vectors of bhkRagdollConstraint not being calculated by Havok/A -> B.
 * Fixed highlighting sub-shapes of hkPackedNiTriStripsData.
 * Fixed warning on importing OBJ as collision to Skyrim and newer games, and setting the material CRC.
 * Fixed rendering point selection from triangle strips on a skin partition.
