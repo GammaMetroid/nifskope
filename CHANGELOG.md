@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+#### NifSkope-2.0.dev11-20251230
+
 * Improvements to the Havok/Create Convex Shape spell: it can be used on nodes, and the input can be optionally simplified with [meshoptimizer](https://github.com/zeux/meshoptimizer), and/or decomposed to multiple convex shapes with [CoACD](https://github.com/SarahWeiii/CoACD).
 * Simplify All Shapes and Reorder Blocks have been added as new options for processing multiple NIF files.
 * Nodes and shapes can be transformed by mouse dragging while I (scale), O (translate XY in screen space), J (rotate XY) or K (rotate Z) is held down. Skinned meshes and undo are not supported by this feature.
