@@ -1,5 +1,7 @@
  == CHANGELOG ==
 
+* Improved the performance of Combine Properties when a large number of texture sets is merged.
+
 #### NifSkope-2.0.dev11-20251230
 
 * Improvements to the Havok/Create Convex Shape spell: it can be used on nodes, and the input can be optionally simplified with [meshoptimizer](https://github.com/zeux/meshoptimizer), and/or decomposed to multiple convex shapes with [CoACD](https://github.com/SarahWeiii/CoACD).
