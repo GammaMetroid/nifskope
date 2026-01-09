@@ -447,14 +447,14 @@ void BA2File::loadArchivesFromDir(const char *pathName, size_t prefixLen)
   __finddata64_t  e;
   std::intptr_t   d = _findfirst64(dirName.c_str(), &e);
   if (d < 0)
-    errorMessage("error opening archive directory");
+    return;     // errorMessage("error opening archive directory");
   dirName.resize(dirName.length() - 1);
 #else
   if (dirName.back() != '/')
     dirName += '/';
   DIR     *d = opendir(pathName);
   if (!d)
-    errorMessage("error opening archive directory");
+    return;     // errorMessage("error opening archive directory");
 #endif
   if (!prefixLen)
     prefixLen = dirName.length();
