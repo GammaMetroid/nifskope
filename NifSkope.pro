@@ -336,6 +336,7 @@ SOURCES += \
 	src/version.cpp \
 	lib/meshlet.cpp \
 	lib/meshoptimizer/src/clusterizer.cpp \
+	lib/meshoptimizer/src/meshletutils.cpp \
 	lib/meshoptimizer/src/simplifier.cpp \
 	lib/meshoptimizer/src/spatialorder.cpp \
 	lib/meshoptimizer/src/stripifier.cpp \
