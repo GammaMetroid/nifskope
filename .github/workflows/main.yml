@@ -16,7 +16,7 @@ jobs:
 
     steps:
     - name: 'Checkout'
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -42,7 +42,7 @@ jobs:
         mv -f lib_coacd.dll LICENSE.CoACD NifMopp.exe release
 
     - name: 'Upload Artifacts'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: build-win
         path: |
@@ -55,7 +55,7 @@ jobs:
 
     steps:
     - name: 'Checkout'
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -80,7 +80,7 @@ jobs:
         mv -f coacd.libs NifMopp.exe release
 
     - name: 'Upload Artifacts'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: build-linux
         path: 'release'
@@ -92,7 +92,7 @@ jobs:
 
     steps:
     - name: 'Checkout'
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -122,7 +122,7 @@ jobs:
         macdeployqt release/NifSkope.app -dmg
 
     - name: 'Upload Artifacts'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: build-macos
         path: release/NifSkope.dmg
@@ -134,7 +134,7 @@ jobs:
 
     steps:
     - name: 'Checkout'
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -159,7 +159,7 @@ jobs:
         mv -f lib_coacd.dll LICENSE.CoACD NifMopp.exe release
 
     - name: 'Upload Artifacts'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: build-clang64
         path: |

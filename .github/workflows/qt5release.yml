@@ -12,7 +12,7 @@ jobs:
 
     steps:
     - name: 'Checkout'
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -42,7 +42,7 @@ jobs:
         7za a -m0=lzma -mx=9 NifSkope_2_0_$(date +"%Y-%m-%d")-win64qt5_gcc.7z NifSkope
 
     - name: 'Upload Artifacts'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: build-win
         path: |
@@ -55,7 +55,7 @@ jobs:
 
     steps:
     - name: 'Checkout'
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
         submodules: recursive
@@ -85,7 +85,7 @@ jobs:
         7za a -m0=lzma -mx=9 NifSkope_2_0_$(date +"%Y-%m-%d")-win64qt5_clang.7z NifSkope
 
     - name: 'Upload Artifacts'
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: build-clang64
         path: |
