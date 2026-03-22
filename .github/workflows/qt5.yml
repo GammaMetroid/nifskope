@@ -32,7 +32,7 @@ jobs:
     - name: 'Build with qmake'
       shell: msys2 {0}
       run: |
-        qmake NifSkope.pro
+        qmake-qt5 NifSkope.pro
         make -j 8
 
     - name: 'Upload Artifacts'
