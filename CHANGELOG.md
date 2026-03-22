@@ -1,6 +1,7 @@
  == CHANGELOG ==
 
 * Improved the performance of Combine Properties when a large number of texture sets is merged.
+* The Update Bounds spell can now use a faster algorithm that gives somewhat worse results than Miniball, this is configured in the general settings under NIF. The radius of calculated bounding spheres can also be scaled by a factor between 1.0 and 2.0.
 
 #### NifSkope-2.0.dev11-20251230
 
