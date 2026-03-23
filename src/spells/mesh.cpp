@@ -1801,7 +1801,27 @@ REGISTER_SPELL( spUpdateCenterRadius )
 static BoundSphere calculateBoundingSphere( const Vector3 * verts, qsizetype numVerts )
 {
 	QSettings	settings;
-	BoundSphere	tmp( verts, numVerts, settings.value( "Settings/Nif/Use Miniball", true ).toBool() );
+	BoundSphere	tmp;
+	if ( numVerts > 0 && !settings.value( "Settings/Nif/Use Miniball", true ).toBool() ) {
+		FloatVector4	bndMin( &( verts[0][0] ) );
+		FloatVector4	bndMax = bndMin;
+		for ( qsizetype i = 1; i < numVerts; i++ ) {
+			FloatVector4	v( &( verts[i][0] ) );
+			bndMin.minValues( v );
+			bndMax.maxValues( v );
+		}
+		FloatVector4	bndCenter = ( bndMin + bndMax ) * 0.5f;
+		float	bndRadius2 = 0.0f;
+		for ( qsizetype i = 0; i < numVerts; i++ ) {
+			FloatVector4	d( &( verts[i][0] ) );
+			d -= bndCenter;
+			bndRadius2 = std::max( bndRadius2, d.dotProduct3( d ) );
+		}
+		tmp.center = Vector3( bndCenter );
+		tmp.radius = float( std::sqrt( bndRadius2 ) );
+	} else {
+		tmp = BoundSphere( verts, numVerts, true );
+	}
 	tmp.radius *= settings.value( "Settings/Nif/Bound Sphere Scale", 1.0f ).toFloat();
 	return tmp;
 }
