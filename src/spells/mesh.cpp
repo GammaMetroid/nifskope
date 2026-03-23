@@ -1803,17 +1803,17 @@ static BoundSphere calculateBoundingSphere( const Vector3 * verts, qsizetype num
 	QSettings	settings;
 	BoundSphere	tmp;
 	if ( numVerts > 0 && !settings.value( "Settings/Nif/Use Miniball", true ).toBool() ) {
-		FloatVector4	bndMin( &( verts[0][0] ) );
+		FloatVector4	bndMin = FloatVector4::convertVector3( &( verts[0][0] ) );
 		FloatVector4	bndMax = bndMin;
 		for ( qsizetype i = 1; i < numVerts; i++ ) {
-			FloatVector4	v( &( verts[i][0] ) );
+			FloatVector4	v = FloatVector4::convertVector3( &( verts[i][0] ) );
 			bndMin.minValues( v );
 			bndMax.maxValues( v );
 		}
 		FloatVector4	bndCenter = ( bndMin + bndMax ) * 0.5f;
 		float	bndRadius2 = 0.0f;
 		for ( qsizetype i = 0; i < numVerts; i++ ) {
-			FloatVector4	d( &( verts[i][0] ) );
+			FloatVector4	d = FloatVector4::convertVector3( &( verts[i][0] ) );
 			d -= bndCenter;
 			bndRadius2 = std::max( bndRadius2, d.dotProduct3( d ) );
 		}
