@@ -145,7 +145,13 @@ inline float convertFloat16(unsigned short n)
   {
     std::int16_t(n), 0, 0, 0, 0, 0, 0, 0
   };
+#  ifdef __clang__
+  float   tmp2 __attribute__ ((__vector_size__ (16)));
+  __asm__ ("vcvtph2ps %1, %0" : "=x" (tmp2) : "x" (tmp));
+  return tmp2[0];
+#  else
   return __builtin_ia32_vcvtph2ps(tmp)[0];
+#  endif
 #else
   std::uint32_t m = (std::uint32_t) int((std::int16_t) n);
   std::uint32_t i = ((m << 13) & 0x8FFFE000U) + 0x38000000U;
