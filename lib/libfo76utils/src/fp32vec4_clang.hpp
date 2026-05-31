@@ -85,7 +85,7 @@ inline FloatVector4 FloatVector4::convertFloat16(
                == std::bit_cast< XMM_UInt16 >(expMaskTbl));
     tmp = tmp & ~tmp2;
   }
-  v = __builtin_ia32_vcvtph2ps(std::bit_cast< XMM_Int16 >(tmp));
+  __asm__ ("vcvtph2ps %1, %0" : "=x" (v) : "x" (tmp));
 #else
   XMM_Int32 tmp2 =
   {
@@ -361,7 +361,8 @@ inline FloatVector4 FloatVector4::crossProduct3(const FloatVector4& r) const
 inline FloatVector4& FloatVector4::squareRoot()
 {
   XMM_Float tmp = { 0.0f, 0.0f, 0.0f, 0.0f };
-  v = __builtin_ia32_sqrtps(__builtin_ia32_maxps(v, tmp));
+  tmp = __builtin_ia32_maxps(v, tmp);
+  __asm__ ("vsqrtps %1, %0" : "=x" (v) : "x" (tmp));
   return (*this);
 }
 

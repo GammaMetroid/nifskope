@@ -351,7 +351,8 @@ inline float FloatVector8::dotProduct(const FloatVector8& r) const
 inline FloatVector8& FloatVector8::squareRoot()
 {
   YMM_Float tmp = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-  v = __builtin_ia32_sqrtps256(__builtin_ia32_maxps256(v, tmp));
+  tmp = __builtin_ia32_maxps256(v, tmp);
+  __asm__ ("vsqrtps %t1, %t0" : "=x" (v) : "x" (tmp));
   return (*this);
 }
 
