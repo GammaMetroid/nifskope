@@ -2120,11 +2120,24 @@
         <member width="2" pos="12" mask="0xF000" name="NBT Method" type="NiNBTMethod" />
     </bitfield>
 
-    <bitfield name="BSGeometryDataFlags" storage="ushort">
-        <member width="6" pos="0" mask="0x0001" name="Has UV" type="bool" />
-        <member width="6" pos="6" mask="0x0FC0" name="Havok Material" type="ushort" />
-        <member width="1" pos="12" mask="0x1000" name="Has Tangents" type="bool" />
-    </bitfield>
+    <bitflags name="BSGeometryDataFlags" storage="ushort">
+        <option bit="0" name="Has UV" />
+        <option bit="1" name="Has UV 2" />
+        <option bit="2" name="Has UV 3" />
+        <option bit="3" name="Has UV 4" />
+        <option bit="4" name="Has UV 5" />
+        <option bit="5" name="Has UV 6" />
+        <option bit="6" name="Havok Material b0" />
+        <option bit="7" name="Havok Material b1" />
+        <option bit="8" name="Havok Material b2" />
+        <option bit="9" name="Havok Material b3" />
+        <option bit="10" name="Havok Material b4" />
+        <option bit="11" name="Havok Material b5" />
+        <option bit="12" name="Has Tangents" />
+        <option bit="13" name="Unk8192" />
+        <option bit="14" name="Unk16384" />
+        <option bit="15" name="Unk32768" />
+    </bitflags>
 
     <bitfield name="CollisionFilterFlags" storage="byte">
         <member width="5" pos="0" mask="0x001F" name="Biped Part" type="BipedPart">Used only if the Layer is 8 (or 32/33 for Skyrim and later).</member>

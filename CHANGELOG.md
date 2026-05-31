@@ -2,6 +2,7 @@
 
 * Improved the performance of Combine Properties when a large number of texture sets is merged.
 * The Update Bounds spell can now use a faster algorithm that gives somewhat worse results than Miniball, this is configured in the general settings under NIF. The radius of calculated bounding spheres can also be scaled by a factor between 1.0 and 2.0.
+* Changed the definition of BSGeometryDataFlags in nif.xml from a bit field to bit flags, to allow for displaying and editing the flags as a list of checkboxes.
 * New render setting for the quality of bounding spheres.
 * The resource manager ignores errors on opening folders.
 
