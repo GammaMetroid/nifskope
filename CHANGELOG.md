@@ -1,5 +1,6 @@
  == CHANGELOG ==
 
+* Flatten Branch can be cast on root nodes, this has the same effect as using the spell separately on every child node. A non-recursive version of the spell was also added.
 * Improved the performance of Combine Properties when a large number of texture sets is merged.
 * The Update Bounds spell can now use a faster algorithm that gives somewhat worse results than Miniball, this is configured in the general settings under NIF. The radius of calculated bounding spheres can also be scaled by a factor between 1.0 and 2.0.
 * Changed the definition of BSGeometryDataFlags in nif.xml from a bit field to bit flags, to allow for displaying and editing the flags as a list of checkboxes.

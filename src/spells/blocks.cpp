@@ -1606,26 +1606,34 @@ QModelIndex spRemoveBranch::cast( NifModel * nif, const QModelIndex & index )
 REGISTER_SPELL( spRemoveBranch )
 
 //! Convert descendents to siblings?
-class spFlattenBranch final : public Spell
+class spFlattenBranch : public Spell
 {
 public:
-	QString name() const override final { return Spell::tr( "Flatten Branch" ); }
-	QString page() const override final { return Spell::tr( "Block" ); }
+	QString name() const override { return Spell::tr( "Flatten Branch" ); }
+	QString page() const override { return Spell::tr( "Block" ); }
 
-	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override final
+	bool isApplicable( const NifModel * nif, const QModelIndex & index ) override
 	{
-		QModelIndex iParent = nif->getBlockIndex( nif->getParent( nif->getBlockNumber( index ) ), "NiNode" );
-		return nif->blockInherits( index, "NiNode" ) && iParent.isValid();
+		return ( nif && nif->blockInherits( index, "NiNode" ) );
 	}
 
-	QModelIndex cast( NifModel * nif, const QModelIndex & iNode ) override final
+	QModelIndex cast( NifModel * nif, const QModelIndex & iNode ) override
 	{
 		QModelIndex iParent = nif->getBlockIndex( nif->getParent( nif->getBlockNumber( iNode ) ), "NiNode" );
-		doNode( nif, iNode, iParent, Transform() );
+		bool isRecursive = ( typeid( *this ) == typeid( spFlattenBranch ) );
+		if ( !iParent.isValid() ) {
+			for ( const auto l : nif->getLinkArray( iNode, "Children" ) ) {
+				if ( auto iChild = nif->getBlockIndex( l, "NiNode" ); iChild.isValid() )
+					doNode( nif, iChild, iNode, Transform(), isRecursive );
+			}
+		} else {
+			doNode( nif, iNode, iParent, Transform(), isRecursive );
+		}
 		return iNode;
 	}
 
-	void doNode( NifModel * nif, const QModelIndex & iNode, const QModelIndex & iParent, const Transform & tp )
+	static void doNode( NifModel * nif, const QModelIndex & iNode, const QModelIndex & iParent, const Transform & tp,
+						bool isRecursive = false )
 	{
 		if ( !nif->blockInherits( iNode, "NiNode" ) )
 			return;
@@ -1646,13 +1654,22 @@ public:
 			}
 		}
 
-		for ( const auto l : links ) {
-			doNode( nif, nif->getBlockIndex( l, "NiNode" ), iParent, tp );
+		if ( isRecursive ) {
+			for ( const auto l : links )
+				doNode( nif, nif->getBlockIndex( l, "NiNode" ), iParent, tp, true );
 		}
 	}
 };
 
 REGISTER_SPELL( spFlattenBranch )
+
+class spFlattenBranchNR final : public spFlattenBranch
+{
+public:
+	QString name() const override final { return Spell::tr( "Flatten Branch (non-recursive)" ); }
+};
+
+REGISTER_SPELL( spFlattenBranchNR )
 
 //! Move a block up in the NIF
 class spMoveBlockUp final : public Spell
