@@ -258,8 +258,8 @@ public:
         QCheckBox * chkCloneUnique = dlgCheck( vbox, Spell::tr( "Clone Unique" ) );
         chkCloneUnique->setChecked( ( flags & 0x4000 ) != 0 );
 
-        QCheckBox * chkControlled = dlgCheck( vbox, Spell::tr( "Editor Alpha Threshold" ) );
-        chkControlled->setChecked( ( flags & 0x8000 ) != 0 );
+        QCheckBox * chkEditorControlled = dlgCheck( vbox, Spell::tr( "Editor Controlled" ) );
+        chkEditorControlled->setChecked( ( flags & 0x8000 ) != 0 );
 
 		dlgButtons( &dlg, vbox );
 
@@ -284,7 +284,7 @@ public:
 
 			flags = ( flags & 0xdfff ) | ( chkSort->isChecked() ? 0x2000 : 0 );
             flags = ( flags & 0xbfff ) | ( chkCloneUnique->isChecked() ? 0x4000 : 0 );
-            flags = ( flags & 0x7fff ) | ( chkControlled->isChecked() ? 0x8000 : 0 );
+            flags = ( flags & 0x7fff ) | ( chkEditorControlled->isChecked() ? 0x8000 : 0 );
 
 			nif->set<int>( index, flags );
 		}
