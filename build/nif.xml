@@ -606,6 +606,7 @@
         <option value="873356572" name="SKY_HAV_MAT_ICE">Ice</option>
         <option value="880200008" name="SKY_HAV_MAT_STAIRS_GLASS">Stairs Glass</option>
         <option value="899511101" name="SKY_HAV_MAT_STAIRS_STONE">Stairs Stone</option>
+        <option value="1003342536" name="SW_HAV_MAT_THROWING_KNIFE">Throwing Knife</option>
         <option value="1024582599" name="SKY_HAV_MAT_WATER">Water</option>
         <option value="1060167844" name="SKY_HAV_MAT_WEAPON_BLADE_1HAND">Weapon Blade 1 Hand</option>
         <option value="1264672850" name="SKY_HAV_MAT_BOOK">Book</option>
@@ -633,8 +634,10 @@
         <option value="2229413539" name="SKY_HAV_MAT_METAL_HEAVY">Metal Heavy</option>
         <option value="2431524493" name="SKY_HAV_MAT_ICE_FORM">Ice Form</option>
         <option value="2518321175" name="SKY_HAV_MAT_DRAGON">Dragon</option>
+        <option value="2575933954" name="SW_HAV_MAT_STAIRS_CARPET">Stairs Carpet</option>
         <option value="2617944780" name="SKY_HAV_MAT_WEAPON_BLADE_1HAND_SMALL">Weapon Blade 1 Hand Small</option>
         <option value="2632367422" name="SKY_HAV_MAT_SKIN_SMALL">Skin Small</option>
+        <option value="2646218569" name="SW_HAV_MAT_METAL_GRATE">Metal Grate</option>
         <option value="2742858142" name="SKY_HAV_MAT_POTS_AND_PANS">Pots And Pans</option>
         <option value="2821299363" name="SKY_HAV_MAT_SKIN_SKELETON">Skin Skeleton</option>
         <option value="2872791301" name="SKY_HAV_MAT_WEAPON_BLUNT_1HAND">Weapon Blunt 1 Hand</option>
@@ -663,6 +666,7 @@
         <option value="3895166727" name="SKY_HAV_MAT_WARD">Ward</option>
         <option value="3934839107" name="SKY_HAV_MAT_WEB">Web</option>
         <option value="3969592277" name="SKY_HAV_MAT_WEAPON_BLUNT_2HAND">Weapon Blunt 2 Hand</option>
+        <option value="3974071006" name="SW_HAV_MAT_STAIRS_METAL">Stairs Metal</option>
         <option value="4283869410" name="SKY_HAV_MAT_BOULDER_MEDIUM">Boulder Medium</option>
     </enum>
 
@@ -1802,8 +1806,8 @@
         <option value="30" name="SBP_30_HEAD">Skyrim, Head(Human), Body(Atronachs,Beasts), Mask(Dragonpriest)</option>
         <option value="31" name="SBP_31_HAIR">Skyrim, Hair(human), Far(Dragon), Mask2(Dragonpriest),SkinnedFX(Spriggan)</option>
         <option value="32" name="SBP_32_BODY">Skyrim, Main body, extras(Spriggan)</option>
-        <option value="33" name="SBP_33_HANDS">Skyrim, Hands L/R, BodyToo(Dragonpriest), Legs(Draugr), Arms(Giant)</option>
-        <option value="34" name="SBP_34_FOREARMS">Skyrim, Forearms L/R, Beard(Draugr)</option>
+        <option value="33" name="SBP_33_RIGHT_HAND">Skywind Hands R, BodyToo(Dragonpriest), Legs(Draugr), Arms(Giant)</option>
+        <option value="34" name="SBP_34_RIGHT_FOREARM">Skywind Forearms R, Beard(Draugr)</option>
         <option value="35" name="SBP_35_AMULET">Skyrim, Amulet</option>
         <option value="36" name="SBP_36_RING">Skyrim, Ring</option>
         <option value="37" name="SBP_37_FEET">Skyrim, Feet L/R</option>
@@ -1813,8 +1817,8 @@
         <option value="41" name="SBP_41_LONGHAIR">Skyrim, Long Hair(Human), Skeleton02(Dragon),FXParticles(Dragonpriest)</option>
         <option value="42" name="SBP_42_CIRCLET">Skyrim, Circlet(Human, MouthFireEffect(Dragon)</option>
         <option value="43" name="SBP_43_EARS">Skyrim, Ears</option>
-        <option value="44" name="SBP_44_DRAGON_BLOODHEAD_OR_MOD_MOUTH">Skyrim, Bloodied dragon head, or NPC face/mouth</option>
-        <option value="45" name="SBP_45_DRAGON_BLOODWINGL_OR_MOD_NECK">Skyrim, Left Bloodied dragon wing, Saddle(Horse), or NPC cape, scarf, shawl, neck-tie, etc.</option>
+        <option value="44" name="SBP_44_LEFT_HAND">Skywind left hand, Skyrim, Bloodied dragon head, or NPC face/mouth</option>
+        <option value="45" name="SBP_45_LEFT_FOREARM">Skywind left forearm, Skyrim, Left Bloodied dragon wing, Saddle(Horse), or NPC cape, scarf, shawl, neck-tie, etc.</option>
         <option value="46" name="SBP_46_DRAGON_BLOODWINGR_OR_MOD_CHEST_PRIMARY">Skyrim, Right Bloodied dragon wing, or NPC chest primary or outergarment</option>
         <option value="47" name="SBP_47_DRAGON_BLOODTAIL_OR_MOD_BACK">Skyrim, Bloodied dragon tail, or NPC backpack/wings/...</option>
         <option value="48" name="SBP_48_MOD_MISC1">Anything that does not fit in the list</option>
@@ -1825,11 +1829,11 @@
         <option value="53" name="SBP_53_MOD_LEG_RIGHT">Leg primary or outergarment or right leg</option>
         <option value="54" name="SBP_54_MOD_LEG_LEFT">Leg secondary or undergarment or left leg</option>
         <option value="55" name="SBP_55_MOD_FACE_JEWELRY">Face alternate or jewelry</option>
-        <option value="56" name="SBP_56_MOD_CHEST_SECONDARY">Chest secondary or undergarment</option>
+        <option value="56" name="SBP_56_BELT">Skywind belt</option>
         <option value="57" name="SBP_57_MOD_SHOULDER">Shoulder</option>
-        <option value="58" name="SBP_58_MOD_ARM_LEFT">Arm secondary or undergarment or left arm</option>
-        <option value="59" name="SBP_59_MOD_ARM_RIGHT">Arm primary or outergarment or right arm</option>
-        <option value="60" name="SBP_60_MOD_MISC2">Anything that does not fit in the list</option>
+        <option value="58" name="SBP_58_LEFT_PAULDRON">Skywind left pauldron</option>
+        <option value="59" name="SBP_59_RIGHT_PAULDRON">Skywind right pauldron</option>
+        <option value="60" name="SBP_60_GREAVES">Skywind greaves</option>
         <option value="61" name="SBP_61_FX01">Skyrim, FX01(Humanoid)</option>
 
         <option value="101" name="BP_SECTIONCAP_HEAD">Section Cap | Head</option>
